@@ -1,0 +1,23 @@
+{
+	"name": "localization-tool",
+	"version": "0.1.0",
+	"main": "index.js",
+	"directories": {
+		"lib": "lib"
+	},
+	"bin": {
+		"localize": "./index.js"
+	},
+	"scripts": {
+		"start": "node index.js"
+	},
+	"keywords": [],
+	"author": "Schwifty",
+	"license": "ISC",
+	"description": "CLI tool for translating Next.js locale files with advanced settings and multiple AI providers",
+	"dependencies": {
+		"axios": "^1.7.9",
+		"commander": "^13.1.0",
+		"dotenv": "^16.4.7"
+	}
+}
