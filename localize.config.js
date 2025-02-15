@@ -1,4 +1,3 @@
-// localize.config.js
 module.exports = {
 	// Basic Settings
 	localesDir: "./locales", // Directory where locale JSON files are stored
