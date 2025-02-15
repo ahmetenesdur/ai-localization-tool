@@ -7,34 +7,37 @@ module.exports = {
 
 	// Translation Quality
 	context: {
-		default: "general",
 		enabled: true,
-		patterns: {
-			defi: "(\\b(?:swap|liquidity|pool|yield|staking|farming|APY|slippage|DEX|aggregator|leverage|collateral|lending|borrowing|vault|governance|DAO|TVL|impermanent loss|flash loan)\\b)",
-
-			trading:
-				"(\\b(?:price|volume|market|order|execution|spread|fee|gas|route|chart|candle|trend|volatility|resistance|support|position|leverage|margin|stop-loss|take-profit|limit|spot|futures|options|derivatives)\\b)",
-
-			blockchain:
-				"(\\b(?:wallet|contract|transaction|block|network|chain|token|bridge|protocol|consensus|node|mining|hash|address|signature|nonce|gas|mainnet|testnet|sidechain|layer2|rollup|smart contract|web3|dApp|NFT|ERC|BEP)\\b)",
-
-			technical:
-				"(\\b(?:API|endpoint|config|sync|cache|validate|optimize|latency|throughput|middleware|backend|frontend|database|query|index|cluster|shard|load balance|failover|backup|recovery|deployment|monitoring|logging|debug|error handling|rate limit|webhook|SDK|authentication|authorization)\\b)",
-
-			ui: "(\\b(?:button|modal|dialog|form|input|select|dropdown|menu|navigation|sidebar|header|footer|layout|grid|flex|responsive|mobile|desktop|tablet|theme|style|animation|transition|loading|error|success|warning|notification|tooltip|popup|scroll|swipe|drag|zoom|pan)\\b)",
-
-			error: "(\\b(?:error|warning|invalid|failed|rejected|timeout|exceeded|insufficient|unauthorized|forbidden|not found|unavailable|maintenance|retry|fallback|recovery|backup|emergency|critical|fatal|bug|issue|incident|outage)\\b)",
+		categories: {
+			defi: [
+				"DeFi",
+				"liquidity pool",
+				"yield farming",
+				"staking",
+				"APY",
+				"TVL",
+				"vault",
+				"collateral",
+			],
+			dex: [
+				"DEX aggregator",
+				"swap",
+				"slippage",
+				"AMM",
+				"liquidity provider",
+				"cross-chain",
+				"order book",
+				"price impact",
+			],
+			technical: [
+				"API",
+				"blockchain",
+				"smart contract",
+				"gas fee",
+				"node",
+			],
 		},
-		priority: ["defi", "trading", "blockchain", "technical", "ui", "error"],
-
-		contextRules: {
-			// If multiple context matches, prioritize these
-			combinationPriority: {
-				"defi+trading": "defi",
-				"blockchain+technical": "blockchain",
-				"technical+error": "technical",
-			},
-		},
+		detectionThreshold: 2, // Minimum 2 keyword matches required
 	},
 	qualityChecks: true,
 
