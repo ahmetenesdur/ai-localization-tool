@@ -1,32 +1,94 @@
 # Localization Tool
 
-Advanced AI-powered translation CLI tool for Next.js projects. Supports multiple languages, quality controls, and integration with 6 different AI providers.
+Advanced AI-powered translation CLI tool for Next.js projects. Offers multi-language support, quality controls, and integration with 6 different AI providers.
 
 ## 📦 Installation
 
 ```bash
+# Global installation
 npm install -g localization-tool
-# Or
+
+# or direct usage with npx
 npx localization-tool
 ```
 
 ## ⚙️ Configuration
 
-Customize using `localize.config.js`:
+### Basic Configuration
+
+Create `localize.config.js` file in your project root directory:
 
 ```javascript
 module.exports = {
-	localesDir: "./locales",
-	source: "en",
-	targets: ["tr", "es", "de"],
-	apiProvider: "qwen",
+	// Basic Settings
+	localesDir: "./locales", // Location of translation files
+	source: "en", // Source language
+	targets: ["tr", "es", "de"], // Target languages
+
+	// API Provider Settings
+	apiProvider: "qwen", // Preferred provider
+	useFallback: true, // Fallback provider system
+
+	// Quality Control Settings
+	qualityChecks: true, // Quality control system
+
+	// Context Settings
 	context: {
 		enabled: true,
 		categories: {
 			technical: ["blockchain", "API", "smart contract"],
+			business: ["revenue", "marketing", "strategy"],
+		},
+		detectionThreshold: 2, // Minimum match count
+	},
+
+	// Style Settings
+	styleGuide: {
+		formality: "neutral", // formal, neutral, informal
+		toneOfVoice: "professional", // friendly, professional, technical
+	},
+
+	// Length Control
+	lengthControl: {
+		mode: "flexible", // strict, flexible, exact, loose
+	},
+};
+```
+
+### API Keys
+
+Add your API keys to the `.env` file:
+
+```env
+QWEN_API_KEY=sk-xxxx
+OPENAI_API_KEY=sk-yyyy
+DEEPSEEK_API_KEY=sk-zzzz
+AZURE_DEEPSEEK_API_KEY=sk-aaaa
+GEMINI_API_KEY=sk-bbbb
+```
+
+### Advanced Configuration Options
+
+Custom settings for each API provider:
+
+```javascript
+module.exports = {
+	// ... other settings
+	apiConfig: {
+		qwen: {
+			model: "qwen-plus",
+			temperature: 0.3,
+			maxTokens: 2000,
+		},
+		openai: {
+			model: "gpt-4o",
+			temperature: 0.3,
+		},
+		gemini: {
+			model: "gemini-1.5-flash",
+			temperature: 0.3,
 		},
 	},
-	qualityChecks: true,
 };
 ```
 
@@ -36,7 +98,7 @@ module.exports = {
 localize --source en --targets tr,es --localesDir ./src/locales
 ```
 
-**Core Commands:**
+**Basic Commands:**
 
 - `--apiProvider`: Qwen, OpenAI, Gemini, DeepSeek, AzureDeepSeek
 - `--lengthControl`: strict/flexible/exact/loose
@@ -46,34 +108,34 @@ localize --source en --targets tr,es --localesDir ./src/locales
 
 ### Multi-Provider Support
 
-| Provider       | Model Options       | RPM Limit |
-| -------------- | ------------------- | --------- |
-| Qwen           | qwen-plus           | 50        |
-| OpenAI         | gpt-4o, gpt-4-turbo | 60        |
-| Gemini         | gemini-1.5-flash    | 100       |
-| DeepSeek       | deepseek-chat       | 45        |
-| Azure DeepSeek | DeepSeek-R1         | 80        |
+| Provider       | Model Options       | Requests Per Minute |
+| -------------- | ------------------- | ------------------- |
+| Qwen           | qwen-plus           | 50                  |
+| OpenAI         | gpt-4o, gpt-4-turbo | 60                  |
+| Gemini         | gemini-1.5-flash    | 100                 |
+| DeepSeek       | deepseek-chat       | 45                  |
+| Azure DeepSeek | DeepSeek-R1         | 80                  |
 
 ### Smart Features
 
-- 🔍 Contextual Translation (Automatic category detection via keyword matching)
+- 🔍 Contextual Translation (Automatic category detection with keyword matching)
 - 🛡️ Quality Controls:
     ```javascript
     {
-      placeholderConsistency: true,  // {variable} validation
-      htmlTagsConsistency: true,     // <b>tag</b> verification
-      punctuationCheck: true,        // Ending punctuation match
-      lengthValidation: true         // Text length optimization
+    	placeholderConsistency: true,  // {variable} validation
+    	htmlTagsConsistency: true,     // <b>tag</b> validation
+    	punctuationCheck: true,        // Punctuation check
+    	lengthValidation: true         // Text length optimization
     }
     ```
-- 📈 Real-Time Progress Tracking:
+- 📈 Real-time Progress Tracking:
     ```
     Progress: 72% | 360/500 | 45.3s
     ```
 
 ## 🗃️ Cache Management
 
-Translations are automatically stored in `.translation-cache/cache.json`:
+Translations are automatically stored in `.translation-cache/cache.json` file:
 
 ```json
 {
@@ -86,7 +148,7 @@ Translations are automatically stored in `.translation-cache/cache.json`:
 
 ## 🔧 Advanced Settings
 
-Add API keys to `.env` file:
+Add API keys to your `.env` file:
 
 ```env
 QWEN_API_KEY=sk-xxxx
@@ -96,7 +158,7 @@ AZURE_DEEPSEEK_API_KEY=sk-zzzz
 GEMINI_API_KEY=sk-zzzz
 ```
 
-## 🛠️ Error Handling
+## 🛠️ Error Management
 
 **Fallback Mechanism:**
 
@@ -109,7 +171,7 @@ GEMINI_API_KEY=sk-zzzz
 Error example:
 
 ```bash
-[ERROR] Translation failed - Attempting fallback... (3 providers remaining)
+[ERROR] Translation failed - Switching to fallback provider... (3 providers remaining)
 ```
 
 ## 📜 License
