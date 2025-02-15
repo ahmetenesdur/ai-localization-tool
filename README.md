@@ -1,6 +1,6 @@
 # Localization Tool
 
-Advanced AI-powered translation CLI tool for Next.js projects. Offers multi-language support, quality controls, and integration with 6 different AI providers.
+Advanced AI-powered translation CLI tool for Next.js projects. Offers multi-language support, quality controls, and integration with different AI providers.
 
 ## 📦 Installation
 
@@ -146,33 +146,25 @@ Translations are automatically stored in `.translation-cache/cache.json` file:
 }
 ```
 
-## 🔧 Advanced Settings
-
-Add API keys to your `.env` file:
-
-```env
-QWEN_API_KEY=sk-xxxx
-OPENAI_API_KEY=sk-yyyy
-DEEPSEEK_API_KEY=sk-zzzz
-AZURE_DEEPSEEK_API_KEY=sk-zzzz
-GEMINI_API_KEY=sk-zzzz
-```
-
 ## 🛠️ Error Management
 
-**Fallback Mechanism:**
+### Fallback Provider Mechanism
 
-1. Primary provider (Qwen)
-2. OpenAI
-3. Gemini
-4. DeepSeek
-5. Azure DeepSeek
+When a translation fails, the system automatically switches to other providers in the following order:
 
-Error example:
+1. Primary provider (specified in configuration)
+2. Qwen (default fallback)
+3. OpenAI
+4. Gemini
+5. DeepSeek
+6. Azure DeepSeek
 
-```bash
-[ERROR] Translation failed - Switching to fallback provider... (3 providers remaining)
-```
+### Error Handling Features
+
+- **Automatic Backup**: When a provider fails, the system automatically switches to the next provider
+- **Error Logging**: All errors are logged in detail
+- **Progress Protection**: Existing translations are saved even in case of errors
+- **API Limit Control**: Request limits per minute are managed for each provider
 
 ## 📜 License
 
