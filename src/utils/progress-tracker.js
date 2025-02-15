@@ -31,7 +31,7 @@ class ProgressTracker {
 		const elapsedTime = ((Date.now() - this.startTime) / 1000).toFixed(1);
 
 		process.stdout.write(
-			`\rProgress: ${percent}% | ${this.completedItems}/${this.totalItems} | ${elapsedTime}s`
+			`\r🔄 Progress: ${percent}% | ${this.completedItems}/${this.totalItems} files | ⏱️ ${elapsedTime}s`
 		);
 
 		if (this.completedItems === this.totalItems) {
@@ -40,12 +40,14 @@ class ProgressTracker {
 	}
 
 	displaySummary() {
-		console.log("\n\nTranslation Summary:");
-		console.log(`✓ Successful: ${this.statistics.success}`);
+		console.log("\n\n📊 Translation Summary:");
+		console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+		console.log(`✅ Successful: ${this.statistics.success}`);
 		console.log(`⚡ From Cache: ${this.statistics.cached}`);
-		console.log(`✕ Failed: ${this.statistics.failed}`);
+		console.log(`❌ Failed: ${this.statistics.failed}`);
+		console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 		console.log(
-			`⏱ Total Time: ${((Date.now() - this.startTime) / 1000).toFixed(1)}s`
+			`⏱️  Total Time: ${((Date.now() - this.startTime) / 1000).toFixed(1)}s\n`
 		);
 	}
 }

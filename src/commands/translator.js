@@ -5,7 +5,7 @@ const Orchestrator = require("../core/orchestrator");
 
 // Translate all keys in a JSON file for each target language
 async function translateFile(file, options) {
-	console.log(`\nProcessing File: "${file}"`);
+	console.log(`\n📂 Processing File: "${path.basename(file)}"`);
 
 	const sourceContent = FileManager.readJSON(file);
 	const flattenedSource = ObjectTransformer.flatten(sourceContent);
@@ -25,7 +25,7 @@ async function translateFile(file, options) {
 		);
 
 		if (missingKeys.length === 0) {
-			console.log(`✓ All translations present for ${targetLang}`);
+			console.log(`✨ All translations present for ${targetLang}`);
 			continue;
 		}
 
@@ -46,7 +46,7 @@ async function translateFile(file, options) {
 			targetPath,
 			ObjectTransformer.unflatten(flattenedTarget)
 		);
-		console.log(`✅ Translations saved: ${targetPath}`);
+		console.log(`💾 Translations saved: ${path.basename(targetPath)}`);
 	}
 }
 
