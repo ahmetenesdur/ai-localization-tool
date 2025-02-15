@@ -1,49 +1,56 @@
 // localize.config.js
 module.exports = {
-	// General Settings
+	// Basic Settings
 	localesDir: "./locales", // Directory where locale JSON files are stored
 	source: "en", // Source language
-	targets: ["tr", "de"], // Target languages
-	context: "Web Application", // Default context
+	targets: ["tr"], // Target languages
 
-	// Advanced Settings
-	translationMemory: true, // Use translation memory
-	qualityChecks: true, // Enable quality checks
-	contextDetection: true, // Automatic context detection
+	// Translation Quality
+	context: {
+		default: "general",
+		enabled: true, // Instead of contextDetection
+		patterns: {
+			defi: "(\\bswap\\b|\\bliquidity\\b|\\bpool\\b|\\byield\\b|\\bstaking\\b|\\bfarming\\b|\\bAPY\\b|\\bslippage\\b|\\bDEX\\b|\\baggregator\\b)",
+			trading:
+				"(\\bprice\\b|\\bvolume\\b|\\bmarket\\b|\\border\\b|\\bexecution\\b|\\bspread\\b|\\bfee\\b|\\bgas\\b|\\broute\\b)",
+			blockchain:
+				"(\\bwallet\\b|\\bcontract\\b|\\btransaction\\b|\\bblock\\b|\\bnetwork\\b|\\bchain\\b|\\btoken\\b|\\bbridge\\b|\\bprotocol\\b)",
+			technical:
+				"(\\bAPI\\b|\\bendpoint\\b|\\bconfig\\b|\\bsync\\b|\\bcache\\b|\\bvalidate\\b|\\boptimize\\b)",
+		},
+		priority: ["defi", "trading", "blockchain", "technical"],
+	},
+	qualityChecks: true,
 
-	// Style Guide Settings
+	// Style Settings
 	styleGuide: {
-		lengthControl: "Flexible", // Text length control
-		inclusiveLanguage: true, // Use inclusive language
-		formality: "Professional", // Formality level
-		toneOfVoice: "Professional", // Tone of voice for translations
+		formality: "neutral",
+		toneOfVoice: "professional",
 	},
 
-	// Brand Settings
-	brandName: "YourAppName", // Brand name
-	brandVoice: "Professional, Trustworthy", // Brand voice
-	emotiveIntent: "Confident", // Emotional tone
-
-	// Domain Expertise and Idioms
-	domainExpertise: "Technology", // Domain context
-	idioms: true, // Handle idiomatic expressions
-
-	// API Provider Settings
-	apiProvider: "openai", // Preferred provider
-
-	// Provider-specific configuration
+	// API Settings
+	apiProvider: "qwen", // Preferred provider
+	useFallback: true, // Enable/disable API fallback system
 	apiConfig: {
-		openai: {
-			model: "gpt-4-turbo-preview",
+		qwen: {
+			model: "qwen-plus",
 			temperature: 0.3,
 			maxTokens: 2000,
 		},
-		deepseek: {
-			model: "deepseek-chat-r1",
-			temperature: 0.2,
-		},
 		gemini: {
-			model: "gemini-pro",
+			model: "gemini-1.5-flash",
+			temperature: 0.3,
+		},
+		openai: {
+			model: "gpt-4o",
+			temperature: 0.3,
+		},
+		deepseek: {
+			model: "deepseek-chat",
+			temperature: 0.3,
+		},
+		azureDeepseek: {
+			model: "DeepSeek-R1",
 			temperature: 0.3,
 		},
 	},
