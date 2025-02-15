@@ -39,6 +39,7 @@ options.apiConfig = defaultConfig.apiConfig || {};
 options.context = defaultConfig.context;
 options.styleGuide = defaultConfig.styleGuide;
 options.qualityChecks = defaultConfig.qualityChecks;
+options.lengthControl = defaultConfig.lengthControl;
 
 (async () => {
 	try {

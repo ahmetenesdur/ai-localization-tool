@@ -73,4 +73,8 @@ module.exports = {
 			temperature: 0.3,
 		},
 	},
+
+	lengthControl: {
+		mode: "strict", // "flexible", "strict", "exact", "loose"
+	},
 };
