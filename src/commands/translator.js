@@ -1,7 +1,7 @@
 const path = require("path");
-const FileManager = require("./utils/file-manager");
-const ObjectTransformer = require("./utils/object-transformer");
-const TranslationOrchestrator = require("./core/translation-orchestrator");
+const FileManager = require("../utils/file-manager");
+const ObjectTransformer = require("../utils/object-transformer");
+const Orchestrator = require("../core/orchestrator");
 
 // Translate all keys in a JSON file for each target language
 async function translateFile(file, options) {
@@ -18,7 +18,7 @@ async function translateFile(file, options) {
 			targetContent = FileManager.readJSON(targetPath);
 		} catch {} // If file not found, use empty object
 
-		const orchestrator = new TranslationOrchestrator(options);
+		const orchestrator = new Orchestrator(options);
 		const flattenedTarget = ObjectTransformer.flatten(targetContent);
 		const missingKeys = Object.keys(flattenedSource).filter(
 			(key) => !(key in flattenedTarget)

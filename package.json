@@ -1,15 +1,15 @@
 {
 	"name": "localization-tool",
 	"version": "0.1.0",
-	"main": "index.js",
+	"main": "src/core/orchestrator.js",
 	"directories": {
-		"lib": "lib"
+		"src": "src"
 	},
 	"bin": {
-		"localize": "./index.js"
+		"localize": "./bin/localize.js"
 	},
 	"scripts": {
-		"start": "node index.js"
+		"start": "node bin/localize.js"
 	},
 	"keywords": [],
 	"author": "Schwifty",
@@ -21,5 +21,9 @@
 		"axios": "^1.7.9",
 		"commander": "^13.1.0",
 		"dotenv": "^16.4.7"
-	}
+	},
+	"files": [
+		"bin/",
+		"src/"
+	]
 }

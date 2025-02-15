@@ -1,10 +1,10 @@
-const TranslationCache = require("../cache");
-const rateLimiter = require("../rate-limiter");
+const TranslationCache = require("../utils/cache");
+const rateLimiter = require("../utils/rate-limiter");
 const ProviderFactory = require("./provider-factory");
 const ProgressTracker = require("../utils/progress-tracker");
 const QualityChecker = require("../utils/quality-checker");
 
-class TranslationOrchestrator {
+class Orchestrator {
 	constructor(options) {
 		this.cache = new TranslationCache();
 		this.options = options;
@@ -150,4 +150,4 @@ class TranslationOrchestrator {
 	}
 }
 
-module.exports = TranslationOrchestrator;
+module.exports = Orchestrator;

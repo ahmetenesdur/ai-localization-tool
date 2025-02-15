@@ -4,7 +4,10 @@ require("dotenv").config();
 const { program } = require("commander");
 const path = require("path");
 const fs = require("fs");
-const { findLocaleFiles, translateFile } = require("./lib/translator");
+const {
+	findLocaleFiles,
+	translateFile,
+} = require("../src/commands/translator");
 
 // Load default configuration
 let defaultConfig = {};
