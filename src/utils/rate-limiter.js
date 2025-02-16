@@ -1,3 +1,5 @@
+const { performance } = require("perf_hooks");
+
 class RateLimiter {
 	constructor() {
 		this.queue = [];
@@ -6,27 +8,27 @@ class RateLimiter {
 			openai: {
 				requestsPerMinute: 60,
 				currentRequests: 0,
-				lastReset: Date.now(),
+				lastReset: performance.now(),
 			},
 			deepseek: {
 				requestsPerMinute: 45,
 				currentRequests: 0,
-				lastReset: Date.now(),
+				lastReset: performance.now(),
 			},
 			gemini: {
 				requestsPerMinute: 100,
 				currentRequests: 0,
-				lastReset: Date.now(),
+				lastReset: performance.now(),
 			},
 			azuredeepseek: {
 				requestsPerMinute: 80,
 				currentRequests: 0,
-				lastReset: Date.now(),
+				lastReset: performance.now(),
 			},
 			qwen: {
 				requestsPerMinute: 50,
 				currentRequests: 0,
-				lastReset: Date.now(),
+				lastReset: performance.now(),
 			},
 		};
 	}
@@ -43,15 +45,18 @@ class RateLimiter {
 		this.processing = true;
 
 		const { provider, task, resolve, reject } = this.queue[0];
-		const providerLimits = this.providers[provider];
 
 		try {
+			if (!this.providers[provider]) {
+				throw new Error(`Unknown provider: ${provider}`);
+			}
+
 			if (this.shouldThrottle(provider)) {
 				const waitTime = this.calculateWaitTime(provider);
 				await new Promise((resolve) => setTimeout(resolve, waitTime));
 			}
 
-			providerLimits.currentRequests++;
+			this.providers[provider].currentRequests++;
 			const result = await task();
 			resolve(result);
 		} catch (error) {
@@ -59,13 +64,19 @@ class RateLimiter {
 		} finally {
 			this.queue.shift();
 			this.processing = false;
-			this.processQueue();
+			if (this.queue.length > 0) {
+				setImmediate(() => this.processQueue());
+			}
 		}
 	}
 
 	shouldThrottle(provider) {
 		const limits = this.providers[provider];
-		const now = Date.now();
+		const now = performance.now();
+
+		if (!limits) {
+			throw new Error(`Unknown provider: ${provider}`);
+		}
 
 		if (now - limits.lastReset >= 60000) {
 			limits.currentRequests = 0;
@@ -78,7 +89,12 @@ class RateLimiter {
 
 	calculateWaitTime(provider) {
 		const limits = this.providers[provider];
-		return 60000 - (Date.now() - limits.lastReset);
+
+		if (!limits) {
+			throw new Error(`Unknown provider: ${provider}`);
+		}
+
+		return Math.max(0, 60000 - (performance.now() - limits.lastReset));
 	}
 }
 

@@ -1,4 +1,5 @@
 const axios = require("axios");
+const { getPrompt } = require("../utils/prompt-templates");
 
 async function translate(text, sourceLang, targetLang, options) {
 	const model = options.apiConfig?.gemini?.model || "gemini-1.5-flash";
@@ -11,33 +12,17 @@ async function translate(text, sourceLang, targetLang, options) {
 		throw new Error("GOOGLE_API_KEY environment variable not found");
 	}
 
-	// Constructing structured prompt
-	const prompt = {
-		contents: [
-			{
-				parts: [
-					{
-						text: `Professional translation task from ${sourceLang} to ${targetLang}.
-					Translation Parameters:
-					- Context: ${options.context}
-					- Formality: ${options.styleGuide.formality}
-					- Tone: ${options.styleGuide.toneOfVoice}
-					- Length Control: ${options.lengthControl?.mode || "flexible"}
-					${options.qualityChecks ? "- Apply quality control measures" : ""}
-					
-					Original Text: "${text}"`,
-					},
-				],
-			},
-		],
-	};
+	const promptData = getPrompt("gemini", sourceLang, targetLang, {
+		...options,
+		text,
+	});
 
 	try {
 		// Sending request to Gemini API endpoint
 		const response = await axios.post(
 			`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
 			{
-				...prompt,
+				...promptData,
 				generationConfig: {
 					temperature,
 					maxOutputTokens,
@@ -64,8 +49,12 @@ async function translate(text, sourceLang, targetLang, options) {
 		// Returning the first translation candidate
 		return response.data.candidates[0].content.parts[0].text.trim();
 	} catch (err) {
-		console.error("Gemini API error:", err.response?.data || err.message);
-		throw new Error("Translation failed with Gemini API");
+		console.error("[Gemini Provider] Translation error:", {
+			error: err.response?.data || err.message,
+			source: sourceLang,
+			target: targetLang,
+		});
+		throw new Error(`[Gemini Provider] Translation failed: ${err.message}`);
 	}
 }
 

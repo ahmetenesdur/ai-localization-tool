@@ -10,6 +10,12 @@ async function translateFile(file, options) {
 	const sourceContent = FileManager.readJSON(file);
 	const flattenedSource = ObjectTransformer.flatten(sourceContent);
 
+	// Counter for context statistics
+	const contextStats = {
+		total: 0,
+		byCategory: {},
+	};
+
 	for (const targetLang of options.targets) {
 		const targetPath = path.join(path.dirname(file), `${targetLang}.json`);
 		let targetContent = {};
@@ -25,7 +31,7 @@ async function translateFile(file, options) {
 		);
 
 		if (missingKeys.length === 0) {
-			console.log(`✨ All translations present for ${targetLang}`);
+			console.log(`✨ All translations exist for ${targetLang}`);
 			continue;
 		}
 
@@ -38,6 +44,15 @@ async function translateFile(file, options) {
 		const results =
 			await orchestrator.processTranslations(translationItems);
 
+		// Collect context statistics
+		results.forEach((result) => {
+			if (result.context) {
+				contextStats.total++;
+				contextStats.byCategory[result.context.category] =
+					(contextStats.byCategory[result.context.category] || 0) + 1;
+			}
+		});
+
 		results.forEach(({ key, translated }) => {
 			flattenedTarget[key] = translated;
 		});
@@ -46,7 +61,15 @@ async function translateFile(file, options) {
 			targetPath,
 			ObjectTransformer.unflatten(flattenedTarget)
 		);
-		console.log(`💾 Translations saved: ${path.basename(targetPath)}`);
+
+		// Display context statistics
+		console.log("\n📊 Context Statistics:");
+		console.log(`Total Detected: ${contextStats.total}`);
+		Object.entries(contextStats.byCategory).forEach(([category, count]) => {
+			console.log(`${category}: ${count} texts`);
+		});
+
+		console.log(`\n💾 Translations saved: ${path.basename(targetPath)}`);
 	}
 }
 

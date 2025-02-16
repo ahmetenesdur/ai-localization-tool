@@ -6,6 +6,7 @@ class QualityChecker {
 			punctuationCheck: true,
 			lengthValidation: true,
 			autoFix: true,
+			sanitizeOutput: true,
 			...options,
 		};
 	}
@@ -303,6 +304,16 @@ class QualityChecker {
 		}
 
 		return translatedWords.slice(0, sourceWords).join(" ").length;
+	}
+
+	sanitizeTranslation(text) {
+		return text
+			.replace(/<think>[\s\S]*?<\/think>/g, "")
+			.replace(/\*\*.*?:\*\*/g, "")
+			.replace(/^['"]|['"]$/g, "")
+			.replace(/^\s*[-•]\s*/g, "")
+			.replace(/\n+/g, " ")
+			.trim();
 	}
 }
 

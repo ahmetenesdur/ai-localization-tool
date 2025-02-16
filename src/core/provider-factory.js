@@ -27,11 +27,11 @@ class ProviderFactory {
 		// Fallback order
 		const fallbackOrder = [
 			providers[providerName.toLowerCase()], // Primary preferred provider
-			qwenProvider, // Default fallback
-			openaiProvider, // Second fallback
-			geminiProvider, // Third fallback
-			deepseekProvider, // Fourth fallback
-			azureDeepseekProvider, // Last fallback
+			qwenProvider,
+			geminiProvider,
+			deepseekProvider,
+			azureDeepseekProvider,
+			geminiProvider,
 		].filter(Boolean); // Filter out undefined providers
 
 		return new FallbackProvider(fallbackOrder);

@@ -1,27 +1,22 @@
 const axios = require("axios");
+const { getPrompt } = require("../utils/prompt-templates");
 
 async function translate(text, sourceLang, targetLang, options) {
 	const model = options.apiConfig?.qwen?.model || "qwen-plus";
 	const temperature = options.apiConfig?.qwen?.temperature || 0.3;
 	const maxTokens = options.apiConfig?.qwen?.maxTokens || 2000;
 
-	const systemPrompt = `Professional translation from ${sourceLang} to ${targetLang}.
-		Translation Requirements:
-		- Context: ${options.context}
-		- Formality: ${options.styleGuide.formality}
-		- Tone: ${options.styleGuide.toneOfVoice}
-		- Length Control: ${options.lengthControl?.mode || "flexible"}
-		${options.qualityChecks ? "- Apply quality checks" : ""}`;
+	const promptData = getPrompt("qwen", sourceLang, targetLang, {
+		...options,
+		text,
+	});
 
 	try {
 		const response = await axios.post(
 			"https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
 			{
 				model,
-				messages: [
-					{ role: "system", content: systemPrompt },
-					{ role: "user", content: text },
-				],
+				...promptData,
 				temperature,
 				max_tokens: maxTokens,
 			},
@@ -35,8 +30,12 @@ async function translate(text, sourceLang, targetLang, options) {
 
 		return response.data.choices[0].message.content.trim();
 	} catch (err) {
-		console.error("Qwen API error:", err.response?.data || err.message);
-		throw new Error("Translation failed with Qwen API");
+		console.error("[Qwen Provider] Translation error:", {
+			error: err.response?.data || err.message,
+			source: sourceLang,
+			target: targetLang,
+		});
+		throw new Error(`[Qwen Provider] Translation failed: ${err.message}`);
 	}
 }
 

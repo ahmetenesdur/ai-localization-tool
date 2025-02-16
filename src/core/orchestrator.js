@@ -49,9 +49,12 @@ class Orchestrator {
 			);
 
 			if (this.options.qualityChecks) {
+				const sanitized =
+					this.qualityChecker.sanitizeTranslation(translated);
+
 				const qualityResult = this.qualityChecker.validateAndFix(
 					text,
-					translated,
+					sanitized,
 					{
 						lengthControl: this.options.lengthControl,
 					}
@@ -61,7 +64,8 @@ class Orchestrator {
 					key,
 					translated: qualityResult.fixedText,
 					qualityChecks: {
-						originalTranslation: qualityResult.originalText,
+						originalTranslation: translated,
+						sanitizedTranslation: sanitized,
 						fixes: qualityResult.fixes,
 						context: this.options.context,
 						provider: this.options.apiProvider,
@@ -83,36 +87,65 @@ class Orchestrator {
 	}
 
 	detectContext(text, contextConfig) {
-		// If no context config or disabled
-		if (!contextConfig?.enabled) return "general";
+		if (!contextConfig?.enabled) {
+			return {
+				category: contextConfig?.fallback?.category || "general",
+				confidence: 1.0,
+				prompt: contextConfig?.fallback?.prompt || "",
+			};
+		}
 
-		// If no context categories defined
-		if (!contextConfig.categories) return "general";
-
-		const matches = {};
 		const lowerText = text.toLowerCase();
+		const matches = {};
+		let totalScore = 0;
 
-		// Check keyword matches for each category
-		for (const [category, keywords] of Object.entries(
+		// Analyze categories
+		for (const [category, config] of Object.entries(
 			contextConfig.categories
 		)) {
-			matches[category] = keywords.reduce((count, keyword) => {
+			const keywordMatches = config.keywords.reduce((count, keyword) => {
 				const regex = new RegExp(
 					`\\b${keyword.toLowerCase()}\\b`,
 					"gi"
 				);
-				return count + (lowerText.match(regex) || []).length;
+				const matches = (lowerText.match(regex) || []).length;
+				return count + matches;
 			}, 0);
+
+			const weight = config.weight || 1.0;
+			const score = keywordMatches * weight;
+
+			if (keywordMatches >= (contextConfig.detection?.threshold || 2)) {
+				matches[category] = {
+					score,
+					matches: keywordMatches,
+					prompt: config.prompt,
+				};
+				totalScore += score;
+			}
 		}
 
-		// Filter categories that exceed the threshold
-		const validCategories = Object.entries(matches)
+		// Find best match
+		const sortedMatches = Object.entries(matches)
+			.map(([category, data]) => ({
+				category,
+				confidence: data.score / totalScore,
+				prompt: data.prompt,
+			}))
 			.filter(
-				([_, count]) => count >= (contextConfig.detectionThreshold || 2)
+				(match) =>
+					match.confidence >=
+					(contextConfig.detection?.minConfidence || 0.6)
 			)
-			.sort((a, b) => b[1] - a[1]);
+			.sort((a, b) => b.confidence - a.confidence);
 
-		return validCategories[0]?.[0] || "general";
+		return (
+			sortedMatches[0] || {
+				category: contextConfig.fallback.category,
+				confidence: 1.0,
+				prompt: contextConfig.fallback.prompt,
+			}
+		);
 	}
 
 	async processTranslations(items) {

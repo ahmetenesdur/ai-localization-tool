@@ -53,16 +53,58 @@ class TranslationCache {
 
 	get(text, sourceLang, targetLang, options) {
 		const hash = this.getHashKey(text, sourceLang, targetLang, options);
-		return this.diskCache[hash]?.translation || null;
+
+		// First check memory cache
+		if (this.memoryCache.has(hash)) {
+			const cached = this.memoryCache.get(hash);
+			if (
+				Date.now() - new Date(cached.timestamp).getTime() <
+				this.cacheExpiry
+			) {
+				return cached.translation;
+			}
+			this.memoryCache.delete(hash);
+		}
+
+		// Check disk cache
+		const diskCached = this.diskCache[hash];
+		if (
+			diskCached &&
+			Date.now() - new Date(diskCached.timestamp).getTime() <
+				this.cacheExpiry
+		) {
+			// Add to memory cache
+			this.addToMemoryCache(hash, diskCached);
+			return diskCached.translation;
+		}
+
+		return null;
 	}
 
 	set(text, sourceLang, targetLang, options, translation) {
 		const hash = this.getHashKey(text, sourceLang, targetLang, options);
-		this.diskCache[hash] = {
+		const cacheEntry = {
 			translation,
 			timestamp: new Date().toISOString(),
 		};
+
+		// Add to memory cache
+		this.addToMemoryCache(hash, cacheEntry);
+
+		// Add to disk cache
+		this.diskCache[hash] = cacheEntry;
 		this.saveCache();
+	}
+
+	addToMemoryCache(hash, entry) {
+		// Check memory cache limit
+		if (this.memoryCache.size >= this.maxMemoryItems) {
+			// Remove oldest entry
+			const oldestKey = this.memoryCache.keys().next().value;
+			this.memoryCache.delete(oldestKey);
+		}
+
+		this.memoryCache.set(hash, entry);
 	}
 }
 

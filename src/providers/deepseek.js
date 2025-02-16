@@ -1,27 +1,22 @@
 const axios = require("axios");
+const { getPrompt } = require("../utils/prompt-templates");
 
 async function translate(text, sourceLang, targetLang, options) {
 	const model = options.apiConfig?.deepseek?.model || "deepseek-chat";
 	const temperature = options.apiConfig?.deepseek?.temperature || 0.3;
 	const maxTokens = options.apiConfig?.deepseek?.maxTokens || 2000;
 
-	const systemPrompt = `Professional translation from ${sourceLang} to ${targetLang}.
-		Translation Requirements:
-		- Context: ${options.context}
-		- Formality: ${options.styleGuide.formality}
-		- Tone: ${options.styleGuide.toneOfVoice}
-		- Length Control: ${options.lengthControl?.mode || "flexible"}
-		${options.qualityChecks ? "- Apply quality control checks" : ""}`;
-
 	try {
+		const promptData = getPrompt("deepseek", sourceLang, targetLang, {
+			...options,
+			text,
+		});
+
 		const response = await axios.post(
 			"https://api.deepseek.com/v1/chat/completions",
 			{
 				model,
-				messages: [
-					{ role: "system", content: systemPrompt },
-					{ role: "user", content: text },
-				],
+				...promptData,
 				temperature,
 				max_tokens: maxTokens,
 			},
@@ -35,8 +30,14 @@ async function translate(text, sourceLang, targetLang, options) {
 
 		return response.data.choices[0].message.content.trim();
 	} catch (err) {
-		console.error("DeepSeek API error:", err.response?.data || err.message);
-		throw new Error("Translation failed with DeepSeek API");
+		console.error("[DeepSeek Provider] Translation error:", {
+			error: err.response?.data || err.message,
+			source: sourceLang,
+			target: targetLang,
+		});
+		throw new Error(
+			`[DeepSeek Provider] Translation failed: ${err.message}`
+		);
 	}
 }
 
