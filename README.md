@@ -21,28 +21,38 @@ Create `localize.config.js` file in your project root directory:
 ```javascript
 module.exports = {
 	// Basic Settings
-	localesDir: "./locales", // Location of translation files
+	localesDir: "./locales", // Directory for translation files
 	source: "en", // Source language
-	targets: ["tr", "es", "de"], // Target languages
+	targets: ["tr", "es"], // Target languages
 
 	// API Provider Settings
-	apiProvider: "qwen", // Preferred provider
-	useFallback: true, // Fallback provider system
+	apiProvider: "qwen", // Primary provider
+	useFallback: true, // Enable fallback system
 
-	// Quality Control Settings
-	qualityChecks: true, // Quality control system
+	// Quality Settings
+	qualityChecks: true, // Enable quality controls
 
-	// Context Settings
+	// Context Detection
 	context: {
 		enabled: true,
+		mode: "auto", // auto, manual, hybrid
 		categories: {
-			technical: ["blockchain", "API", "smart contract"],
-			business: ["revenue", "marketing", "strategy"],
+			defi: {
+				keywords: ["DeFi", "liquidity pool", "yield farming"],
+				prompt: "DeFi-specific translation context",
+			},
+			technical: {
+				keywords: ["API", "backend", "database"],
+				prompt: "Technical documentation context",
+			},
 		},
-		detectionThreshold: 2, // Minimum match count
+		detection: {
+			threshold: 2, // Minimum keyword matches
+			minConfidence: 0.6, // Minimum confidence score
+		},
 	},
 
-	// Style Settings
+	// Style Configuration
 	styleGuide: {
 		formality: "neutral", // formal, neutral, informal
 		toneOfVoice: "professional", // friendly, professional, technical
@@ -50,12 +60,12 @@ module.exports = {
 
 	// Length Control
 	lengthControl: {
-		mode: "flexible", // strict, flexible, exact, loose
+		mode: "strict", // strict, flexible, exact, loose
 	},
 };
 ```
 
-### API Keys
+### Required API Keys
 
 Add your API keys to the `.env` file:
 
@@ -64,107 +74,107 @@ QWEN_API_KEY=sk-xxxx
 OPENAI_API_KEY=sk-yyyy
 DEEPSEEK_API_KEY=sk-zzzz
 AZURE_DEEPSEEK_API_KEY=sk-aaaa
-GEMINI_API_KEY=sk-bbbb
-```
-
-### Advanced Configuration Options
-
-Custom settings for each API provider:
-
-```javascript
-module.exports = {
-	// ... other settings
-	apiConfig: {
-		qwen: {
-			model: "qwen-plus",
-			temperature: 0.3,
-			maxTokens: 2000,
-		},
-		openai: {
-			model: "gpt-4o",
-			temperature: 0.3,
-		},
-		gemini: {
-			model: "gemini-1.5-flash",
-			temperature: 0.3,
-		},
-	},
-};
+GOOGLE_API_KEY=sk-bbbb        # For Gemini
 ```
 
 ## 🚀 Usage
+
+### Basic Command
 
 ```bash
 localize --source en --targets tr,es --localesDir ./src/locales
 ```
 
-**Basic Commands:**
+### Available Options
 
-- `--apiProvider`: Qwen, OpenAI, Gemini, DeepSeek, AzureDeepSeek
-- `--lengthControl`: strict/flexible/exact/loose
-- `--useFallback`: true/false
+| Option          | Description       | Values                                        |
+| --------------- | ----------------- | --------------------------------------------- |
+| --source        | Source language   | Any ISO language code                         |
+| --targets       | Target languages  | Comma-separated ISO codes                     |
+| --localesDir    | Locales directory | Path to JSON files                            |
+| --apiProvider   | AI provider       | qwen, openai, gemini, deepseek, azureDeepseek |
+| --contextMode   | Context detection | auto, manual, hybrid                          |
+| --lengthControl | Length validation | strict, flexible, exact, loose                |
+| --useFallback   | Provider fallback | true/false                                    |
 
 ## 🌟 Features
 
-### Multi-Provider Support
+### AI Provider Integration
 
-| Provider       | Model Options       | Requests Per Minute |
-| -------------- | ------------------- | ------------------- |
-| Qwen           | qwen-plus           | 50                  |
-| OpenAI         | gpt-4o, gpt-4-turbo | 60                  |
-| Gemini         | gemini-1.5-flash    | 100                 |
-| DeepSeek       | deepseek-chat       | 45                  |
-| Azure DeepSeek | DeepSeek-R1         | 80                  |
+| Provider       | Model            | RPM | Best For         |
+| -------------- | ---------------- | --- | ---------------- |
+| Qwen           | qwen-plus        | 50  | Default provider |
+| OpenAI         | gpt-4o           | 60  | High accuracy    |
+| Gemini         | gemini-1.5-flash | 100 | Fast processing  |
+| DeepSeek       | deepseek-chat    | 45  | Cost-effective   |
+| Azure DeepSeek | DeepSeek-R1      | 80  | Enterprise use   |
 
 ### Smart Features
 
-- 🔍 Contextual Translation (Automatic category detection with keyword matching)
-- 🛡️ Quality Controls:
-    ```javascript
-    {
-    	placeholderConsistency: true,  // {variable} validation
-    	htmlTagsConsistency: true,     // <b>tag</b> validation
-    	punctuationCheck: true,        // Punctuation check
-    	lengthValidation: true         // Text length optimization
-    }
-    ```
-- 📈 Real-time Progress Tracking:
-    ```
-    Progress: 72% | 360/500 | 45.3s
-    ```
+#### Context Detection
 
-## 🗃️ Cache Management
+- Automatic category detection based on keywords
+- Confidence scoring system
+- Category-specific translation prompts
+- Fallback to general translation when no context matches
 
-Translations are automatically stored in `.translation-cache/cache.json` file:
+#### Quality Controls
+
+```javascript
+{
+	placeholderConsistency: true,   // Validates {variables}
+	htmlTagsConsistency: true,      // Preserves HTML markup
+	punctuationCheck: true,         // Ensures proper punctuation
+	lengthValidation: true          // Controls output length
+}
+```
+
+#### Progress Tracking
+
+```
+Progress: 72% | 360/500 files | ⏱️ 45.3s
+✅ Successful: 340
+⚡ From Cache: 15
+❌ Failed: 5
+```
+
+### Cache System
+
+- **Location**: `.translation-cache/cache.json`
+- **Format**:
 
 ```json
 {
 	"md5hash": {
-		"translation": "Hello World",
+		"translation": "Translated text",
 		"timestamp": "2024-03-15T14:22:35.123Z"
 	}
 }
 ```
 
-## 🛠️ Error Management
+- **Features**:
+    - Memory + Disk hybrid caching
+    - 24-hour cache validity
+    - Automatic cache cleanup
 
-### Fallback Provider Mechanism
+### Error Management
 
-When a translation fails, the system automatically switches to other providers in the following order:
+#### Fallback Provider System
 
-1. Primary provider (specified in configuration)
+1. Primary configured provider
 2. Qwen (default fallback)
-3. OpenAI
-4. Gemini
-5. DeepSeek
-6. Azure DeepSeek
+3. Gemini
+4. DeepSeek
+5. Azure DeepSeek
+6. OpenAI
 
-### Error Handling Features
+#### Error Handling
 
-- **Automatic Backup**: When a provider fails, the system automatically switches to the next provider
-- **Error Logging**: All errors are logged in detail
-- **Progress Protection**: Existing translations are saved even in case of errors
-- **API Limit Control**: Request limits per minute are managed for each provider
+- Automatic provider switching on failure
+- Detailed error logging
+- Progress preservation
+- Rate limiting per provider
+- Request queue management
 
 ## 📜 License
 
