@@ -10,7 +10,7 @@ class ProviderFactory {
 		const providers = {
 			deepseek: deepseekProvider,
 			gemini: geminiProvider,
-			azureDeepseek: azureDeepseekProvider,
+			azuredeepseek: azureDeepseekProvider,
 			openai: openaiProvider,
 			qwen: qwenProvider,
 		};

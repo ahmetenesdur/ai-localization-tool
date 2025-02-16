@@ -18,7 +18,7 @@ class RateLimiter {
 				currentRequests: 0,
 				lastReset: Date.now(),
 			},
-			azureDeepseek: {
+			azuredeepseek: {
 				requestsPerMinute: 80,
 				currentRequests: 0,
 				lastReset: Date.now(),
