@@ -16,73 +16,81 @@ async function translateFile(file, options) {
 		byCategory: {},
 	};
 
-	for (const targetLang of options.targets) {
-		const targetPath = path.join(path.dirname(file), `${targetLang}.json`);
-		let targetContent = {};
+	const orchestrator = new Orchestrator(options);
 
-		try {
-			targetContent = FileManager.readJSON(targetPath);
-		} catch {} // If file not found, use empty object
+	try {
+		for (const targetLang of options.targets) {
+			const targetPath = path.join(
+				path.dirname(file),
+				`${targetLang}.json`
+			);
+			let targetContent = {};
 
-		const orchestrator = new Orchestrator(options);
-		const flattenedTarget = ObjectTransformer.flatten(targetContent);
-		const missingKeys = Object.keys(flattenedSource).filter(
-			(key) => !(key in flattenedTarget)
-		);
+			try {
+				targetContent = FileManager.readJSON(targetPath);
+			} catch {} // If file not found, use empty object
 
-		if (missingKeys.length === 0) {
-			console.log(`✨ All translations exist for ${targetLang}`);
-			continue;
-		}
+			const flattenedTarget = ObjectTransformer.flatten(targetContent);
+			const missingKeys = Object.keys(flattenedSource).filter(
+				(key) => !(key in flattenedTarget)
+			);
 
-		const translationItems = missingKeys.map((key) => ({
-			key,
-			text: flattenedSource[key],
-			targetLang,
-		}));
-
-		const results =
-			await orchestrator.processTranslations(translationItems);
-
-		// Check translation results
-		const validResults = results.filter((result) => {
-			if (
-				result.error ||
-				!result.translated ||
-				result.translated === result.key
-			) {
-				console.log(`❌ Translation failed: ${result.key}`);
-				return false;
+			if (missingKeys.length === 0) {
+				console.log(`✨ All translations exist for ${targetLang}`);
+				continue;
 			}
-			return true;
-		});
 
-		// Save only valid translations
-		if (validResults.length > 0) {
-			validResults.forEach(({ key, translated }) => {
-				flattenedTarget[key] = translated;
+			const translationItems = missingKeys.map((key) => ({
+				key,
+				text: flattenedSource[key],
+				targetLang,
+			}));
+
+			const results =
+				await orchestrator.processTranslations(translationItems);
+
+			// Check translation results
+			const validResults = results.filter((result) => {
+				if (
+					result.error ||
+					!result.translated ||
+					result.translated === result.key
+				) {
+					console.log(`❌ Translation failed: ${result.key}`);
+					return false;
+				}
+				return true;
 			});
 
-			FileManager.writeJSON(
-				targetPath,
-				ObjectTransformer.unflatten(flattenedTarget)
-			);
-			console.log(
-				`\n💾 Translations saved: ${path.basename(targetPath)}`
-			);
-		} else {
-			console.log(
-				`\n⚠️ No valid translations found: ${path.basename(targetPath)}`
-			);
+			// Save only valid translations
+			if (validResults.length > 0) {
+				validResults.forEach(({ key, translated }) => {
+					flattenedTarget[key] = translated;
+				});
+
+				FileManager.writeJSON(
+					targetPath,
+					ObjectTransformer.unflatten(flattenedTarget)
+				);
+				console.log(
+					`\n💾 Translations saved: ${path.basename(targetPath)}`
+				);
+			} else {
+				console.log(
+					`\n⚠️ No valid translations found: ${path.basename(targetPath)}`
+				);
+			}
+
+			// Collect context statistics
+			results.forEach((result) => {
+				updateContextStats(result, contextStats);
+			});
+
+			// Display context statistics
+			displayContextStats(contextStats);
 		}
-
-		// Collect context statistics
-		results.forEach((result) => {
-			updateContextStats(result, contextStats);
-		});
-
-		// Display context statistics
-		displayContextStats(contextStats);
+	} finally {
+		process.exitCode = 0;
 	}
 }
 

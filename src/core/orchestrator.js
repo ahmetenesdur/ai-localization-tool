@@ -1,4 +1,3 @@
-const TranslationCache = require("../utils/cache");
 const rateLimiter = require("../utils/rate-limiter");
 const ProviderFactory = require("./provider-factory");
 const ProgressTracker = require("../utils/progress-tracker");
@@ -9,7 +8,6 @@ class Orchestrator {
 	constructor(options) {
 		this.options = options;
 		this.contextProcessor = new ContextProcessor(options.context);
-		this.cache = new TranslationCache();
 		this.progress = new ProgressTracker();
 		this.qualityChecker = new QualityChecker({
 			styleGuide: options.styleGuide,
@@ -35,12 +33,10 @@ class Orchestrator {
 			const translated = await rateLimiter.enqueue(
 				this.options.apiProvider.toLowerCase(),
 				() =>
-					provider.translate(
-						text,
-						this.options.source,
-						targetLang,
-						{ ...this.options, detectedContext: contextData }
-					)
+					provider.translate(text, this.options.source, targetLang, {
+						...this.options,
+						detectedContext: contextData,
+					})
 			);
 
 			return {
@@ -66,18 +62,6 @@ class Orchestrator {
 		const results = [];
 		for (const item of items) {
 			try {
-				const cached = this.cache.get(
-					item.text,
-					this.options.source,
-					item.targetLang,
-					this.options
-				);
-				if (cached) {
-					results.push({ key: item.key, translated: cached });
-					this.progress.increment("cached");
-					continue;
-				}
-
 				const contextData = this.contextProcessor.analyze(item.text);
 				const result = await this.processTranslation(
 					item.key,
@@ -86,7 +70,7 @@ class Orchestrator {
 					contextData
 				);
 				results.push(result);
-				this.progress.increment("success");
+				this.progress.increment(result.success ? "success" : "failed");
 			} catch (error) {
 				results.push({ key: item.key, translated: item.text });
 				this.progress.increment("failed");
