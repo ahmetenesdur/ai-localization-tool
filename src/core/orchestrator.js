@@ -2,14 +2,18 @@ const TranslationCache = require("../utils/cache");
 const rateLimiter = require("../utils/rate-limiter");
 const ProviderFactory = require("./provider-factory");
 const ProgressTracker = require("../utils/progress-tracker");
-const QualityChecker = require("../utils/quality-checker");
+const QualityChecker = require("../utils/quality");
 
 class Orchestrator {
 	constructor(options) {
 		this.cache = new TranslationCache();
 		this.options = options;
 		this.progress = new ProgressTracker();
-		this.qualityChecker = new QualityChecker();
+		this.qualityChecker = new QualityChecker({
+			styleGuide: options.styleGuide,
+			context: options.context,
+			lengthControl: options.lengthControl,
+		});
 	}
 
 	async processTranslation(key, text, targetLang) {
@@ -48,11 +52,10 @@ class Orchestrator {
 				translated
 			);
 
-			if (this.options.qualityChecks) {
+			if (this.options.qualityChecks?.enabled) {
 				const sanitized =
 					this.qualityChecker.sanitizeTranslation(translated);
-
-				const qualityResult = this.qualityChecker.validateAndFix(
+				const { fixedText, fixes } = this.qualityChecker.validateAndFix(
 					text,
 					sanitized,
 					{
@@ -62,12 +65,9 @@ class Orchestrator {
 
 				return {
 					key,
-					translated: qualityResult.fixedText,
+					translated: fixedText,
 					qualityChecks: {
-						originalTranslation: translated,
-						sanitizedTranslation: sanitized,
-						fixes: qualityResult.fixes,
-						context: this.options.context,
+						fixes,
 						provider: this.options.apiProvider,
 					},
 				};

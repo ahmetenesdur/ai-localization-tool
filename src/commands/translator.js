@@ -46,11 +46,7 @@ async function translateFile(file, options) {
 
 		// Collect context statistics
 		results.forEach((result) => {
-			if (result.context) {
-				contextStats.total++;
-				contextStats.byCategory[result.context.category] =
-					(contextStats.byCategory[result.context.category] || 0) + 1;
-			}
+			updateContextStats(result, contextStats);
 		});
 
 		results.forEach(({ key, translated }) => {
@@ -70,6 +66,14 @@ async function translateFile(file, options) {
 		});
 
 		console.log(`\n💾 Translations saved: ${path.basename(targetPath)}`);
+	}
+}
+
+function updateContextStats(result, stats) {
+	if (result.context) {
+		stats.total++;
+		stats.byCategory[result.context.category] =
+			(stats.byCategory[result.context.category] || 0) + 1;
 	}
 }
 

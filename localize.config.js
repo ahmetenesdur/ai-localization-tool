@@ -93,7 +93,16 @@ module.exports = {
 			prompt: "Provide a general translation. Preserve technical terms and proper names.",
 		},
 	},
-	qualityChecks: true,
+	qualityChecks: {
+		enabled: true,
+		rules: {
+			placeholderConsistency: true,
+			htmlTagsConsistency: true,
+			punctuationCheck: true,
+			lengthValidation: true,
+			styleGuideChecks: true,
+		},
+	},
 
 	// Style Settings
 	styleGuide: {
