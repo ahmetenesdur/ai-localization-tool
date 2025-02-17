@@ -6,7 +6,6 @@ class ProgressTracker {
 		this.statistics = {
 			success: 0,
 			failed: 0,
-			cached: 0,
 		};
 	}
 
@@ -43,7 +42,6 @@ class ProgressTracker {
 		console.log("\n\n📊 Translation Summary:");
 		console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 		console.log(`✅ Successful: ${this.statistics.success}`);
-		console.log(`⚡ From Cache: ${this.statistics.cached}`);
 		console.log(`❌ Failed: ${this.statistics.failed}`);
 		console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 		console.log(
