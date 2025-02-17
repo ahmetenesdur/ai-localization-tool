@@ -36,13 +36,8 @@ program
 		defaultConfig.apiProvider
 	)
 	.option(
-		"--contextMode <mode>",
-		"Context mode (auto/manual/hybrid)",
-		defaultConfig.context?.mode
-	)
-	.option(
 		"--contextThreshold <number>",
-		"Context threshold value",
+		"Minimum match count (1-5)",
 		(val) => parseInt(val),
 		defaultConfig.context?.detection?.threshold
 	)
@@ -51,6 +46,11 @@ program
 		"Minimum confidence score (0-1)",
 		(val) => parseFloat(val),
 		defaultConfig.context?.detection?.minConfidence
+	)
+	.option(
+		"--contextDebug",
+		"Show context analysis details",
+		defaultConfig.context?.debug
 	)
 	.parse(process.argv);
 
@@ -63,17 +63,29 @@ options.lengthControl = defaultConfig.lengthControl;
 // Merge context settings
 options.context = {
 	...defaultConfig.context,
-	mode: options.contextMode || defaultConfig.context?.mode,
+	enabled: true,
+	debug: options.contextDebug,
 	detection: {
-		...defaultConfig.context?.detection,
-		threshold:
-			options.contextThreshold ||
-			defaultConfig.context?.detection?.threshold,
-		minConfidence:
-			options.contextConfidence ||
-			defaultConfig.context?.detection?.minConfidence,
+		threshold: options.contextThreshold,
+		minConfidence: options.contextConfidence,
+	},
+	categories: defaultConfig.context?.categories || {},
+	fallback: defaultConfig.context?.fallback || {
+		category: "general",
+		prompt: "Provide a natural translation",
 	},
 };
+
+if (
+	!process.env.QWEN_API_KEY &&
+	!process.env.OPENAI_API_KEY &&
+	!process.env.DEEPSEEK_API_KEY
+) {
+	console.error(
+		"\n❌ Error: No API key found. At least one API key is required."
+	);
+	process.exit(1);
+}
 
 (async () => {
 	try {
@@ -86,7 +98,19 @@ options.context = {
 			);
 		}
 
-		console.log(`Found files: ${localeFiles.join(", ")}`);
+		// If context debug mode is active, provide information
+		if (options.context.debug) {
+			console.log("\n🔍 Context Settings:");
+			console.log(`Threshold: ${options.context.detection.threshold}`);
+			console.log(
+				`Min Confidence: ${options.context.detection.minConfidence}`
+			);
+			console.log(
+				`Categories: ${Object.keys(options.context.categories).join(", ")}`
+			);
+		}
+
+		console.log(`\n📁 Found files: ${localeFiles.join(", ")}`);
 
 		for (const file of localeFiles) {
 			await translateFile(file, options);
@@ -94,7 +118,7 @@ options.context = {
 
 		console.log("✅ All files translated successfully.");
 	} catch (error) {
-		console.error("❌ Error:", error.message);
+		console.error("\n❌ Error:", error.message);
 		process.exit(1);
 	}
 })();

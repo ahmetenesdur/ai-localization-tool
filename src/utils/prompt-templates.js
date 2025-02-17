@@ -1,28 +1,33 @@
 const basePromptTemplate = (sourceLang, targetLang, options) => {
 	const context = options.detectedContext || {
-		category: "general",
+		category: 'general',
 		confidence: 1.0,
-		prompt: "",
+		prompt: 'Provide a natural translation'
 	};
 
+	const contextInfo = `
+Category: ${context.category} (${Math.round(context.confidence * 100)}% confidence)
+Context Instructions: ${context.prompt}
+`;
+
 	const requirements = [
-		"ONLY return the direct translation without any additional text",
-		"DO NOT include any explanations or thinking process",
-		"DO NOT use markdown formatting",
-		"DO NOT add any prefixes or labels",
-		"DO NOT wrap output in quotes or tags",
-		"Strictly preserve placeholders like {variable}",
-		`Translation Context: ${context.category} (${Math.round(context.confidence * 100)}% confidence)`,
-		context.prompt,
-		`Formality: ${options.styleGuide.formality}`,
-		`Tone: ${options.styleGuide.toneOfVoice}`,
+		"ONLY return the direct translation",
+		"Preserve technical terms and placeholders",
+		`Style: ${options.styleGuide.formality}, ${options.styleGuide.toneOfVoice}`,
 		`Length Control: ${options.lengthControl?.mode || "flexible"}`,
-		options.qualityChecks ? "Apply quality control checks" : null,
 	].filter(Boolean);
 
-	return `Professional translation from ${sourceLang} to ${targetLang}.
-Translation Requirements:
-${requirements.map((req) => `- ${req}`).join("\n")}`;
+	return `
+Translation Task: ${sourceLang} → ${targetLang}
+
+${contextInfo}
+
+Requirements:
+${requirements.map((req) => `- ${req}`).join("\n")}
+
+Text to Translate:
+${options.text}
+`;
 };
 
 const providerSpecificPrompts = {

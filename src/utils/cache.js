@@ -44,9 +44,9 @@ class TranslationCache {
 		}
 	}
 
-	getHashKey(text, sourceLang, targetLang, options) {
+	getHashKey(text, sourceLang, targetLang, options = {}) {
 		const key = `${text}-${sourceLang}-${targetLang}-${JSON.stringify({
-			context: options.context,
+			context: options?.context || {},
 		})}`;
 		return crypto.createHash("md5").update(key).digest("hex");
 	}

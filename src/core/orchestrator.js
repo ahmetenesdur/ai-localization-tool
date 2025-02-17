@@ -3,11 +3,13 @@ const rateLimiter = require("../utils/rate-limiter");
 const ProviderFactory = require("./provider-factory");
 const ProgressTracker = require("../utils/progress-tracker");
 const QualityChecker = require("../utils/quality");
+const ContextProcessor = require("./context-processor");
 
 class Orchestrator {
 	constructor(options) {
-		this.cache = new TranslationCache();
 		this.options = options;
+		this.contextProcessor = new ContextProcessor(options.context);
+		this.cache = new TranslationCache();
 		this.progress = new ProgressTracker();
 		this.qualityChecker = new QualityChecker({
 			styleGuide: options.styleGuide,
@@ -16,136 +18,46 @@ class Orchestrator {
 		});
 	}
 
-	async processTranslation(key, text, targetLang) {
-		if (typeof text !== "string") return { key, translated: text };
+	async processTranslation(key, text, targetLang, contextData) {
+		if (typeof text !== "string")
+			return { key, translated: text, error: "Invalid input type" };
 
 		try {
-			const cached = this.cache.get(
-				text,
-				this.options.source,
-				targetLang,
-				this.options
-			);
-			if (cached) return { key, translated: cached };
-
-			const context = this.detectContext(text, this.options.context);
-
 			const provider = ProviderFactory.getProvider(
 				this.options.apiProvider,
 				this.options.useFallback !== false
 			);
 
+			if (!provider) {
+				throw new Error("Translation provider not available");
+			}
+
 			const translated = await rateLimiter.enqueue(
 				this.options.apiProvider.toLowerCase(),
 				() =>
-					provider.translate(text, this.options.source, targetLang, {
-						...this.options,
-						context,
-					})
+					provider.translate(
+						text,
+						this.options.source,
+						targetLang,
+						{ ...this.options, detectedContext: contextData }
+					)
 			);
 
-			this.cache.set(
-				text,
-				this.options.source,
-				targetLang,
-				this.options,
-				translated
-			);
-
-			if (this.options.qualityChecks?.enabled) {
-				const sanitized =
-					this.qualityChecker.sanitizeTranslation(translated);
-				const { fixedText, fixes } = this.qualityChecker.validateAndFix(
-					text,
-					sanitized,
-					{
-						lengthControl: this.options.lengthControl,
-					}
-				);
-
-				return {
-					key,
-					translated: fixedText,
-					qualityChecks: {
-						fixes,
-						provider: this.options.apiProvider,
-					},
-				};
-			}
-
-			return { key, translated };
-		} catch (err) {
-			console.error(`Translation error for key "${key}":`, {
-				error: err.message,
-				context: this.options.context,
-				provider: this.options.apiProvider,
-				source: this.options.source,
-				target: targetLang,
-			});
-			return { key, translated: text, error: err.message };
-		}
-	}
-
-	detectContext(text, contextConfig) {
-		if (!contextConfig?.enabled) {
 			return {
-				category: contextConfig?.fallback?.category || "general",
-				confidence: 1.0,
-				prompt: contextConfig?.fallback?.prompt || "",
+				key,
+				translated,
+				context: contextData,
+				success: true,
+			};
+		} catch (err) {
+			console.error(`Translation error - key "${key}":`, err);
+			return {
+				key,
+				translated: text,
+				error: err.message,
+				success: false,
 			};
 		}
-
-		const lowerText = text.toLowerCase();
-		const matches = {};
-		let totalScore = 0;
-
-		// Analyze categories
-		for (const [category, config] of Object.entries(
-			contextConfig.categories
-		)) {
-			const keywordMatches = config.keywords.reduce((count, keyword) => {
-				const regex = new RegExp(
-					`\\b${keyword.toLowerCase()}\\b`,
-					"gi"
-				);
-				const matches = (lowerText.match(regex) || []).length;
-				return count + matches;
-			}, 0);
-
-			const weight = config.weight || 1.0;
-			const score = keywordMatches * weight;
-
-			if (keywordMatches >= (contextConfig.detection?.threshold || 2)) {
-				matches[category] = {
-					score,
-					matches: keywordMatches,
-					prompt: config.prompt,
-				};
-				totalScore += score;
-			}
-		}
-
-		// Find best match
-		const sortedMatches = Object.entries(matches)
-			.map(([category, data]) => ({
-				category,
-				confidence: data.score / totalScore,
-				prompt: data.prompt,
-			}))
-			.filter(
-				(match) =>
-					match.confidence >=
-					(contextConfig.detection?.minConfidence || 0.6)
-			)
-			.sort((a, b) => b.confidence - a.confidence);
-
-		return (
-			sortedMatches[0] || {
-				category: contextConfig.fallback.category,
-				confidence: 1.0,
-				prompt: contextConfig.fallback.prompt,
-			}
-		);
 	}
 
 	async processTranslations(items) {
@@ -166,10 +78,12 @@ class Orchestrator {
 					continue;
 				}
 
+				const contextData = this.contextProcessor.analyze(item.text);
 				const result = await this.processTranslation(
 					item.key,
 					item.text,
-					item.targetLang
+					item.targetLang,
+					contextData
 				);
 				results.push(result);
 				this.progress.increment("success");

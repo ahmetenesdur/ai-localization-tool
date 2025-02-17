@@ -44,37 +44,80 @@ async function translateFile(file, options) {
 		const results =
 			await orchestrator.processTranslations(translationItems);
 
+		// Check translation results
+		const validResults = results.filter((result) => {
+			if (
+				result.error ||
+				!result.translated ||
+				result.translated === result.key
+			) {
+				console.log(`❌ Translation failed: ${result.key}`);
+				return false;
+			}
+			return true;
+		});
+
+		// Save only valid translations
+		if (validResults.length > 0) {
+			validResults.forEach(({ key, translated }) => {
+				flattenedTarget[key] = translated;
+			});
+
+			FileManager.writeJSON(
+				targetPath,
+				ObjectTransformer.unflatten(flattenedTarget)
+			);
+			console.log(
+				`\n💾 Translations saved: ${path.basename(targetPath)}`
+			);
+		} else {
+			console.log(
+				`\n⚠️ No valid translations found: ${path.basename(targetPath)}`
+			);
+		}
+
 		// Collect context statistics
 		results.forEach((result) => {
 			updateContextStats(result, contextStats);
 		});
 
-		results.forEach(({ key, translated }) => {
-			flattenedTarget[key] = translated;
-		});
-
-		FileManager.writeJSON(
-			targetPath,
-			ObjectTransformer.unflatten(flattenedTarget)
-		);
-
 		// Display context statistics
-		console.log("\n📊 Context Statistics:");
-		console.log(`Total Detected: ${contextStats.total}`);
-		Object.entries(contextStats.byCategory).forEach(([category, count]) => {
-			console.log(`${category}: ${count} texts`);
-		});
-
-		console.log(`\n💾 Translations saved: ${path.basename(targetPath)}`);
+		displayContextStats(contextStats);
 	}
 }
 
 function updateContextStats(result, stats) {
 	if (result.context) {
 		stats.total++;
-		stats.byCategory[result.context.category] =
-			(stats.byCategory[result.context.category] || 0) + 1;
+		const category = result.context.category;
+		stats.byCategory[category] = (stats.byCategory[category] || 0) + 1;
+
+		// Detailed statistics
+		if (!stats.details) stats.details = {};
+		if (!stats.details[category]) {
+			stats.details[category] = {
+				totalConfidence: 0,
+				samples: 0,
+			};
+		}
+
+		stats.details[category].totalConfidence += result.context.confidence;
+		stats.details[category].samples++;
 	}
+}
+
+// Display statistics
+function displayContextStats(stats) {
+	console.log("\n📊 Context Statistics:");
+	console.log(`Total Processed: ${stats.total}`);
+
+	Object.entries(stats.byCategory).forEach(([category, count]) => {
+		const details = stats.details[category];
+		const avgConfidence = details.totalConfidence / details.samples;
+		console.log(
+			`${category}: ${count} texts (avg confidence: ${(avgConfidence * 100).toFixed(1)}%)`
+		);
+	});
 }
 
 module.exports = {
