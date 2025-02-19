@@ -2,22 +2,14 @@ const fs = require("fs");
 const path = require("path");
 
 class FileManager {
-	static findLocaleFiles(localesDir) {
-		const files = [];
+	static findLocaleFiles(localesDir, sourceLang) {
+		const sourceFile = path.join(localesDir, `${sourceLang}.json`);
 
-		function walk(dir) {
-			const items = fs.readdirSync(dir);
-			items.forEach((file) => {
-				const filepath = path.join(dir, file);
-				const stat = fs.statSync(filepath);
-				stat.isDirectory()
-					? walk(filepath)
-					: filepath.endsWith(".json") && files.push(filepath);
-			});
+		if (!fs.existsSync(sourceFile)) {
+			throw new Error(`Source language file not found: ${sourceFile}`);
 		}
 
-		walk(localesDir);
-		return files;
+		return [sourceFile];
 	}
 
 	static readJSON(filePath) {

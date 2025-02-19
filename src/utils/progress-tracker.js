@@ -3,16 +3,24 @@ class ProgressTracker {
 		this.totalItems = 0;
 		this.completedItems = 0;
 		this.startTime = null;
+		this.currentLang = null;
+		this.resetStats();
+	}
+
+	resetStats() {
 		this.statistics = {
 			success: 0,
 			failed: 0,
+			totalTime: 0,
 		};
 	}
 
-	start(total) {
+	start(total, targetLang) {
 		this.totalItems = total;
 		this.completedItems = 0;
 		this.startTime = Date.now();
+		this.currentLang = targetLang;
+		this.resetStats();
 	}
 
 	increment(status) {
@@ -28,25 +36,29 @@ class ProgressTracker {
 			(this.completedItems / this.totalItems) * 100
 		);
 		const elapsedTime = ((Date.now() - this.startTime) / 1000).toFixed(1);
+		const progressBar = `[${"■".repeat(Math.floor(percent / 5))}${" ".repeat(20 - Math.floor(percent / 5))}]`;
 
 		process.stdout.write(
-			`\r🔄 Progress: ${percent}% | ${this.completedItems}/${this.totalItems} files | ⏱️ ${elapsedTime}s`
+			`\r🚀 ${this.currentLang.padEnd(1)} ${progressBar} ` +
+				`${percent.toString().padStart(1)}%  ` +
+				`✅ ${this.statistics.success.toString().padStart(1)}  ` +
+				`❌ ${this.statistics.failed.toString().padStart(1)}  ` +
+				`⏳ ${elapsedTime.padStart(1)}s`
 		);
 
 		if (this.completedItems === this.totalItems) {
+			this.statistics.totalTime = elapsedTime;
 			this.displaySummary();
 		}
 	}
 
 	displaySummary() {
-		console.log("\n\n📊 Translation Summary:");
-		console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-		console.log(`✅ Successful: ${this.statistics.success}`);
-		console.log(`❌ Failed: ${this.statistics.failed}`);
-		console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+		console.log(`\n📊 Translation Summary for ${this.currentLang}:`);
 		console.log(
-			`⏱️  Total Time: ${((Date.now() - this.startTime) / 1000).toFixed(1)}s\n`
+			`✅ Success: ${this.statistics.success.toString()}/${this.totalItems}`
 		);
+		console.log(`❌ Failed: ${this.statistics.failed.toString()}`);
+		console.log(`⏳ Time: ${this.statistics.totalTime}s`);
 	}
 }
 

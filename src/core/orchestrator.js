@@ -57,7 +57,7 @@ class Orchestrator {
 	}
 
 	async processTranslations(items) {
-		this.progress.start(items.length);
+		this.progress.start(items.length, items[0].targetLang);
 
 		const results = [];
 		for (const item of items) {

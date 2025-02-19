@@ -5,27 +5,33 @@ const Orchestrator = require("../core/orchestrator");
 
 // Translate all keys in a JSON file for each target language
 async function translateFile(file, options) {
-	console.log(`\n📂 Processing File: "${path.basename(file)}"`);
+	console.log(`\n📄 Processing File: "${path.basename(file)}"`);
 
 	const sourceContent = FileManager.readJSON(file);
 	const flattenedSource = ObjectTransformer.flatten(sourceContent);
 
-	// Counter for context statistics
-	const contextStats = {
+	// Global stats for all languages
+	const globalStats = {
 		total: 0,
 		byCategory: {},
+		details: {},
+		totalTime: 0,
+		success: 0,
+		failed: 0,
 	};
 
 	const orchestrator = new Orchestrator(options);
 
 	try {
 		for (const targetLang of options.targets) {
+			console.log(`\n🌐 Starting translations for ${targetLang}`);
+
 			const targetPath = path.join(
 				path.dirname(file),
 				`${targetLang}.json`
 			);
-			let targetContent = {};
 
+			let targetContent = {};
 			try {
 				targetContent = FileManager.readJSON(targetPath);
 			} catch {} // If file not found, use empty object
@@ -36,9 +42,11 @@ async function translateFile(file, options) {
 			);
 
 			if (missingKeys.length === 0) {
-				console.log(`✨ All translations exist for ${targetLang}`);
+				console.log(`✅ All translations exist for ${targetLang}`);
 				continue;
 			}
+
+			console.log(`📝 Found ${missingKeys.length} missing translations`);
 
 			const translationItems = missingKeys.map((key) => ({
 				key,
@@ -49,83 +57,80 @@ async function translateFile(file, options) {
 			const results =
 				await orchestrator.processTranslations(translationItems);
 
-			// Check translation results
-			const validResults = results.filter((result) => {
-				if (
-					result.error ||
-					!result.translated ||
-					result.translated === result.key
-				) {
-					console.log(`❌ Translation failed: ${result.key}`);
-					return false;
-				}
-				return true;
-			});
+			// Process and save valid translations
+			const validResults = results.filter((result) => result.success);
 
-			// Save only valid translations
 			if (validResults.length > 0) {
 				validResults.forEach(({ key, translated }) => {
 					flattenedTarget[key] = translated;
 				});
 
-				FileManager.writeJSON(
-					targetPath,
-					ObjectTransformer.unflatten(flattenedTarget)
+				const unflattened =
+					ObjectTransformer.unflatten(flattenedTarget);
+				FileManager.writeJSON(targetPath, unflattened);
+
+				// Update statistics
+				globalStats.total += validResults.length;
+				globalStats.success += validResults.length;
+				globalStats.failed += results.length - validResults.length;
+				globalStats.totalTime += parseFloat(
+					orchestrator.progress.statistics.totalTime || 0
 				);
+
+				// Update category stats if context data exists
+				validResults.forEach((result) => {
+					if (result.context) {
+						const category = result.context.category || "general";
+						globalStats.byCategory[category] =
+							(globalStats.byCategory[category] || 0) + 1;
+
+						if (!globalStats.details[category]) {
+							globalStats.details[category] = {
+								totalConfidence: 0,
+								samples: 0,
+							};
+						}
+
+						globalStats.details[category].totalConfidence +=
+							result.context.confidence || 0;
+						globalStats.details[category].samples++;
+					}
+				});
+
+				console.log(`\n💾 Translations saved: ${targetLang}.json`);
+			}
+		}
+
+		displayGlobalSummary(globalStats, options.targets.length);
+	} catch (error) {
+		console.error(`\n❌ Translation error: ${error.message}`);
+		throw error;
+	}
+}
+
+function displayGlobalSummary(stats, totalLanguages) {
+	console.log("\n🌍 Global Translation Summary:");
+	console.log(`Languages Processed: ${totalLanguages}`);
+	console.log(`Total Translations: ${stats.total}`);
+	console.log(`✅ Success: ${stats.success}`);
+	console.log(`❌ Failed: ${stats.failed}`);
+	console.log(`⏳ Total Time: ${stats.totalTime.toFixed(1)}s`);
+
+	if (Object.keys(stats.byCategory).length > 0) {
+		console.log("\n📊 Context Analysis by Category:");
+		Object.entries(stats.byCategory).forEach(([category, count]) => {
+			const details = stats.details[category];
+			if (details && details.samples > 0) {
+				const avgConfidence = details.totalConfidence / details.samples;
+				const confidenceStr = `${(avgConfidence * 100).toFixed(1)}%`;
 				console.log(
-					`\n💾 Translations saved: ${path.basename(targetPath)}`
+					`${category}: ${count} items (${confidenceStr} avg confidence)`
 				);
 			} else {
-				console.log(
-					`\n⚠️ No valid translations found: ${path.basename(targetPath)}`
-				);
+				console.log(`${category}: ${count} items`);
 			}
-
-			// Collect context statistics
-			results.forEach((result) => {
-				updateContextStats(result, contextStats);
-			});
-
-			// Display context statistics
-			displayContextStats(contextStats);
-		}
-	} finally {
-		process.exitCode = 0;
+		});
 	}
-}
-
-function updateContextStats(result, stats) {
-	if (result.context) {
-		stats.total++;
-		const category = result.context.category;
-		stats.byCategory[category] = (stats.byCategory[category] || 0) + 1;
-
-		// Detailed statistics
-		if (!stats.details) stats.details = {};
-		if (!stats.details[category]) {
-			stats.details[category] = {
-				totalConfidence: 0,
-				samples: 0,
-			};
-		}
-
-		stats.details[category].totalConfidence += result.context.confidence;
-		stats.details[category].samples++;
-	}
-}
-
-// Display statistics
-function displayContextStats(stats) {
-	console.log("\n📊 Context Statistics:");
-	console.log(`Total Processed: ${stats.total}`);
-
-	Object.entries(stats.byCategory).forEach(([category, count]) => {
-		const details = stats.details[category];
-		const avgConfidence = details.totalConfidence / details.samples;
-		console.log(
-			`${category}: ${count} texts (avg confidence: ${(avgConfidence * 100).toFixed(1)}%)`
-		);
-	});
 }
 
 module.exports = {

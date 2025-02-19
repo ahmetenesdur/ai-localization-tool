@@ -29,6 +29,56 @@ module.exports = {
 	apiProvider: "qwen", // Primary provider
 	useFallback: true, // Enable fallback system
 
+	// API Configuration
+	apiConfig: {
+		qwen: {
+			model: "qwen-plus",
+			temperature: 0.3,
+			maxTokens: 2000,
+		},
+		xai: {
+			model: "grok-2-1212",
+			temperature: 0.3,
+			maxTokens: 2000,
+		},
+		openai: {
+			model: "gpt-4o",
+			temperature: 0.3,
+		},
+		azureDeepseek: {
+			model: "DeepSeek-R1",
+			temperature: 0.1,
+		},
+		deepseek: {
+			model: "deepseek-chat",
+			temperature: 0.1,
+		},
+		gemini: {
+			model: "gemini-1.5-flash",
+			temperature: 0.3,
+		},
+	},
+
+	// Translation Context
+	context: {
+		enabled: true,
+		detection: {
+			threshold: 2, // Minimum keyword matches
+			minConfidence: 0.6, // Minimum confidence score
+		},
+		categories: {
+			defi: {
+				keywords: ["DeFi", "staking", "yield"],
+				prompt: "Keep DeFi terms in English",
+				weight: 1.2,
+			},
+		},
+		fallback: {
+			category: "general",
+			prompt: "Provide a natural translation",
+		},
+	},
+
 	// Quality Settings
 	qualityChecks: {
 		enabled: true,
@@ -41,28 +91,7 @@ module.exports = {
 		},
 	},
 
-	// Context Detection
-	context: {
-		enabled: true,
-		detection: {
-			threshold: 2, // Minimum keyword matches
-			minConfidence: 0.6, // Minimum confidence score
-		},
-		categories: {
-			defi: {
-				keywords: ["DeFi", "liquidity pool", "yield farming"],
-				prompt: "DeFi-specific translation context",
-				weight: 1.2,
-			},
-			technical: {
-				keywords: ["API", "backend", "database"],
-				prompt: "Technical documentation context",
-				weight: 1.3,
-			},
-		},
-	},
-
-	// Style Configuration
+	// Style Settings
 	styleGuide: {
 		formality: "neutral", // formal, neutral, informal
 		toneOfVoice: "professional", // friendly, professional, technical
@@ -109,35 +138,24 @@ localize --source en --targets es --contextDebug
 localize --source en --targets tr,es --lengthControl strict
 ```
 
-### Available Options
+### CLI Options
 
-| Option              | Description       | Values                                             |
-| ------------------- | ----------------- | -------------------------------------------------- |
-| --source            | Source language   | Any ISO language code                              |
-| --targets           | Target languages  | Comma-separated ISO codes                          |
-| --localesDir        | Locales directory | Path to JSON files                                 |
-| --apiProvider       | AI provider       | qwen, xai, openai, gemini, deepseek, azuredeepseek |
-| --contextThreshold  | Keyword matches   | 1-5 (default: 2)                                   |
-| --contextConfidence | Confidence score  | 0-1 (default: 0.6)                                 |
-| --contextDebug      | Debug mode        | boolean                                            |
-| --lengthControl     | Length validation | strict, flexible, exact, loose                     |
+| Option              | Description       | Default   | Values                                             |
+| ------------------- | ----------------- | --------- | -------------------------------------------------- |
+| --source            | Source language   | en        | Any ISO language code                              |
+| --targets           | Target languages  | []        | Comma-separated ISO codes                          |
+| --localesDir        | Locales directory | ./locales | Path to JSON files                                 |
+| --apiProvider       | AI provider       | qwen      | qwen, xai, openai, gemini, deepseek, azuredeepseek |
+| --contextThreshold  | Keyword matches   | 2         | 1-5                                                |
+| --contextConfidence | Confidence score  | 0.6       | 0-1                                                |
+| --contextDebug      | Debug mode        | false     | boolean                                            |
+| --lengthControl     | Length validation | strict    | strict, flexible, exact, loose                     |
 
 ## 🌟 Features
 
-### AI Provider Integration
+### Provider Integration
 
-| Provider       | Model            | RPM |
-| -------------- | ---------------- | --- |
-| Qwen           | qwen-plus        | 50  |
-| XAI            | grok-2-1212      | 60  |
-| OpenAI         | gpt-4o           | 60  |
-| Gemini         | gemini-1.5-flash | 100 |
-| DeepSeek       | deepseek-chat    | 45  |
-| Azure DeepSeek | DeepSeek-R1      | 80  |
-
-### Quality Control System
-
-#### Automated Checks
+Each provider is configured with specific models and settings:
 
 ```javascript
 {
@@ -149,61 +167,61 @@ localize --source en --targets tr,es --lengthControl strict
 }
 ```
 
-#### Text Sanitization
+### Context Detection System
 
--   Removes think tags and markdown formatting
--   Normalizes whitespace and quotes
--   Preserves essential formatting elements
--   Maintains placeholder consistency
--   Handles bullet points and special characters
+- Weighted category matching
+- Confidence-based selection
+- Automatic fallback handling
+- Debug mode for analysis
+- Category-specific prompts
 
-#### Length Control
+### Quality Control
 
-| Mode     | tolerance | Description           |
+- Placeholder validation
+- HTML tag preservation
+- Punctuation checking
+- Length control
+- Style guide enforcement
+
+### Length Control Modes
+
+| Mode     | Tolerance | Description           |
 | -------- | --------- | --------------------- |
 | strict   | 0.1       | 10% deviation allowed |
 | flexible | 0.3       | 30% deviation allowed |
 | exact    | 0         | Exact length match    |
 | loose    | 0.5       | 50% deviation allowed |
 
-### Smart Context Detection
+### Error Handling
 
--   **Weighted Categories**: Different weights for context types
--   **Confidence Scoring**: Minimum threshold for category matching
--   **Fallback System**: Default to general translation when no context matches
--   **Debug Mode**: Detailed analysis of context detection
--   **Category Caching**: Optimized keyword matching
+- Provider-specific error messages
+- Automatic fallback system
+- Progress preservation
+- Rate limiting
+- Queue management
 
-### Real-time Tracking
+### Real-time Progress
 
 ```
-🔄 Progress: 72% | 360/500 files | ⏱️ 45.3s
-✅ Successful: 340
+🚀 tr [■■■■■■■■■■■■■■     ] 72%  ✅ 340  ❌ 5  ⏳ 45.3s
+
+📊 Translation Summary for tr:
+✅ Success: 340/500
 ❌ Failed: 5
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⏱️ Total Time: 45.3s
+⏳ Time: 45.3s
+
+🌍 Global Translation Summary:
+Languages Processed: 1
+Total Translations: 340
+✅ Success: 340
+❌ Failed: 5
+⏳ Total Time: 45.3s
+
+📊 Context Analysis by Category:
+technical: 156 items (85.5% avg confidence)
+defi: 124 items (78.2% avg confidence)
+general: 60 items
 ```
-
-### Error Management
-
-#### Advanced Error Handling
-
--   Automatic provider fallback system
--   Detailed error logging with provider-specific messages
--   Progress preservation on failure
--   Request queue management
--   Rate limiting per provider
--   Provider-specific error recovery
-
-#### Fallback Provider Chain
-
-1. Primary configured provider
-2. Qwen
-3. XAI
-4. OpenAI
-5. Azure DeepSeek
-6. DeepSeek
-7. Gemini
 
 ## 📜 License
 
