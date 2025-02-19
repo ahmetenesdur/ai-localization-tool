@@ -67,6 +67,11 @@ module.exports = {
 			minConfidence: 0.6, // Minimum confidence score
 		},
 		categories: {
+			technical: {
+				keywords: ["API", "backend", "database"],
+				prompt: "Preserve technical terms and variable names",
+				weight: 1.3,
+			},
 			defi: {
 				keywords: ["DeFi", "staking", "yield"],
 				prompt: "Keep DeFi terms in English",
@@ -202,7 +207,7 @@ Each provider is configured with specific models and settings:
 
 ### Real-time Progress
 
-```
+```plaintext
 🚀 tr [■■■■■■■■■■■■■■     ] 72%  ✅ 340  ❌ 5  ⏳ 45.3s
 
 📊 Translation Summary for tr:
