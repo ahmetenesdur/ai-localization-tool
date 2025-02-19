@@ -85,6 +85,7 @@ OPENAI_API_KEY=sk-yyyy
 DEEPSEEK_API_KEY=sk-zzzz
 AZURE_DEEPSEEK_API_KEY=sk-aaaa
 GEMINI_API_KEY=sk-bbbb
+XAI_API_KEY=sk-cccc
 ```
 
 ## 🚀 Usage
@@ -110,16 +111,16 @@ localize --source en --targets tr,es --lengthControl strict
 
 ### Available Options
 
-| Option              | Description       | Values                                        |
-| ------------------- | ----------------- | --------------------------------------------- |
-| --source            | Source language   | Any ISO language code                         |
-| --targets           | Target languages  | Comma-separated ISO codes                     |
-| --localesDir        | Locales directory | Path to JSON files                            |
-| --apiProvider       | AI provider       | qwen, openai, gemini, deepseek, azureDeepseek |
-| --contextThreshold  | Keyword matches   | 1-5 (default: 2)                              |
-| --contextConfidence | Confidence score  | 0-1 (default: 0.6)                            |
-| --contextDebug      | Debug mode        | boolean                                       |
-| --lengthControl     | Length validation | strict, flexible, exact, loose                |
+| Option              | Description       | Values                                             |
+| ------------------- | ----------------- | -------------------------------------------------- |
+| --source            | Source language   | Any ISO language code                              |
+| --targets           | Target languages  | Comma-separated ISO codes                          |
+| --localesDir        | Locales directory | Path to JSON files                                 |
+| --apiProvider       | AI provider       | qwen, xai, openai, gemini, deepseek, azuredeepseek |
+| --contextThreshold  | Keyword matches   | 1-5 (default: 2)                                   |
+| --contextConfidence | Confidence score  | 0-1 (default: 0.6)                                 |
+| --contextDebug      | Debug mode        | boolean                                            |
+| --lengthControl     | Length validation | strict, flexible, exact, loose                     |
 
 ## 🌟 Features
 
@@ -128,6 +129,7 @@ localize --source en --targets tr,es --lengthControl strict
 | Provider       | Model            | RPM |
 | -------------- | ---------------- | --- |
 | Qwen           | qwen-plus        | 50  |
+| XAI            | grok-2-1212      | 60  |
 | OpenAI         | gpt-4o           | 60  |
 | Gemini         | gemini-1.5-flash | 100 |
 | DeepSeek       | deepseek-chat    | 45  |
@@ -149,21 +151,30 @@ localize --source en --targets tr,es --lengthControl strict
 
 #### Text Sanitization
 
-- Removes think tags and markdown formatting
-- Normalizes whitespace and quotes
-- Preserves essential formatting elements
-- Maintains placeholder consistency
+-   Removes think tags and markdown formatting
+-   Normalizes whitespace and quotes
+-   Preserves essential formatting elements
+-   Maintains placeholder consistency
+-   Handles bullet points and special characters
+
+#### Length Control
+
+| Mode     | tolerance | Description           |
+| -------- | --------- | --------------------- |
+| strict   | 0.1       | 10% deviation allowed |
+| flexible | 0.3       | 30% deviation allowed |
+| exact    | 0         | Exact length match    |
+| loose    | 0.5       | 50% deviation allowed |
 
 ### Smart Context Detection
 
-- **Weighted Categories**: Different weights for context types
-- **Confidence Scoring**: Minimum threshold for category matching
-- **Fallback System**: Default to general translation when no context matches
-- **Debug Mode**: Detailed analysis of context detection
+-   **Weighted Categories**: Different weights for context types
+-   **Confidence Scoring**: Minimum threshold for category matching
+-   **Fallback System**: Default to general translation when no context matches
+-   **Debug Mode**: Detailed analysis of context detection
+-   **Category Caching**: Optimized keyword matching
 
-### Progress & Performance
-
-#### Real-time Tracking
+### Real-time Tracking
 
 ```
 🔄 Progress: 72% | 360/500 files | ⏱️ 45.3s
@@ -177,20 +188,22 @@ localize --source en --targets tr,es --lengthControl strict
 
 #### Advanced Error Handling
 
-- Automatic provider fallback system
-- Detailed error logging with provider-specific messages
-- Progress preservation on failure
-- Request queue management
-- Rate limiting per provider
+-   Automatic provider fallback system
+-   Detailed error logging with provider-specific messages
+-   Progress preservation on failure
+-   Request queue management
+-   Rate limiting per provider
+-   Provider-specific error recovery
 
 #### Fallback Provider Chain
 
 1. Primary configured provider
-2. Qwen (default fallback)
-3. Gemini (high throughput option)
-4. DeepSeek (cost-effective option)
-5. Azure DeepSeek (enterprise option)
-6. OpenAI (high accuracy option)
+2. Qwen
+3. XAI
+4. OpenAI
+5. Azure DeepSeek
+6. DeepSeek
+7. Gemini
 
 ## 📜 License
 

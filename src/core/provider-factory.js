@@ -9,12 +9,12 @@ const FallbackProvider = require("./fallback-provider");
 class ProviderFactory {
 	static getProvider(providerName, useFallback = true) {
 		const providers = {
-			deepseek: deepseekProvider,
-			gemini: geminiProvider,
-			azuredeepseek: azureDeepseekProvider,
-			openai: openaiProvider,
 			qwen: qwenProvider,
 			xai: xaiProvider,
+			openai: openaiProvider,
+			azuredeepseek: azureDeepseekProvider,
+			deepseek: deepseekProvider,
+			gemini: geminiProvider,
 		};
 
 		if (!useFallback) {
@@ -30,9 +30,10 @@ class ProviderFactory {
 		const fallbackOrder = [
 			providers[providerName.toLowerCase()], // Primary preferred provider
 			qwenProvider,
-			geminiProvider,
-			deepseekProvider,
+			xaiProvider,
+			openaiProvider,
 			azureDeepseekProvider,
+			deepseekProvider,
 			geminiProvider,
 		].filter(Boolean); // Filter out undefined providers
 

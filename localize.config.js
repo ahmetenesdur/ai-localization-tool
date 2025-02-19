@@ -54,26 +54,26 @@ module.exports = {
 			temperature: 0.3,
 			maxTokens: 2000,
 		},
-		gemini: {
-			model: "gemini-1.5-flash",
+		xai: {
+			model: "grok-2-1212",
 			temperature: 0.3,
+			maxTokens: 2000,
 		},
 		openai: {
 			model: "gpt-4o",
 			temperature: 0.3,
 		},
-		deepseek: {
-			model: "deepseek-chat",
-			temperature: 0.1,
-		},
 		azureDeepseek: {
 			model: "DeepSeek-R1",
 			temperature: 0.1,
 		},
-		xai: {
-			model: "grok-2-1212",
+		deepseek: {
+			model: "deepseek-chat",
+			temperature: 0.1,
+		},
+		gemini: {
+			model: "gemini-1.5-flash",
 			temperature: 0.3,
-			maxTokens: 2000,
 		},
 	},
 
