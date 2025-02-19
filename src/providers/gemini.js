@@ -7,9 +7,9 @@ async function translate(text, sourceLang, targetLang, options) {
 	const maxOutputTokens = options.apiConfig?.gemini?.maxTokens || 2048;
 
 	// Check API key
-	const apiKey = process.env.GOOGLE_API_KEY;
+	const apiKey = process.env.GEMINI_API_KEY;
 	if (!apiKey) {
-		throw new Error("GOOGLE_API_KEY environment variable not found");
+		throw new Error("GEMINI_API_KEY environment variable not found");
 	}
 
 	const promptData = getPrompt("gemini", sourceLang, targetLang, {

@@ -84,7 +84,7 @@ QWEN_API_KEY=sk-xxxx
 OPENAI_API_KEY=sk-yyyy
 DEEPSEEK_API_KEY=sk-zzzz
 AZURE_DEEPSEEK_API_KEY=sk-aaaa
-GOOGLE_API_KEY=sk-bbbb
+GEMINI_API_KEY=sk-bbbb
 ```
 
 ## 🚀 Usage

@@ -1,8 +1,8 @@
 const basePromptTemplate = (sourceLang, targetLang, options) => {
 	const context = options.detectedContext || {
-		category: 'general',
+		category: "general",
 		confidence: 1.0,
-		prompt: 'Provide a natural translation'
+		prompt: "Provide a natural translation",
 	};
 
 	const contextInfo = `
