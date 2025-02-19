@@ -61,6 +61,10 @@ class QualityChecker extends BaseChecker {
 			issues.push(...this.checkStyleGuide(translatedText));
 		}
 
+		if (this.rules.sanitizeOutput) {
+			translatedText = this.sanitizeTranslation(translatedText);
+		}
+
 		return {
 			isValid: issues.length === 0,
 			issues,

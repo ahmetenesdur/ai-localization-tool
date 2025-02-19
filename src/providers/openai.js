@@ -6,10 +6,13 @@ async function translate(text, sourceLang, targetLang, options) {
 	const temperature = options.apiConfig?.openai?.temperature || 0.3;
 	const maxTokens = options.apiConfig?.openai?.maxTokens || 2000;
 
-	const promptData = getPrompt("openai", sourceLang, targetLang, {
-		...options,
+	const promptData = getPrompt(
+		"openai",
+		sourceLang,
+		targetLang,
 		text,
-	});
+		options
+	);
 
 	try {
 		const response = await axios.post(

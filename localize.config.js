@@ -2,7 +2,20 @@ module.exports = {
 	// Basic Settings
 	localesDir: "./locales", // Directory where locale JSON files are stored
 	source: "en", // Source language
-	targets: ["tr"], // Target languages
+	targets: [
+		"tr",
+		"de",
+		"es",
+		"fr",
+		"hi",
+		"ja",
+		"pl",
+		"ru",
+		"th",
+		"uk",
+		"vi",
+		"zh",
+	], // Target languages
 
 	// Translation Quality
 	context: {
@@ -36,6 +49,7 @@ module.exports = {
 			punctuationCheck: true,
 			lengthValidation: true,
 			styleGuideChecks: true,
+			sanitizeOutput: true,
 		},
 	},
 

@@ -7,10 +7,13 @@ async function translate(text, sourceLang, targetLang, options) {
 	const maxTokens = options.apiConfig?.deepseek?.maxTokens || 2000;
 
 	try {
-		const promptData = getPrompt("deepseek", sourceLang, targetLang, {
-			...options,
+		const promptData = getPrompt(
+			"deepseek",
+			sourceLang,
+			targetLang,
 			text,
-		});
+			options
+		);
 
 		const response = await axios.post(
 			"https://api.deepseek.com/v1/chat/completions",

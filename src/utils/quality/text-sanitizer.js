@@ -5,7 +5,10 @@ class TextSanitizer {
 			this.removeMarkdownFormatting,
 			this.removeQuotes,
 			this.removeBulletPoints,
+			this.removeExplanations,
+			this.removeAIArtifacts,
 			this.normalizeWhitespace,
+			this.trimSpecialChars,
 		]);
 	}
 
@@ -27,6 +30,33 @@ class TextSanitizer {
 
 	removeBulletPoints(text) {
 		return text.replace(/^\s*[-•]\s*/g, "");
+	}
+
+	removeExplanations(text) {
+		// Remove any text between common explanation markers
+		return text
+			.replace(/<think>[\s\S]*?<\/think>/g, "")
+			.replace(/\[.*?\]/g, "")
+			.replace(/\(.*?\)/g, "")
+			.replace(/^(Translation:|Translated text:|Result:|Output:)/gi, "");
+	}
+
+	removeAIArtifacts(text) {
+		// Remove common AI model output patterns
+		return text
+			.replace(
+				/^(Here's the translation:|The translation is:|I would translate this as:)/gi,
+				""
+			)
+			.replace(/^[A-Za-z]+ translation: /g, "")
+			.replace(/\b(Note|Remember|Important):.+$/gi, "");
+	}
+
+	trimSpecialChars(text) {
+		// Remove special characters and extra whitespace
+		return text
+			.replace(/^['"*_~`]+|['"*_~`]+$/g, "")
+			.replace(/^\s+|\s+$/g, "");
 	}
 
 	normalizeWhitespace(text) {

@@ -12,10 +12,13 @@ async function translate(text, sourceLang, targetLang, options) {
 		throw new Error("GEMINI_API_KEY environment variable not found");
 	}
 
-	const promptData = getPrompt("gemini", sourceLang, targetLang, {
-		...options,
+	const promptData = getPrompt(
+		"gemini",
+		sourceLang,
+		targetLang,
 		text,
-	});
+		options
+	);
 
 	try {
 		// Sending request to Gemini API endpoint

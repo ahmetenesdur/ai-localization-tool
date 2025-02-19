@@ -6,10 +6,7 @@ async function translate(text, sourceLang, targetLang, options) {
 	const temperature = options.apiConfig?.xai?.temperature || 0.3;
 	const maxTokens = options.apiConfig?.xai?.maxTokens || 2000;
 
-	const promptData = getPrompt("xai", sourceLang, targetLang, {
-		...options,
-		text,
-	});
+	const promptData = getPrompt("xai", sourceLang, targetLang, text, options);
 
 	try {
 		const response = await axios.post(

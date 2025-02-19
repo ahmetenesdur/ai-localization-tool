@@ -23,7 +23,7 @@ module.exports = {
 	// Basic Settings
 	localesDir: "./locales", // Directory for translation files
 	source: "en", // Source language
-	targets: ["tr", "es"], // Target languages
+	targets: ["tr", "de", "es"], // Expanded target languages
 
 	// API Provider Settings
 	apiProvider: "qwen", // Primary provider
@@ -93,6 +93,7 @@ module.exports = {
 			punctuationCheck: true,
 			lengthValidation: true,
 			styleGuideChecks: true,
+			sanitizeOutput: true,
 		},
 	},
 
@@ -168,7 +169,8 @@ Each provider is configured with specific models and settings:
 	htmlTagsConsistency: true,      // Preserves HTML markup (<div>, <span>, etc.)
 	punctuationCheck: true,         // Ensures proper end punctuation
 	lengthValidation: true,         // Controls output length based on mode
-	styleGuideChecks: true          // Enforces tone and formality
+	styleGuideChecks: true,         // Enforces tone and formality
+	sanitizeOutput: true,          // Sanitizes output to remove AI artifacts
 }
 ```
 

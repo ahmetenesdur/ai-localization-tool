@@ -16,10 +16,13 @@ async function translate(text, sourceLang, targetLang, options) {
 	}
 
 	const client = new ModelClient(endpoint, new AzureKeyCredential(apiKey));
-	const promptData = getPrompt("azuredeepseek", sourceLang, targetLang, {
-		...options,
+	const promptData = getPrompt(
+		"azuredeepseek",
+		sourceLang,
+		targetLang,
 		text,
-	});
+		options
+	);
 
 	try {
 		const response = await client.path("/chat/completions").post({
