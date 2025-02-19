@@ -30,6 +30,11 @@ class RateLimiter {
 				currentRequests: 0,
 				lastReset: performance.now(),
 			},
+			xai: {
+				requestsPerMinute: 60,
+				currentRequests: 0,
+				lastReset: performance.now(),
+			},
 		};
 	}
 

@@ -70,6 +70,11 @@ module.exports = {
 			model: "DeepSeek-R1",
 			temperature: 0.1,
 		},
+		xai: {
+			model: "grok-2-1212",
+			temperature: 0.3,
+			maxTokens: 2000,
+		},
 	},
 
 	lengthControl: {

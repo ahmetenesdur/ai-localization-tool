@@ -96,6 +96,19 @@ Original Text: "${text}"`,
 		],
 	}),
 
+	xai: (sourceLang, targetLang, options) => ({
+		messages: [
+			{
+				role: "system",
+				content: basePromptTemplate(sourceLang, targetLang, options),
+			},
+			{
+				role: "user",
+				content: options.text,
+			},
+		],
+	}),
+
 	default: (sourceLang, targetLang, options) => ({
 		messages: [
 			{

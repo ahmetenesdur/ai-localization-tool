@@ -3,6 +3,7 @@ const geminiProvider = require("../providers/gemini");
 const azureDeepseekProvider = require("../providers/azure-deepseek");
 const openaiProvider = require("../providers/openai");
 const qwenProvider = require("../providers/qwen");
+const xaiProvider = require("../providers/xai");
 const FallbackProvider = require("./fallback-provider");
 
 class ProviderFactory {
@@ -13,6 +14,7 @@ class ProviderFactory {
 			azuredeepseek: azureDeepseekProvider,
 			openai: openaiProvider,
 			qwen: qwenProvider,
+			xai: xaiProvider,
 		};
 
 		if (!useFallback) {
