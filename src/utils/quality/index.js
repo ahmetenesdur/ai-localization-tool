@@ -125,7 +125,23 @@ class QualityChecker extends BaseChecker {
 	}
 
 	sanitizeTranslation(text) {
-		return this.textSanitizer.sanitize(text);
+		if (!text) return text;
+
+		// First pass sanitization
+		let sanitized = this.textSanitizer.sanitize(text);
+
+		// Remove any remaining think tags
+		if (sanitized.includes("<think>")) {
+			sanitized = this.textSanitizer.removeThinkTags(sanitized);
+		}
+
+		// Final cleanup of duplicate lines
+		sanitized = sanitized
+			.split("\n")
+			.filter((line, index, arr) => line !== arr[index - 1])
+			.join("\n");
+
+		return sanitized;
 	}
 }
 

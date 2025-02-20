@@ -1,15 +1,20 @@
 class TextSanitizer {
 	sanitize(text) {
-		return this.applyRules(text, [
+		if (!text) return text;
+
+		const rules = [
 			this.removeThinkTags,
 			this.removeMarkdownFormatting,
 			this.removeQuotes,
 			this.removeBulletPoints,
 			this.removeExplanations,
 			this.removeAIArtifacts,
+			this.removeAllArtifacts,
 			this.normalizeWhitespace,
 			this.trimSpecialChars,
-		]);
+		];
+
+		return this.applyRules(text, rules);
 	}
 
 	applyRules(text, rules) {
@@ -17,7 +22,11 @@ class TextSanitizer {
 	}
 
 	removeThinkTags(text) {
-		return text.replace(/<think>[\s\S]*?<\/think>/g, "");
+		// More robust think tag removal
+		return text
+			.replace(/<think>[\s\S]*?<\/think>/gi, "")
+			.replace(/<think[\s\S]*?<\/think>/gi, "")
+			.trim();
 	}
 
 	removeMarkdownFormatting(text) {
@@ -60,7 +69,37 @@ class TextSanitizer {
 	}
 
 	normalizeWhitespace(text) {
-		return text.replace(/\n+/g, " ").trim();
+		// Remove duplicate lines and normalize whitespace
+		const lines = text
+			.split("\n")
+			.map((line) => line.trim())
+			.filter((line) => line); // Remove empty lines
+
+		// Remove duplicate consecutive lines
+		const uniqueLines = lines.filter(
+			(line, index, arr) => line !== arr[index - 1]
+		);
+
+		return uniqueLines.join("\n");
+	}
+
+	removeAllArtifacts(text) {
+		const cleaned = text
+			.replace(/<think>[\s\S]*?<\/think>/gi, "")
+			.replace(/^[A-Za-z]+ translation:[\s\S]*?\n/gim, "")
+			.replace(/^(Here's|This is|The) (the )?translation:?\s*/gim, "")
+			.replace(/^Translation result:?\s*/gim, "")
+			.replace(/^\s*[-•]\s*/gm, "")
+			.replace(/^['"]|['"]$/g, "")
+			.replace(/^\s+|\s+$/gm, "");
+
+		// Remove duplicate lines
+		const lines = cleaned
+			.split("\n")
+			.filter((line) => line.trim())
+			.filter((line, index, arr) => line !== arr[index - 1]);
+
+		return lines.join("\n");
 	}
 }
 

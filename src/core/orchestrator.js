@@ -30,7 +30,7 @@ class Orchestrator {
 				throw new Error("Translation provider not available");
 			}
 
-			const translated = await rateLimiter.enqueue(
+			let translated = await rateLimiter.enqueue(
 				this.options.apiProvider.toLowerCase(),
 				() =>
 					provider.translate(text, this.options.source, targetLang, {
@@ -39,11 +39,19 @@ class Orchestrator {
 					})
 			);
 
+			// Apply quality checks and fixes
+			const qualityResult = this.qualityChecker.validateAndFix(
+				text,
+				translated
+			);
+			translated = qualityResult.fixedText;
+
 			return {
 				key,
 				translated,
 				context: contextData,
 				success: true,
+				qualityChecks: qualityResult,
 			};
 		} catch (err) {
 			console.error(`Translation error - key "${key}":`, err);
