@@ -92,7 +92,6 @@ module.exports = {
 			htmlTagsConsistency: true,
 			punctuationCheck: true,
 			lengthValidation: true,
-			styleGuideChecks: true,
 			sanitizeOutput: true,
 		},
 	},
@@ -169,26 +168,25 @@ Each provider is configured with specific models and settings:
 	htmlTagsConsistency: true,      // Preserves HTML markup (<div>, <span>, etc.)
 	punctuationCheck: true,         // Ensures proper end punctuation
 	lengthValidation: true,         // Controls output length based on mode
-	styleGuideChecks: true,         // Enforces tone and formality
 	sanitizeOutput: true,          // Sanitizes output to remove AI artifacts
 }
 ```
 
 ### Context Detection System
 
-- Weighted category matching
-- Confidence-based selection
-- Automatic fallback handling
-- Debug mode for analysis
-- Category-specific prompts
+-   Weighted category matching
+-   Confidence-based selection
+-   Automatic fallback handling
+-   Debug mode for analysis
+-   Category-specific prompts
 
 ### Quality Control
 
-- Placeholder validation
-- HTML tag preservation
-- Punctuation checking
-- Length control
-- Style guide enforcement
+-   Placeholder validation
+-   HTML tag preservation
+-   Punctuation checking
+-   Length control
+-   Output sanitization
 
 ### Length Control Modes
 
@@ -201,11 +199,11 @@ Each provider is configured with specific models and settings:
 
 ### Error Handling
 
-- Provider-specific error messages
-- Automatic fallback system
-- Progress preservation
-- Rate limiting
-- Queue management
+-   Provider-specific error messages
+-   Automatic fallback system
+-   Progress preservation
+-   Rate limiting
+-   Queue management
 
 ### Real-time Progress
 

@@ -48,7 +48,6 @@ module.exports = {
 			htmlTagsConsistency: true,
 			punctuationCheck: true,
 			lengthValidation: true,
-			styleGuideChecks: true,
 			sanitizeOutput: true,
 		},
 	},

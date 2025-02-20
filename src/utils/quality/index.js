@@ -57,10 +57,6 @@ class QualityChecker extends BaseChecker {
 			);
 		}
 
-		if (this.rules.styleGuideChecks) {
-			issues.push(...this.checkStyleGuide(translatedText));
-		}
-
 		if (this.rules.sanitizeOutput) {
 			translatedText = this.sanitizeTranslation(translatedText);
 		}
@@ -130,25 +126,6 @@ class QualityChecker extends BaseChecker {
 
 	sanitizeTranslation(text) {
 		return this.textSanitizer.sanitize(text);
-	}
-
-	checkStyleGuide(translatedText) {
-		const issues = [];
-		const formality = this.styleGuide.formality;
-		const tone = this.styleGuide.toneOfVoice;
-
-		if (
-			formality === "formal" &&
-			/\b(hey|hi|hello)\b/i.test(translatedText)
-		) {
-			issues.push({
-				type: "style",
-				message: "Informal greeting detected in formal context",
-				severity: "warning",
-			});
-		}
-
-		return issues;
 	}
 }
 
