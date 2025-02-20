@@ -6,6 +6,7 @@ const path = require("path");
 const {
 	translateFile,
 	findLocaleFiles,
+	validateAndFixExistingTranslations,
 } = require("../src/commands/translator");
 
 const loadConfig = () => {
@@ -59,6 +60,11 @@ const configureCLI = (defaultConfig) => {
 			"Show context details",
 			defaultConfig.context.debug
 		)
+		.option(
+			"--fix-length",
+			"Fix existing translations with length issues",
+			false
+		)
 		.parse(process.argv);
 
 	return {
@@ -110,9 +116,21 @@ const validateEnvironment = () => {
 			);
 		}
 
-		console.log(`\n📦 Processing source file: ${options.source}.json`);
-		await Promise.all(files.map((file) => translateFile(file, options)));
-		console.log("\n✅ All translations completed successfully");
+		if (options.fixLength) {
+			console.log("\n🔧 Running in LENGTH FIX mode");
+			await Promise.all(
+				files.map((file) =>
+					validateAndFixExistingTranslations(file, options)
+				)
+			);
+		} else {
+			console.log("\n🚀 Running in STANDARD TRANSLATION mode");
+			await Promise.all(
+				files.map((file) => translateFile(file, options))
+			);
+		}
+
+		console.log("\n✅ All operations completed successfully");
 	} catch (error) {
 		console.error(`\n❌ Error: ${error.message}`);
 		process.exit(1);

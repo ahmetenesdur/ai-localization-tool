@@ -139,38 +139,39 @@ localize --source en --targets tr --apiProvider qwen --contextThreshold 3 --cont
 # Debug mode for context analysis
 localize --source en --targets es --contextDebug
 
-# Strict length control
+# Fix length issues in existing translations
+localize --source en --targets tr,es --fix-length
+
+# Strict length control for new translations
 localize --source en --targets tr,es --lengthControl strict
 ```
 
 ### CLI Options
 
-| Option              | Description       | Default   | Values                                             |
-| ------------------- | ----------------- | --------- | -------------------------------------------------- |
-| --source            | Source language   | en        | Any ISO language code                              |
-| --targets           | Target languages  | []        | Comma-separated ISO codes                          |
-| --localesDir        | Locales directory | ./locales | Path to JSON files                                 |
-| --apiProvider       | AI provider       | qwen      | qwen, xai, openai, gemini, deepseek, azuredeepseek |
-| --contextThreshold  | Keyword matches   | 2         | 1-5                                                |
-| --contextConfidence | Confidence score  | 0.6       | 0-1                                                |
-| --contextDebug      | Debug mode        | false     | boolean                                            |
-| --lengthControl     | Length validation | strict    | strict, flexible, exact, loose                     |
+| Option              | Description                      | Default   | Values                                             |
+| ------------------- | -------------------------------- | --------- | -------------------------------------------------- |
+| --source            | Source language                  | en        | Any ISO language code                              |
+| --targets           | Target languages                 | []        | Comma-separated ISO codes                          |
+| --localesDir        | Locales directory                | ./locales | Path to JSON files                                 |
+| --apiProvider       | AI provider                      | qwen      | qwen, xai, openai, gemini, deepseek, azuredeepseek |
+| --contextThreshold  | Keyword matches                  | 2         | 1-5                                                |
+| --contextConfidence | Confidence score                 | 0.6       | 0-1                                                |
+| --contextDebug      | Debug mode                       | false     | boolean                                            |
+| --lengthControl     | Length validation                | strict    | strict, flexible, exact, loose                     |
+| --fix-length        | Fix existing translation lengths | false     | boolean                                            |
 
 ## 🌟 Features
 
 ### Provider Integration
 
-Each provider is configured with specific models and settings:
-
-```javascript
-{
-	placeholderConsistency: true,   // Validates {variables} and ${expressions}
-	htmlTagsConsistency: true,      // Preserves HTML markup (<div>, <span>, etc.)
-	punctuationCheck: true,         // Ensures proper end punctuation
-	lengthValidation: true,         // Controls output length based on mode
-	sanitizeOutput: true,          // Sanitizes output to remove AI artifacts
-}
-```
+| Provider       | Base Model       | RPM Limit | Fallback Order |
+| -------------- | ---------------- | --------- | -------------- |
+| Qwen           | qwen-plus        | 50        | 1              |
+| XAI            | grok-2-1212      | 60        | 2              |
+| OpenAI         | gpt-4o           | 60        | 3              |
+| Azure DeepSeek | DeepSeek-R1      | 80        | 4              |
+| DeepSeek       | deepseek-chat    | 45        | 5              |
+| Gemini         | gemini-1.5-flash | 100       | 6              |
 
 ### Context Detection System
 

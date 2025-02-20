@@ -5,8 +5,14 @@ const basePromptTemplate = (sourceLang, targetLang, text, options) => {
 		prompt: "Provide a natural translation",
 	};
 
+	let additionalInstructions = "";
+	if (context.existingTranslation) {
+		additionalInstructions = `\nREVISION REQUEST: The existing translation "${context.existingTranslation}" has length issues. Please provide a corrected version that matches the source text length requirements.`;
+	}
+
 	return `
 Translation Task: ${sourceLang} → ${targetLang}
+${additionalInstructions}
 
 Category: ${context.category}
 Context Instructions: ${context.prompt}
@@ -31,7 +37,12 @@ const providerSpecificPrompts = {
 			{
 				parts: [
 					{
-						text: `${basePromptTemplate(sourceLang, targetLang, text, options)}
+						text: `${basePromptTemplate(
+							sourceLang,
+							targetLang,
+							text,
+							options
+						)}
 Original Text: "${text}"`,
 					},
 				],

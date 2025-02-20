@@ -2,6 +2,7 @@ const path = require("path");
 const FileManager = require("../utils/file-manager");
 const ObjectTransformer = require("../utils/object-transformer");
 const Orchestrator = require("../core/orchestrator");
+const QualityChecker = require("../utils/quality");
 
 // Translate all keys in a JSON file for each target language
 async function translateFile(file, options) {
@@ -54,8 +55,9 @@ async function translateFile(file, options) {
 				targetLang,
 			}));
 
-			const results =
-				await orchestrator.processTranslations(translationItems);
+			const results = await orchestrator.processTranslations(
+				translationItems
+			);
 
 			// Process and save valid translations
 			const validResults = results.filter((result) => result.success);
@@ -108,6 +110,96 @@ async function translateFile(file, options) {
 	}
 }
 
+async function validateAndFixExistingTranslations(file, options) {
+	console.log(
+		`\n🔍 Checking existing translations in: "${path.basename(file)}"`
+	);
+
+	const sourceContent = FileManager.readJSON(file);
+	const flattenedSource = ObjectTransformer.flatten(sourceContent);
+	const orchestrator = new Orchestrator(options);
+
+	try {
+		for (const targetLang of options.targets) {
+			const targetPath = path.join(
+				path.dirname(file),
+				`${targetLang}.json`
+			);
+			const targetContent = FileManager.readJSON(targetPath);
+			const flattenedTarget = ObjectTransformer.flatten(targetContent);
+
+			const invalidItems = [];
+			const qualityChecker = new QualityChecker({
+				styleGuide: options.styleGuide,
+				context: options.context,
+				lengthControl: options.lengthControl,
+				rules: {
+					lengthValidation: true,
+					placeholderConsistency: false,
+					htmlTagsConsistency: false,
+					punctuationCheck: false,
+				},
+			});
+
+			// Check all existing translations
+			for (const [key, translatedText] of Object.entries(
+				flattenedTarget
+			)) {
+				const sourceText = flattenedSource[key];
+				if (!sourceText) continue;
+
+				const checkResult = qualityChecker.validate(
+					sourceText,
+					translatedText,
+					options
+				);
+				const lengthIssue = checkResult.issues.find(
+					(i) => i.type === "length"
+				);
+
+				if (lengthIssue) {
+					invalidItems.push({
+						key,
+						text: sourceText,
+						targetLang,
+						existingTranslation: translatedText,
+						issueDetails: lengthIssue,
+					});
+				}
+			}
+
+			if (invalidItems.length > 0) {
+				console.log(
+					`⚠️  Found ${invalidItems.length} length issues in ${targetLang}`
+				);
+				const results = await orchestrator.processTranslations(
+					invalidItems
+				);
+
+				// Apply fixes
+				const fixedCount = results.filter((r) => r.success).length;
+				results.forEach(({ key, translated }) => {
+					if (translated) {
+						flattenedTarget[key] = translated;
+					}
+				});
+
+				const unflattened =
+					ObjectTransformer.unflatten(flattenedTarget);
+				FileManager.writeJSON(targetPath, unflattened);
+				console.log(
+					`✅ Fixed ${fixedCount}/${invalidItems.length} translations in ${targetLang}`
+				);
+			} else {
+				console.log(`✅ No length issues found in ${targetLang}`);
+			}
+		}
+	} catch (error) {
+		console.error(`\n❌ Validation error: ${error.message}`);
+		throw error;
+	}
+}
+
 function displayGlobalSummary(stats, totalLanguages) {
 	console.log("\n🌍 Global Translation Summary:");
 	console.log(`Languages Processed: ${totalLanguages}`);
@@ -136,4 +228,5 @@ function displayGlobalSummary(stats, totalLanguages) {
 module.exports = {
 	findLocaleFiles: FileManager.findLocaleFiles,
 	translateFile,
+	validateAndFixExistingTranslations,
 };

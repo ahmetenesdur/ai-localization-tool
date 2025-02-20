@@ -16,7 +16,13 @@ class Orchestrator {
 		});
 	}
 
-	async processTranslation(key, text, targetLang, contextData) {
+	async processTranslation(
+		key,
+		text,
+		targetLang,
+		contextData,
+		existingTranslation
+	) {
 		if (typeof text !== "string")
 			return { key, translated: text, error: "Invalid input type" };
 
@@ -30,12 +36,17 @@ class Orchestrator {
 				throw new Error("Translation provider not available");
 			}
 
+			const translationContext = {
+				...contextData,
+				existingTranslation: existingTranslation || null,
+			};
+
 			let translated = await rateLimiter.enqueue(
 				this.options.apiProvider.toLowerCase(),
 				() =>
 					provider.translate(text, this.options.source, targetLang, {
 						...this.options,
-						detectedContext: contextData,
+						detectedContext: translationContext,
 					})
 			);
 
@@ -75,7 +86,8 @@ class Orchestrator {
 					item.key,
 					item.text,
 					item.targetLang,
-					contextData
+					contextData,
+					item.existingTranslation
 				);
 				results.push(result);
 				this.progress.increment(result.success ? "success" : "failed");
