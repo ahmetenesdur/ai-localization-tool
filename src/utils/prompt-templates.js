@@ -1,9 +1,56 @@
+const getLengthInstructions = (options) => {
+	const {
+		mode = "smart",
+		lengthControl,
+		targetLang,
+		detectedContext,
+	} = options;
+	const context = detectedContext?.category || "general";
+
+	if (mode === "smart") {
+		const langRules =
+			lengthControl.rules.smart.byLanguage[targetLang] || {};
+		const contextRules = lengthControl.rules.smart.byContext[context] || {};
+
+		return `TRANSLATION LENGTH REQUIREMENTS [${targetLang}]:
+1. Maximum allowed length: ${(langRules.max || 0.15) * 100}% longer than source
+2. Context-specific [${context}] limit: ${
+			(contextRules.max || 0.15) * 100
+		}% longer than source
+3. Shorter translations are preferred when possible
+4. Maintain semantic completeness while being concise`;
+	}
+
+	const templates = {
+		strict: () =>
+			`CRITICAL: Translation must not exceed ${
+				lengthControl.rules.strict * 100
+			}% of source length. Prefer shorter translations.`,
+		flexible: () =>
+			`IMPORTANT: Keep translation concise. Target length should not exceed source length by more than ${
+				lengthControl.rules.flexible * 100
+			}%.`,
+		exact: () =>
+			`STRICT: Translation must closely match source length (max ${
+				lengthControl.rules.exact * 100
+			}% deviation).`,
+		relaxed: () =>
+			`GUIDELINE: Translation should be concise but can be up to ${
+				lengthControl.rules.relaxed * 100
+			}% longer if needed.`,
+	};
+
+	return (templates[mode] || templates.smart)();
+};
+
 const basePromptTemplate = (sourceLang, targetLang, text, options) => {
 	const context = options.detectedContext || {
 		category: "general",
 		confidence: 1.0,
 		prompt: "Provide a natural translation",
 	};
+
+	const lengthInstructions = getLengthInstructions(options);
 
 	let additionalInstructions = "";
 	if (context.existingTranslation) {
@@ -17,6 +64,9 @@ ${additionalInstructions}
 Category: ${context.category}
 Context Instructions: ${context.prompt}
 
+LENGTH CONTROL:
+${lengthInstructions}
+
 STRICT OUTPUT REQUIREMENTS:
 1. RETURN ONLY THE TRANSLATED TEXT
 2. NO EXPLANATIONS OR COMMENTARY
@@ -25,7 +75,6 @@ STRICT OUTPUT REQUIREMENTS:
 5. PRESERVE TECHNICAL TERMS AND PLACEHOLDERS
 
 Style: ${options.styleGuide.formality}, ${options.styleGuide.toneOfVoice}
-Length Control: ${options.lengthControl?.mode || "flexible"}
 
 Text to Translate:
 ${text}`;

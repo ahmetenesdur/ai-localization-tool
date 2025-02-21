@@ -104,7 +104,36 @@ module.exports = {
 
 	// Length Control
 	lengthControl: {
-		mode: "strict", // strict, flexible, exact, loose
+		mode: "smart",
+		rules: {
+			strict: 0.1, // 10% deviation
+			flexible: 0.3, // 30% deviation
+			exact: 0.05, // 5% deviation (near exact)
+			relaxed: 0.5, // 50% deviation
+			smart: {
+				default: 0.15,
+				byLanguage: {
+					ja: { max: 0.35, min: -0.2 },
+					zh: { max: 0.35, min: -0.2 },
+					th: { max: 0.3, min: -0.15 },
+					vi: { max: 0.25, min: -0.15 },
+					hi: { max: 0.2, min: -0.1 },
+					ru: { max: 0.25, min: -0.15 },
+					uk: { max: 0.25, min: -0.15 },
+					pl: { max: 0.2, min: -0.1 },
+					de: { max: 0.15, min: -0.1 },
+					fr: { max: 0.15, min: -0.1 },
+					es: { max: 0.15, min: -0.1 },
+					tr: { max: 0.15, min: -0.1 },
+				},
+				byContext: {
+					technical: { max: 0.2, min: -0.1 },
+					marketing: { max: 0.3, min: -0.15 },
+					legal: { max: 0.1, min: -0.05 },
+					general: { max: 0.15, min: -0.1 },
+				},
+			},
+		},
 	},
 };
 ```
@@ -157,7 +186,7 @@ localize --source en --targets tr,es --lengthControl strict
 | --contextThreshold  | Keyword matches                  | 2         | 1-5                                                |
 | --contextConfidence | Confidence score                 | 0.6       | 0-1                                                |
 | --contextDebug      | Debug mode                       | false     | boolean                                            |
-| --lengthControl     | Length validation                | strict    | strict, flexible, exact, loose                     |
+| --lengthControl     | Length validation                | smart     | strict, flexible, exact, relaxed, smart            |
 | --fix-length        | Fix existing translation lengths | false     | boolean                                            |
 
 ## 🌟 Features
@@ -191,12 +220,20 @@ localize --source en --targets tr,es --lengthControl strict
 
 ### Length Control Modes
 
-| Mode     | Tolerance | Description           |
-| -------- | --------- | --------------------- |
-| strict   | 0.1       | 10% deviation allowed |
-| flexible | 0.3       | 30% deviation allowed |
-| exact    | 0         | Exact length match    |
-| loose    | 0.5       | 50% deviation allowed |
+| Mode     | Tolerance | Description                                     |
+| -------- | --------- | ----------------------------------------------- |
+| strict   | 0.1       | Max 10% longer than source                      |
+| flexible | 0.3       | Max 30% longer than source                      |
+| exact    | 0.05      | Near exact length match (±5%)                   |
+| relaxed  | 0.5       | Max 50% longer for special cases                |
+| smart    | -         | Combines language and context rules dynamically |
+
+**Smart Mode Features:**
+
+-   Language-specific length rules (e.g. Japanese: 35% max)
+-   Context-aware adjustments (technical: 20% vs marketing: 30%)
+-   Automatic brevity optimization
+-   Priority to semantic accuracy over strict length
 
 ### Error Handling
 

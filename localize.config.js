@@ -91,6 +91,35 @@ module.exports = {
 	},
 
 	lengthControl: {
-		mode: "strict", // "flexible", "strict", "exact", "loose"
+		mode: "smart",
+		rules: {
+			strict: 0.1,
+			flexible: 0.3,
+			exact: 0.05,
+			relaxed: 0.5,
+			smart: {
+				default: 0.15,
+				byLanguage: {
+					ja: { max: 0.35, min: -0.2 },
+					zh: { max: 0.35, min: -0.2 },
+					th: { max: 0.3, min: -0.15 },
+					vi: { max: 0.25, min: -0.15 },
+					hi: { max: 0.2, min: -0.1 },
+					ru: { max: 0.25, min: -0.15 },
+					uk: { max: 0.25, min: -0.15 },
+					pl: { max: 0.2, min: -0.1 },
+					de: { max: 0.15, min: -0.1 },
+					fr: { max: 0.15, min: -0.1 },
+					es: { max: 0.15, min: -0.1 },
+					tr: { max: 0.15, min: -0.1 },
+				},
+				byContext: {
+					technical: { max: 0.2, min: -0.1 },
+					marketing: { max: 0.3, min: -0.15 },
+					legal: { max: 0.1, min: -0.05 },
+					general: { max: 0.15, min: -0.1 }
+				}
+			}
+		}
 	},
 };
