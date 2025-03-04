@@ -25,7 +25,7 @@ class RateLimiter {
 				currentRequests: 0,
 				lastReset: performance.now(),
 			},
-			qwen: {
+			dashscope: {
 				requestsPerMinute: 50,
 				currentRequests: 0,
 				lastReset: performance.now(),

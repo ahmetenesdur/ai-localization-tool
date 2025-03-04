@@ -26,12 +26,12 @@ module.exports = {
 	targets: ["tr", "de", "es"], // Expanded target languages
 
 	// API Provider Settings
-	apiProvider: "qwen", // Primary provider
+	apiProvider: "dashscope", // Primary provider
 	useFallback: true, // Enable fallback system
 
 	// API Configuration
 	apiConfig: {
-		qwen: {
+		dashscope: {
 			model: "qwen-plus",
 			temperature: 0.3,
 			maxTokens: 2000,
@@ -143,7 +143,7 @@ module.exports = {
 Add your API keys to the `.env` file:
 
 ```env
-QWEN_API_KEY=sk-xxxx
+DASHSCOPE_API_KEY=sk-xxxx
 OPENAI_API_KEY=sk-yyyy
 DEEPSEEK_API_KEY=sk-zzzz
 AZURE_DEEPSEEK_API_KEY=sk-aaaa
@@ -163,7 +163,7 @@ localize --source en --targets tr,es --localesDir ./src/locales
 
 ```bash
 # With specific provider and context settings
-localize --source en --targets tr --apiProvider qwen --contextThreshold 3 --contextConfidence 0.7
+localize --source en --targets tr --apiProvider dashscope --contextThreshold 3 --contextConfidence 0.7
 
 # Debug mode for context analysis
 localize --source en --targets es --contextDebug
@@ -177,17 +177,17 @@ localize --source en --targets tr,es --lengthControl strict
 
 ### CLI Options
 
-| Option              | Description                      | Default   | Values                                             |
-| ------------------- | -------------------------------- | --------- | -------------------------------------------------- |
-| --source            | Source language                  | en        | Any ISO language code                              |
-| --targets           | Target languages                 | []        | Comma-separated ISO codes                          |
-| --localesDir        | Locales directory                | ./locales | Path to JSON files                                 |
-| --apiProvider       | AI provider                      | qwen      | qwen, xai, openai, gemini, deepseek, azuredeepseek |
-| --contextThreshold  | Keyword matches                  | 2         | 1-5                                                |
-| --contextConfidence | Confidence score                 | 0.6       | 0-1                                                |
-| --contextDebug      | Debug mode                       | false     | boolean                                            |
-| --lengthControl     | Length validation                | smart     | strict, flexible, exact, relaxed, smart            |
-| --fix-length        | Fix existing translation lengths | false     | boolean                                            |
+| Option              | Description                      | Default   | Values                                                  |
+| ------------------- | -------------------------------- | --------- | ------------------------------------------------------- |
+| --source            | Source language                  | en        | Any ISO language code                                   |
+| --targets           | Target languages                 | []        | Comma-separated ISO codes                               |
+| --localesDir        | Locales directory                | ./locales | Path to JSON files                                      |
+| --apiProvider       | AI provider                      | dashscope | dashscope, xai, openai, gemini, deepseek, azuredeepseek |
+| --contextThreshold  | Keyword matches                  | 2         | 1-5                                                     |
+| --contextConfidence | Confidence score                 | 0.6       | 0-1                                                     |
+| --contextDebug      | Debug mode                       | false     | boolean                                                 |
+| --lengthControl     | Length validation                | smart     | strict, flexible, exact, relaxed, smart                 |
+| --fix-length        | Fix existing translation lengths | false     | boolean                                                 |
 
 ## 🌟 Features
 
@@ -195,7 +195,7 @@ localize --source en --targets tr,es --lengthControl strict
 
 | Provider       | Base Model       | RPM Limit | Fallback Order |
 | -------------- | ---------------- | --------- | -------------- |
-| Qwen           | qwen-plus        | 50        | 1              |
+| Dashscope      | qwen-plus        | 50        | 1              |
 | XAI            | grok-2-1212      | 60        | 2              |
 | OpenAI         | gpt-4o           | 60        | 3              |
 | Azure DeepSeek | DeepSeek-R1      | 80        | 4              |

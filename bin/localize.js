@@ -87,7 +87,7 @@ const configureCLI = (defaultConfig) => {
 
 const validateEnvironment = () => {
 	const requiredKeys = [
-		"QWEN_API_KEY",
+		"DASHSCOPE_API_KEY",
 		"OPENAI_API_KEY",
 		"DEEPSEEK_API_KEY",
 		"GEMINI_API_KEY",

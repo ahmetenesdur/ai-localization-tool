@@ -2,14 +2,14 @@ const deepseekProvider = require("../providers/deepseek");
 const geminiProvider = require("../providers/gemini");
 const azureDeepseekProvider = require("../providers/azure-deepseek");
 const openaiProvider = require("../providers/openai");
-const qwenProvider = require("../providers/qwen");
+const dashscopeProvider = require("../providers/dashscope");
 const xaiProvider = require("../providers/xai");
 const FallbackProvider = require("./fallback-provider");
 
 class ProviderFactory {
 	static getProvider(providerName, useFallback = true) {
 		const providers = {
-			qwen: qwenProvider,
+			dashscope: dashscopeProvider,
 			xai: xaiProvider,
 			openai: openaiProvider,
 			azuredeepseek: azureDeepseekProvider,
@@ -19,7 +19,7 @@ class ProviderFactory {
 
 		if (!useFallback) {
 			const selected =
-				providers[providerName.toLowerCase()] || qwenProvider;
+				providers[providerName.toLowerCase()] || dashscopeProvider;
 			if (!selected) {
 				throw new Error(`Provider ${providerName} not found`);
 			}
@@ -29,7 +29,7 @@ class ProviderFactory {
 		// Fallback order
 		const fallbackOrder = [
 			providers[providerName.toLowerCase()], // Primary preferred provider
-			qwenProvider,
+			dashscopeProvider,
 			xaiProvider,
 			openaiProvider,
 			azureDeepseekProvider,

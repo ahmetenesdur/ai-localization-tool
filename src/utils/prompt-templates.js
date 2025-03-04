@@ -117,7 +117,7 @@ Original Text: "${text}"`,
 		],
 	}),
 
-	qwen: (sourceLang, targetLang, text, options) => ({
+	dashscope: (sourceLang, targetLang, text, options) => ({
 		messages: [
 			{
 				role: "system",
