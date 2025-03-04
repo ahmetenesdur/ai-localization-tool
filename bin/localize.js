@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 require("dotenv").config();
+const fs = require("fs");
+const path = require("path");
+const envLocalPath = path.resolve(process.cwd(), ".env.local");
+if (fs.existsSync(envLocalPath)) {
+	require("dotenv").config({ path: envLocalPath });
+}
 
 const { program } = require("commander");
-const path = require("path");
 const {
 	translateFile,
 	findLocaleFiles,
