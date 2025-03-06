@@ -1,0 +1,22 @@
+{
+	"trailingComma": "es5",
+	"semi": true,
+	"tabWidth": 4,
+	"useTabs": true,
+	"printWidth": 100,
+	"endOfLine": "lf",
+	"singleQuote": false,
+	"importOrder": [
+		"<BUILTIN_MODULES>",
+		"<THIRD_PARTY_MODULES>",
+		"^@/core/(.*)$",
+		"^@/types/(.*)$",
+		"^@/commands/(.*)$",
+		"^@/providers/(.*)$",
+		"^@/utils/(.*)$",
+		"^@/(.*)$",
+		"^[./]"
+	],
+	"importOrderSeparation": true,
+	"importOrderSortSpecifiers": true
+}

@@ -9,7 +9,9 @@
 		"localize": "./bin/localize.js"
 	},
 	"scripts": {
-		"start": "node bin/localize.js"
+		"start": "node bin/localize.js",
+		"format": "prettier --write \"**/*.{js,json,md,jsx,ts,tsx,css}\"",
+		"format:check": "prettier --check \"**/*.{js,json,md,jsx,ts,tsx,css}\""
 	},
 	"keywords": [
 		"translation",
@@ -26,7 +28,11 @@
 		"@azure/core-auth": "^1.9.0",
 		"axios": "^1.7.9",
 		"commander": "^13.1.0",
-		"dotenv": "^16.4.7"
+		"dotenv": "^16.4.7",
+		"lru-cache": "^10.2.0"
+	},
+	"devDependencies": {
+		"prettier": "^3.1.0"
 	},
 	"files": [
 		"bin/",

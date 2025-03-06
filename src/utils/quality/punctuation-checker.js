@@ -28,10 +28,7 @@ class PunctuationChecker {
 				message: "Missing punctuation mark",
 			});
 
-			fixedText = this.addPunctuation(
-				fixedText,
-				sourceEndsWithPunctuation[0]
-			);
+			fixedText = this.addPunctuation(fixedText, sourceEndsWithPunctuation[0]);
 			appliedFixes.push({
 				type: "punctuation",
 				message: `Added punctuation mark: ${sourceEndsWithPunctuation[0]}`,

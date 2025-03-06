@@ -27,10 +27,7 @@ async function translateFile(file, options) {
 		for (const targetLang of options.targets) {
 			console.log(`\n🌐 Starting translations for ${targetLang}`);
 
-			const targetPath = path.join(
-				path.dirname(file),
-				`${targetLang}.json`
-			);
+			const targetPath = path.join(path.dirname(file), `${targetLang}.json`);
 
 			let targetContent = {};
 			try {
@@ -55,9 +52,7 @@ async function translateFile(file, options) {
 				targetLang,
 			}));
 
-			const results = await orchestrator.processTranslations(
-				translationItems
-			);
+			const results = await orchestrator.processTranslations(translationItems);
 
 			// Process and save valid translations
 			const validResults = results.filter((result) => result.success);
@@ -67,8 +62,7 @@ async function translateFile(file, options) {
 					flattenedTarget[key] = translated;
 				});
 
-				const unflattened =
-					ObjectTransformer.unflatten(flattenedTarget);
+				const unflattened = ObjectTransformer.unflatten(flattenedTarget);
 				FileManager.writeJSON(targetPath, unflattened);
 
 				// Update statistics
@@ -111,9 +105,7 @@ async function translateFile(file, options) {
 }
 
 async function validateAndFixExistingTranslations(file, options) {
-	console.log(
-		`\n🔍 Checking existing translations in: "${path.basename(file)}"`
-	);
+	console.log(`\n🔍 Checking existing translations in: "${path.basename(file)}"`);
 
 	const sourceContent = FileManager.readJSON(file);
 	const flattenedSource = ObjectTransformer.flatten(sourceContent);
@@ -121,10 +113,7 @@ async function validateAndFixExistingTranslations(file, options) {
 
 	try {
 		for (const targetLang of options.targets) {
-			const targetPath = path.join(
-				path.dirname(file),
-				`${targetLang}.json`
-			);
+			const targetPath = path.join(path.dirname(file), `${targetLang}.json`);
 			const targetContent = FileManager.readJSON(targetPath);
 			const flattenedTarget = ObjectTransformer.flatten(targetContent);
 
@@ -142,20 +131,12 @@ async function validateAndFixExistingTranslations(file, options) {
 			});
 
 			// Check all existing translations
-			for (const [key, translatedText] of Object.entries(
-				flattenedTarget
-			)) {
+			for (const [key, translatedText] of Object.entries(flattenedTarget)) {
 				const sourceText = flattenedSource[key];
 				if (!sourceText) continue;
 
-				const checkResult = qualityChecker.validate(
-					sourceText,
-					translatedText,
-					options
-				);
-				const lengthIssue = checkResult.issues.find(
-					(i) => i.type === "length"
-				);
+				const checkResult = qualityChecker.validate(sourceText, translatedText, options);
+				const lengthIssue = checkResult.issues.find((i) => i.type === "length");
 
 				if (lengthIssue) {
 					invalidItems.push({
@@ -169,12 +150,8 @@ async function validateAndFixExistingTranslations(file, options) {
 			}
 
 			if (invalidItems.length > 0) {
-				console.log(
-					`⚠️  Found ${invalidItems.length} length issues in ${targetLang}`
-				);
-				const results = await orchestrator.processTranslations(
-					invalidItems
-				);
+				console.log(`⚠️  Found ${invalidItems.length} length issues in ${targetLang}`);
+				const results = await orchestrator.processTranslations(invalidItems);
 
 				// Apply fixes
 				const fixedCount = results.filter((r) => r.success).length;
@@ -184,8 +161,7 @@ async function validateAndFixExistingTranslations(file, options) {
 					}
 				});
 
-				const unflattened =
-					ObjectTransformer.unflatten(flattenedTarget);
+				const unflattened = ObjectTransformer.unflatten(flattenedTarget);
 				FileManager.writeJSON(targetPath, unflattened);
 				console.log(
 					`✅ Fixed ${fixedCount}/${invalidItems.length} translations in ${targetLang}`
@@ -215,9 +191,7 @@ function displayGlobalSummary(stats, totalLanguages) {
 			if (details && details.samples > 0) {
 				const avgConfidence = details.totalConfidence / details.samples;
 				const confidenceStr = `${(avgConfidence * 100).toFixed(1)}%`;
-				console.log(
-					`${category}: ${count} items (${confidenceStr} avg confidence)`
-				);
+				console.log(`${category}: ${count} items (${confidenceStr} avg confidence)`);
 			} else {
 				console.log(`${category}: ${count} items`);
 			}

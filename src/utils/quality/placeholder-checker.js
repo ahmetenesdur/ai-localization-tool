@@ -38,11 +38,7 @@ class PlaceholderChecker {
 				);
 
 				if (possiblePosition !== -1) {
-					fixedText = this.insertPlaceholder(
-						fixedText,
-						placeholder,
-						possiblePosition
-					);
+					fixedText = this.insertPlaceholder(fixedText, placeholder, possiblePosition);
 					appliedFixes.push({
 						type: "placeholder",
 						message: `Added placeholder: ${placeholder}`,

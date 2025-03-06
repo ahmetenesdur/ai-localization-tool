@@ -3,6 +3,7 @@ const ProviderFactory = require("./provider-factory");
 const ProgressTracker = require("../utils/progress-tracker");
 const QualityChecker = require("../utils/quality");
 const ContextProcessor = require("./context-processor");
+const { LRUCache } = require("lru-cache");
 
 class Orchestrator {
 	constructor(options) {
@@ -14,17 +15,28 @@ class Orchestrator {
 			context: options.context,
 			lengthControl: options.lengthControl,
 		});
+
+		this.translationCache = new LRUCache({
+			max: 1000,
+			ttl: 1000 * 60 * 60 * 24,
+		});
+
+		this.concurrencyLimit = options.concurrencyLimit || 5;
 	}
 
-	async processTranslation(
-		key,
-		text,
-		targetLang,
-		contextData,
-		existingTranslation
-	) {
-		if (typeof text !== "string")
-			return { key, translated: text, error: "Invalid input type" };
+	async processTranslation(key, text, targetLang, contextData, existingTranslation) {
+		if (typeof text !== "string") return { key, translated: text, error: "Invalid input type" };
+
+		const cacheKey = `${text}:${targetLang}:${contextData?.category || "unknown"}`;
+
+		if (this.translationCache.has(cacheKey)) {
+			const cachedResult = this.translationCache.get(cacheKey);
+			return {
+				...cachedResult,
+				key,
+				fromCache: true,
+			};
+		}
 
 		try {
 			const provider = ProviderFactory.getProvider(
@@ -41,29 +53,28 @@ class Orchestrator {
 				existingTranslation: existingTranslation || null,
 			};
 
-			let translated = await rateLimiter.enqueue(
-				this.options.apiProvider.toLowerCase(),
-				() =>
-					provider.translate(text, this.options.source, targetLang, {
-						...this.options,
-						detectedContext: translationContext,
-					})
+			let translated = await rateLimiter.enqueue(this.options.apiProvider.toLowerCase(), () =>
+				provider.translate(text, this.options.source, targetLang, {
+					...this.options,
+					detectedContext: translationContext,
+				})
 			);
 
 			// Apply quality checks and fixes
-			const qualityResult = this.qualityChecker.validateAndFix(
-				text,
-				translated
-			);
+			const qualityResult = this.qualityChecker.validateAndFix(text, translated);
 			translated = qualityResult.fixedText;
 
-			return {
+			const result = {
 				key,
 				translated,
 				context: contextData,
 				success: true,
 				qualityChecks: qualityResult,
 			};
+
+			this.translationCache.set(cacheKey, result);
+
+			return result;
 		} catch (err) {
 			console.error(`Translation error - key "${key}":`, err);
 			return {
@@ -79,25 +90,52 @@ class Orchestrator {
 		this.progress.start(items.length, items[0].targetLang);
 
 		const results = [];
-		for (const item of items) {
-			try {
-				const contextData = this.contextProcessor.analyze(item.text);
-				const result = await this.processTranslation(
-					item.key,
-					item.text,
-					item.targetLang,
-					contextData,
-					item.existingTranslation
-				);
-				results.push(result);
-				this.progress.increment(result.success ? "success" : "failed");
-			} catch (error) {
-				results.push({ key: item.key, translated: item.text });
-				this.progress.increment("failed");
-			}
+		const chunks = this._chunkArray(items, this.concurrencyLimit);
+
+		for (const chunk of chunks) {
+			const chunkPromises = chunk.map(async (item) => {
+				try {
+					const contextData = await this.contextProcessor.analyze(item.text);
+
+					const result = await this.processTranslation(
+						item.key,
+						item.text,
+						item.targetLang,
+						contextData,
+						item.existingTranslation
+					);
+
+					this.progress.increment(result.success ? "success" : "failed");
+					return result;
+				} catch (error) {
+					console.error(`Error processing item ${item.key}:`, error);
+					this.progress.increment("failed");
+					return {
+						key: item.key,
+						translated: item.text,
+						error: error.message,
+						success: false,
+					};
+				}
+			});
+
+			const chunkResults = await Promise.all(chunkPromises);
+			results.push(...chunkResults);
 		}
 
 		return results;
+	}
+
+	_chunkArray(array, chunkSize) {
+		const chunks = [];
+		for (let i = 0; i < array.length; i += chunkSize) {
+			chunks.push(array.slice(i, i + chunkSize));
+		}
+		return chunks;
+	}
+
+	clearCache() {
+		this.translationCache.clear();
 	}
 }
 

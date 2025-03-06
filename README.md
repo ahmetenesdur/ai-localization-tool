@@ -66,6 +66,9 @@ module.exports = {
 			threshold: 2, // Minimum keyword matches
 			minConfidence: 0.6, // Minimum confidence score
 		},
+		aiProvider: "openai", // AI provider used for context analysis
+		minTextLength: 40, // Minimum text length for AI analysis
+		allowNewCategories: true, // Allow AI to suggest new categories
 		categories: {
 			technical: {
 				keywords: ["API", "backend", "database"],
@@ -135,6 +138,12 @@ module.exports = {
 			},
 		},
 	},
+	
+	// Retry Options
+	retryOptions: {
+		maxRetries: 2, // Maximum number of retries for API calls
+		initialDelay: 1000, // Initial delay in ms before retry
+	},
 };
 ```
 
@@ -186,8 +195,15 @@ localize --source en --targets tr,es --lengthControl strict
 | --contextThreshold  | Keyword matches                  | 2         | 1-5                                                     |
 | --contextConfidence | Confidence score                 | 0.6       | 0-1                                                     |
 | --contextDebug      | Debug mode                       | false     | boolean                                                 |
+| --aiProvider        | AI provider for context analysis | openai    | dashscope, xai, openai, gemini, deepseek, azuredeepseek |
+| --minTextLength     | Minimum text length for analysis | 40        | Number                                                  |
+| --allowNewCategories| Allow AI to suggest categories   | false     | boolean                                                 |
+| --maxRetries        | Maximum retries for API calls    | 2         | Number                                                  |
 | --lengthControl     | Length validation                | smart     | strict, flexible, exact, relaxed, smart                 |
 | --fix-length        | Fix existing translation lengths | false     | boolean                                                 |
+| --concurrency       | Concurrent operations            | 5         | Number                                                  |
+| --noCache           | Disable translation cache        | false     | boolean                                                 |
+| --debug             | Enable debug logging             | false     | boolean                                                 |
 
 ## 🌟 Features
 
@@ -204,19 +220,26 @@ localize --source en --targets tr,es --lengthControl strict
 
 ### Context Detection System
 
--   Weighted category matching
--   Confidence-based selection
--   Automatic fallback handling
--   Debug mode for analysis
--   Category-specific prompts
+- Weighted category matching
+- Confidence-based selection
+- Automatic fallback handling
+- Debug mode for analysis
+- Category-specific prompts
+- AI-powered context analysis with configurable provider
+- Dynamic category suggestion (with allowNewCategories option)
+- Minimum text length threshold for efficient processing
 
 ### Quality Control
 
--   Placeholder validation
--   HTML tag preservation
--   Punctuation checking
--   Length control
--   Output sanitization
+- Placeholder validation
+- HTML tag preservation
+- Punctuation checking
+- Length control
+- Output sanitization
+- Markdown formatting removal
+- AI artifacts cleanup
+- Special character normalization
+- Consistent whitespace handling
 
 ### Length Control Modes
 
@@ -230,18 +253,23 @@ localize --source en --targets tr,es --lengthControl strict
 
 **Smart Mode Features:**
 
--   Language-specific length rules (e.g. Japanese: 35% max)
--   Context-aware adjustments (technical: 20% vs marketing: 30%)
--   Automatic brevity optimization
--   Priority to semantic accuracy over strict length
+- Language-specific length rules (e.g. Japanese: 35% max)
+- Context-aware adjustments (technical: 20% vs marketing: 30%)
+- Automatic brevity optimization
+- Priority to semantic accuracy over strict length
 
-### Error Handling
+### Error Handling and Reliability
 
--   Provider-specific error messages
--   Automatic fallback system
--   Progress preservation
--   Rate limiting
--   Queue management
+- Provider-specific error messages
+- Automatic fallback system
+- Progress preservation
+- Rate limiting
+- Queue management
+- Smart retry system with configurable options:
+  - Maximum retry attempts
+  - Customizable initial delay
+  - Exponential backoff
+  - Intelligent error filtering
 
 ### Real-time Progress
 

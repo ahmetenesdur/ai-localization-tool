@@ -32,9 +32,7 @@ class ProgressTracker {
 	}
 
 	displayProgress() {
-		const percent = Math.round(
-			(this.completedItems / this.totalItems) * 100
-		);
+		const percent = Math.round((this.completedItems / this.totalItems) * 100);
 		const elapsedTime = ((Date.now() - this.startTime) / 1000).toFixed(1);
 		const progressBar = `[${"■".repeat(Math.floor(percent / 5))}${" ".repeat(20 - Math.floor(percent / 5))}]`;
 
@@ -54,9 +52,7 @@ class ProgressTracker {
 
 	displaySummary() {
 		console.log(`\n📊 Translation Summary for ${this.currentLang}:`);
-		console.log(
-			`✅ Success: ${this.statistics.success.toString()}/${this.totalItems}`
-		);
+		console.log(`✅ Success: ${this.statistics.success.toString()}/${this.totalItems}`);
 		console.log(`❌ Failed: ${this.statistics.failed.toString()}`);
 		console.log(`⏳ Time: ${this.statistics.totalTime}s`);
 	}

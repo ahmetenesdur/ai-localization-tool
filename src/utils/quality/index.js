@@ -24,37 +24,19 @@ class QualityChecker extends BaseChecker {
 		const issues = [];
 
 		if (this.rules.placeholderConsistency) {
-			issues.push(
-				...this.placeholderChecker.checkPlaceholders(
-					sourceText,
-					translatedText
-				)
-			);
+			issues.push(...this.placeholderChecker.checkPlaceholders(sourceText, translatedText));
 		}
 
 		if (this.rules.htmlTagsConsistency) {
-			issues.push(
-				...this.htmlTagChecker.checkHtmlTags(sourceText, translatedText)
-			);
+			issues.push(...this.htmlTagChecker.checkHtmlTags(sourceText, translatedText));
 		}
 
 		if (this.rules.punctuationCheck) {
-			issues.push(
-				...this.punctuationChecker.checkPunctuation(
-					sourceText,
-					translatedText
-				)
-			);
+			issues.push(...this.punctuationChecker.checkPunctuation(sourceText, translatedText));
 		}
 
 		if (this.rules.lengthValidation) {
-			issues.push(
-				...this.lengthChecker.checkLength(
-					sourceText,
-					translatedText,
-					options
-				)
-			);
+			issues.push(...this.lengthChecker.checkLength(sourceText, translatedText, options));
 		}
 
 		if (this.rules.sanitizeOutput) {
@@ -80,30 +62,21 @@ class QualityChecker extends BaseChecker {
 		}
 
 		if (this.rules.placeholderConsistency) {
-			const result = this.placeholderChecker.fixPlaceholders(
-				sourceText,
-				fixedText
-			);
+			const result = this.placeholderChecker.fixPlaceholders(sourceText, fixedText);
 			fixedText = result.text;
 			issues.push(...result.foundIssues);
 			fixes.push(...result.appliedFixes);
 		}
 
 		if (this.rules.htmlTagsConsistency) {
-			const result = this.htmlTagChecker.fixHtmlTags(
-				sourceText,
-				fixedText
-			);
+			const result = this.htmlTagChecker.fixHtmlTags(sourceText, fixedText);
 			fixedText = result.text;
 			issues.push(...result.foundIssues);
 			fixes.push(...result.appliedFixes);
 		}
 
 		if (this.rules.punctuationCheck) {
-			const result = this.punctuationChecker.fixPunctuation(
-				sourceText,
-				fixedText
-			);
+			const result = this.punctuationChecker.fixPunctuation(sourceText, fixedText);
 			fixedText = result.text;
 			issues.push(...result.foundIssues);
 			fixes.push(...result.appliedFixes);

@@ -17,8 +17,7 @@ class ObjectTransformer {
 			const keys = key.split(".");
 			let current = result;
 			keys.forEach((k, i) => {
-				current[k] =
-					current[k] || (i === keys.length - 1 ? obj[key] : {});
+				current[k] = current[k] || (i === keys.length - 1 ? obj[key] : {});
 				current = current[k];
 			});
 		}

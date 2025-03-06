@@ -63,9 +63,7 @@ class TextSanitizer {
 
 	trimSpecialChars(text) {
 		// Remove special characters and extra whitespace
-		return text
-			.replace(/^['"*_~`]+|['"*_~`]+$/g, "")
-			.replace(/^\s+|\s+$/g, "");
+		return text.replace(/^['"*_~`]+|['"*_~`]+$/g, "").replace(/^\s+|\s+$/g, "");
 	}
 
 	normalizeWhitespace(text) {
@@ -76,9 +74,7 @@ class TextSanitizer {
 			.filter((line) => line); // Remove empty lines
 
 		// Remove duplicate consecutive lines
-		const uniqueLines = lines.filter(
-			(line, index, arr) => line !== arr[index - 1]
-		);
+		const uniqueLines = lines.filter((line, index, arr) => line !== arr[index - 1]);
 
 		return uniqueLines.join("\n");
 	}

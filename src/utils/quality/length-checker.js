@@ -20,11 +20,7 @@ class LengthChecker {
 				return [
 					{
 						type: "length",
-						severity: this.determineSeverity(
-							ratio,
-							minRatio,
-							maxRatio
-						),
+						severity: this.determineSeverity(ratio, minRatio, maxRatio),
 						message: this.generateErrorMessage(ratio, config),
 						details: {
 							mode: config.mode,
@@ -72,12 +68,7 @@ class LengthChecker {
 			return this.getSmartModeConfig(lengthControl, targetLang, context);
 		}
 
-		return this.getStandardModeConfig(
-			lengthControl,
-			mode,
-			targetLang,
-			context
-		);
+		return this.getStandardModeConfig(lengthControl, mode, targetLang, context);
 	}
 
 	getSmartModeConfig(lengthControl, targetLang, context) {
@@ -90,10 +81,7 @@ class LengthChecker {
 			mode: "smart",
 			targetLang,
 			context,
-			maxDeviation: Math.min(
-				langRules.max ?? defaultValue,
-				contextRules.max ?? defaultValue
-			),
+			maxDeviation: Math.min(langRules.max ?? defaultValue, contextRules.max ?? defaultValue),
 			minDeviation: Math.max(
 				langRules.min ?? -defaultValue,
 				contextRules.min ?? -defaultValue
@@ -102,8 +90,7 @@ class LengthChecker {
 	}
 
 	getStandardModeConfig(lengthControl, mode, targetLang, context) {
-		const deviation =
-			lengthControl.rules?.[mode] || this.defaultConfig.maxDeviation;
+		const deviation = lengthControl.rules?.[mode] || this.defaultConfig.maxDeviation;
 		return {
 			mode,
 			targetLang,
@@ -122,10 +109,7 @@ class LengthChecker {
 
 	determineSeverity(ratio, minRatio, maxRatio) {
 		const deviation = Math.abs(ratio - 1);
-		if (
-			deviation >
-			Math.max(Math.abs(minRatio - 1), Math.abs(maxRatio - 1)) * 1.5
-		) {
+		if (deviation > Math.max(Math.abs(minRatio - 1), Math.abs(maxRatio - 1)) * 1.5) {
 			return "critical";
 		}
 		return "warning";

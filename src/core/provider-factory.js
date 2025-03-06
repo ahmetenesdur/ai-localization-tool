@@ -18,26 +18,61 @@ class ProviderFactory {
 		};
 
 		if (!useFallback) {
-			const selected =
-				providers[providerName.toLowerCase()] || dashscopeProvider;
+			const selected = providers[providerName.toLowerCase()] || dashscopeProvider;
 			if (!selected) {
 				throw new Error(`Provider ${providerName} not found`);
 			}
 			return selected;
 		}
 
-		// Fallback order
-		const fallbackOrder = [
-			providers[providerName.toLowerCase()], // Primary preferred provider
-			dashscopeProvider,
-			xaiProvider,
-			openaiProvider,
-			azureDeepseekProvider,
-			deepseekProvider,
-			geminiProvider,
-		].filter(Boolean); // Filter out undefined providers
+		// For fallback mode, create array with selected provider first,
+		// then all remaining providers
+		const allProviders = [];
 
-		return new FallbackProvider(fallbackOrder);
+		// First add the selected provider if available
+		const primaryProvider = providers[providerName.toLowerCase()];
+		if (primaryProvider) {
+			allProviders.push(primaryProvider);
+		} else {
+			console.warn(`Provider '${providerName}' not found, using default provider chain`);
+		}
+
+		// Then add all other providers, skipping the one already added
+		Object.entries(providers).forEach(([key, provider]) => {
+			if (key.toLowerCase() !== providerName.toLowerCase() && provider) {
+				allProviders.push(provider);
+			}
+		});
+
+		if (allProviders.length === 0) {
+			throw new Error("No valid providers found for fallback chain");
+		}
+
+		// Create fallback provider with ordered list of providers
+		return new FallbackProvider(allProviders);
+	}
+
+	static getAvailableProviders() {
+		const providers = {
+			dashscope: process.env.DASHSCOPE_API_KEY,
+			xai: process.env.XAI_API_KEY,
+			openai: process.env.OPENAI_API_KEY,
+			azuredeepseek: process.env.AZURE_DEEPSEEK_API_KEY,
+			deepseek: process.env.DEEPSEEK_API_KEY,
+			gemini: process.env.GEMINI_API_KEY,
+		};
+
+		return Object.entries(providers)
+			.filter(([_, key]) => !!key)
+			.map(([name]) => name);
+	}
+
+	static validateProviders() {
+		const available = this.getAvailableProviders();
+		if (available.length === 0) {
+			throw new Error("No API providers configured. Please set at least one API key.");
+		}
+		return available;
 	}
 }
 

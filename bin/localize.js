@@ -13,17 +13,27 @@ const {
 	findLocaleFiles,
 	validateAndFixExistingTranslations,
 } = require("../src/commands/translator");
+const ProviderFactory = require("../src/core/provider-factory");
 
 const loadConfig = () => {
 	try {
 		const configPath = path.resolve(process.cwd(), "localize.config.js");
 		return require(configPath);
-	} catch {
+	} catch (error) {
+		console.warn(`Warning: Could not load config file: ${error.message}`);
 		return {
 			source: "en",
 			targets: [],
 			localesDir: "./locales",
-			context: { detection: { threshold: 2, minConfidence: 0.6 } },
+			concurrencyLimit: 5,
+			cacheEnabled: true,
+			context: {
+				enabled: true,
+				detection: { threshold: 2, minConfidence: 0.6 },
+				useAI: false,
+				minTextLength: 50,
+				debug: false,
+			},
 		};
 	}
 };
@@ -38,16 +48,16 @@ const configureCLI = (defaultConfig) => {
 			(val) => val.split(","),
 			defaultConfig.targets
 		)
+		.option("--localesDir <dir>", "Localization files directory", defaultConfig.localesDir)
+		.option("--apiProvider <provider>", "AI provider", defaultConfig.apiProvider)
 		.option(
-			"--localesDir <dir>",
-			"Localization files directory",
-			defaultConfig.localesDir
+			"--concurrency <number>",
+			"Number of concurrent translations",
+			Number,
+			defaultConfig.concurrencyLimit
 		)
-		.option(
-			"--apiProvider <provider>",
-			"AI provider",
-			defaultConfig.apiProvider
-		)
+		.option("--noCache", "Disable translation caching", !defaultConfig.cacheEnabled)
+		.option("--debug", "Enable debug mode with verbose logging", false)
 		.option(
 			"--contextThreshold <number>",
 			"Minimum match count",
@@ -60,48 +70,94 @@ const configureCLI = (defaultConfig) => {
 			Number,
 			defaultConfig.context.detection.minConfidence
 		)
+		.option("--contextDebug", "Show context details", defaultConfig.context.debug)
+		.option("--fix-length", "Fix existing translations with length issues", false)
+		.option("--useAI", "Enable AI-based context analysis", defaultConfig.context.useAI)
 		.option(
-			"--contextDebug",
-			"Show context details",
-			defaultConfig.context.debug
+			"--aiProvider <provider>",
+			"AI provider for context analysis",
+			defaultConfig.context.aiProvider
 		)
 		.option(
-			"--fix-length",
-			"Fix existing translations with length issues",
-			false
+			"--minTextLength <number>",
+			"Minimum text length for AI analysis",
+			Number,
+			defaultConfig.context.minTextLength
+		)
+		.option(
+			"--allowNewCategories",
+			"Allow AI to suggest new categories",
+			defaultConfig.context.allowNewCategories
+		)
+		.option(
+			"--maxRetries <number>",
+			"Maximum number of retries for API calls",
+			Number,
+			defaultConfig.retryOptions?.maxRetries || 2
 		)
 		.parse(process.argv);
 
+	const opts = program.opts();
+
+	// Set global debug mode if requested
+	if (opts.debug) {
+		process.env.DEBUG = "true";
+		console.log("🔍 Debug mode: ENABLED (verbose logging)");
+	}
+
 	return {
-		...program.opts(),
+		...opts,
+		debug: opts.debug,
+		concurrencyLimit: parseInt(opts.concurrency) || 5,
+		cacheEnabled: !opts.noCache,
 		apiConfig: defaultConfig.apiConfig || {},
 		styleGuide: defaultConfig.styleGuide,
 		qualityChecks: defaultConfig.qualityChecks,
 		lengthControl: defaultConfig.lengthControl,
+		retryOptions: {
+			...defaultConfig.retryOptions,
+			maxRetries: opts.maxRetries,
+		},
 		context: {
 			...defaultConfig.context,
 			enabled: true,
-			debug: program.opts().contextDebug,
+			debug: opts.contextDebug,
+			useAI: opts.useAI,
+			aiProvider: opts.aiProvider,
+			minTextLength: opts.minTextLength,
+			allowNewCategories: opts.allowNewCategories,
 			detection: {
-				threshold: program.opts().contextThreshold,
-				minConfidence: program.opts().contextConfidence,
+				threshold: opts.contextThreshold,
+				minConfidence: opts.contextConfidence,
 			},
 		},
 	};
 };
 
 const validateEnvironment = () => {
-	const requiredKeys = [
-		"DASHSCOPE_API_KEY",
-		"OPENAI_API_KEY",
-		"DEEPSEEK_API_KEY",
-		"GEMINI_API_KEY",
-		"XAI_API_KEY",
-		"AZURE_DEEPSEEK_API_KEY",
-	];
+	try {
+		// ProviderFactory'nin validateProviders metodunu kullan
+		const availableProviders = ProviderFactory.validateProviders();
 
-	if (!requiredKeys.some((key) => process.env[key])) {
-		console.error("\n❌ Error: Missing required API key");
+		// Kullanılabilir sağlayıcıları logla
+		console.log(`\n🔑 Available API providers: ${availableProviders.join(", ")}`);
+
+		return availableProviders;
+	} catch (error) {
+		console.error("\n❌ Error: " + error.message);
+		console.error("Please set at least one of the following environment variables:");
+
+		// List all possible providers
+		const possibleProviders = [
+			"DASHSCOPE_API_KEY",
+			"OPENAI_API_KEY",
+			"DEEPSEEK_API_KEY",
+			"GEMINI_API_KEY",
+			"XAI_API_KEY",
+			"AZURE_DEEPSEEK_API_KEY",
+		];
+
+		possibleProviders.forEach((key) => console.error(`  - ${key}`));
 		process.exit(1);
 	}
 };
@@ -111,6 +167,12 @@ const validateEnvironment = () => {
 		const defaultConfig = loadConfig();
 		const options = configureCLI(defaultConfig);
 		validateEnvironment();
+
+		// Debug için detaylı bilgiler
+		if (options.debug) {
+			console.log("\n📋 Configuration details:");
+			console.log(JSON.stringify(options, null, 2));
+		}
 
 		const localesDir = path.resolve(options.localesDir);
 		const files = findLocaleFiles(localesDir, options.source);
@@ -124,20 +186,34 @@ const validateEnvironment = () => {
 		if (options.fixLength) {
 			console.log("\n🔧 Running in LENGTH FIX mode");
 			await Promise.all(
-				files.map((file) =>
-					validateAndFixExistingTranslations(file, options)
-				)
+				files.map((file) => validateAndFixExistingTranslations(file, options))
 			);
 		} else {
 			console.log("\n🚀 Running in STANDARD TRANSLATION mode");
-			await Promise.all(
-				files.map((file) => translateFile(file, options))
-			);
+
+			if (options.context.useAI) {
+				console.log(
+					`🧠 AI Context Analysis: ENABLED (Provider: ${options.context.aiProvider})`
+				);
+				if (options.context.allowNewCategories) {
+					console.log("🔄 New category suggestions: ENABLED");
+				}
+			}
+
+			console.log(`⚙️ Performance settings:`);
+			console.log(`   - Concurrency: ${options.concurrencyLimit} parallel operations`);
+			console.log(`   - Caching: ${options.cacheEnabled ? "Enabled" : "Disabled"}`);
+			console.log(`   - Retries: ${options.retryOptions.maxRetries} max retries`);
+
+			await Promise.all(files.map((file) => translateFile(file, options)));
 		}
 
 		console.log("\n✅ All operations completed successfully");
 	} catch (error) {
 		console.error(`\n❌ Error: ${error.message}`);
+		if (error.stack && process.env.DEBUG) {
+			console.error(error.stack);
+		}
 		process.exit(1);
 	}
 })();
