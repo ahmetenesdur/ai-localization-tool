@@ -26,10 +26,10 @@
 	"dependencies": {
 		"@azure-rest/ai-inference": "^1.0.0-beta.5",
 		"@azure/core-auth": "^1.9.0",
-		"axios": "^1.7.9",
+		"axios": "1.8.2",
 		"commander": "^13.1.0",
 		"dotenv": "^16.4.7",
-		"lru-cache": "^10.2.0"
+		"lru-cache": "^11.0.2"
 	},
 	"devDependencies": {
 		"prettier": "^3.1.0"
