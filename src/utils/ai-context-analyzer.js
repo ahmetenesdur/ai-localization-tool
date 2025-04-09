@@ -2,35 +2,81 @@ const axios = require("axios");
 const ProviderFactory = require("../core/provider-factory");
 const rateLimiter = require("./rate-limiter");
 const { LRUCache } = require("lru-cache");
+const crypto = require("crypto");
 
 class AIContextAnalyzer {
 	constructor(config) {
 		this.config = config;
 		this.cache = new LRUCache({
-			max: 500,
-			ttl: 1000 * 60 * 60 * 24,
+			max: config.cacheSize || 500,
+			ttl: config.cacheTTL || 1000 * 60 * 60 * 24,
+			updateAgeOnGet: true,
 			allowStale: true,
 		});
+
+		this.categoryKeywords = {};
+		if (config.categories) {
+			Object.entries(config.categories).forEach(([category, data]) => {
+				if (data.keywords && Array.isArray(data.keywords)) {
+					this.categoryKeywords[category] = new Set(
+						data.keywords.map((k) => k.toLowerCase())
+					);
+				}
+			});
+		}
+
+		this.stats = {
+			totalAnalyzed: 0,
+			aiCalls: 0,
+			cacheHits: 0,
+			keywordMatches: 0,
+			newCategories: 0,
+			errors: 0,
+		};
 	}
 
 	async analyzeContext(text, apiProvider = "openai") {
-		if (!text || text.length < this.config.minTextLength || !this.config.enabled) {
+		if (!text || !this.config.enabled) {
 			return null;
 		}
 
+		if (text.length < this.config.minTextLength) {
+			return this._fastKeywordMatch(text);
+		}
+
 		const cacheKey = this._getCacheKey(text);
+
 		if (this.cache.has(cacheKey)) {
+			this.stats.cacheHits++;
 			return this.cache.get(cacheKey);
 		}
 
+		const keywordMatch = this._fastKeywordMatch(text);
+
+		if (keywordMatch && keywordMatch.confidence > 0.85) {
+			this.stats.keywordMatches++;
+			this.cache.set(cacheKey, keywordMatch);
+			return keywordMatch;
+		}
+
+		if (!this.config.useAI) {
+			return keywordMatch || this._getDefaultContext();
+		}
+
 		try {
+			this.stats.totalAnalyzed++;
+			this.stats.aiCalls++;
+
 			const provider = ProviderFactory.getProvider(apiProvider, true);
 
 			if (!provider) {
 				throw new Error("AI provider not available for context analysis");
 			}
 
-			const analysisPrompt = this._createAnalysisPrompt(text);
+			const analysisPrompt =
+				text.length < 500
+					? this._createSimplifiedAnalysisPrompt(text)
+					: this._createAnalysisPrompt(text);
 
 			const result = await rateLimiter.enqueue(apiProvider.toLowerCase(), () =>
 				provider.analyze(analysisPrompt, this.config.analysisOptions)
@@ -40,19 +86,31 @@ class AIContextAnalyzer {
 
 			if (contextData) {
 				this.cache.set(cacheKey, contextData);
+			} else if (keywordMatch) {
+				this.cache.set(cacheKey, keywordMatch);
+				return keywordMatch;
 			}
 
 			return contextData;
 		} catch (error) {
+			this.stats.errors++;
 			console.error("AI context analysis error:", error.message);
-			return null;
+
+			if (keywordMatch) {
+				return keywordMatch;
+			}
+
+			return this._getDefaultContext();
 		}
 	}
 
 	_createAnalysisPrompt(text) {
 		const categories = Object.keys(this.config.categories).join(", ");
 
-		const maxTextLength = 1500;
+		const maxTextLength = this.config.analysisOptions?.maxTokens
+			? Math.min(1500, this.config.analysisOptions.maxTokens * 5)
+			: 1500;
+
 		const truncatedText =
 			text.length > maxTextLength ? text.substring(0, maxTextLength) + "..." : text;
 
@@ -64,7 +122,7 @@ TEXT TO ANALYZE:
 ${truncatedText}
 """
 
-AVAILABLE CATEGORIES: ${categories}, or suggest a new category if none of these fit.
+AVAILABLE CATEGORIES: ${categories}${this.config.allowNewCategories ? ", or suggest a new category if none of these fit" : ""}
 
 INSTRUCTIONS:
 1. Identify the primary context category of the text
@@ -78,6 +136,25 @@ FORMAT YOUR RESPONSE AS JSON:
   "confidence": 0.0-1.0,
   "keywords": ["keyword1", "keyword2", "keyword3"],
   "explanation": "Brief explanation of why this category was chosen"
+}
+`;
+	}
+
+	_createSimplifiedAnalysisPrompt(text) {
+		const categories = Object.keys(this.config.categories).join(", ");
+
+		return `
+TASK: Categorize the following text. Be concise.
+
+TEXT: "${text}"
+
+CATEGORIES: ${categories}${this.config.allowNewCategories ? " (or suggest new)" : ""}
+
+RESPONSE FORMAT:
+{
+  "category": "category_name",
+  "confidence": 0.0-1.0,
+  "keywords": ["keyword1", "keyword2", "keyword3"]
 }
 `;
 	}
@@ -107,6 +184,7 @@ FORMAT YOUR RESPONSE AS JSON:
 
 			if (!this.config.categories[category] && this.config.allowNewCategories) {
 				this._saveNewCategory(category, analysisData.keywords || []);
+				this.stats.newCategories++;
 			} else if (!this.config.categories[category]) {
 				category = this._findClosestCategory(category, analysisData.keywords || []);
 			}
@@ -124,29 +202,91 @@ FORMAT YOUR RESPONSE AS JSON:
 		}
 	}
 
+	_fastKeywordMatch(text) {
+		if (!text || !this.config?.categories) {
+			return this._getDefaultContext();
+		}
+
+		const textLower = text.toLowerCase();
+		const scores = {};
+		let maxScore = 0;
+		let bestCategory = this.config.fallback?.category || "general";
+
+		for (const [category, keywordSet] of Object.entries(this.categoryKeywords)) {
+			let score = 0;
+
+			for (const keyword of keywordSet) {
+				const regex = new RegExp(`\\b${keyword}\\b`, "i");
+				if (regex.test(textLower)) {
+					score += 2;
+				} else if (textLower.includes(keyword)) {
+					score += 1;
+				}
+			}
+
+			if (score > 0) {
+				const weight = this.config.categories[category]?.weight || 1.0;
+				score *= weight;
+
+				scores[category] = score;
+
+				if (score > maxScore) {
+					maxScore = score;
+					bestCategory = category;
+				}
+			}
+		}
+
+		const maxPossibleScore = Math.max(8, Object.keys(this.categoryKeywords).length * 2);
+		const baseConfidence = Math.min(0.9, maxScore / maxPossibleScore);
+		const confidence = Math.min(0.95, 1 - Math.exp(-baseConfidence * 2));
+
+		if (confidence < this.config.detection.minConfidence) {
+			return this._getDefaultContext();
+		}
+
+		return {
+			category: bestCategory,
+			confidence,
+			keywords: Array.from(this.categoryKeywords[bestCategory] || []).slice(0, 5),
+			explanation: `Matched keywords for ${bestCategory} category`,
+			prompt: this.config.categories[bestCategory]?.prompt || this.config.fallback.prompt,
+			method: "keyword_match",
+		};
+	}
+
+	_getDefaultContext() {
+		return {
+			category: this.config.fallback?.category || "general",
+			confidence: 0.5,
+			keywords: [],
+			explanation: "Default category used",
+			prompt: this.config.fallback?.prompt || "Translate naturally",
+			method: "default",
+		};
+	}
+
 	_findClosestCategory(suggestedCategory, keywords) {
-		let bestMatch = this.config.fallback.category;
+		let bestMatch = this.config.fallback?.category || "general";
 		let highestScore = 0;
 
 		for (const [category, config] of Object.entries(this.config.categories)) {
 			let score = 0;
 
-			const configKeywordsLower = new Set(config.keywords.map((k) => k.toLowerCase()));
+			if (config.keywords && this.categoryKeywords[category]) {
+				const keywordsLower = new Set(keywords.map((k) => k.toLowerCase()));
 
-			for (const keyword of keywords) {
-				const keywordLower = keyword.toLowerCase();
-				if (configKeywordsLower.has(keywordLower)) {
-					score += 1.5;
-					continue;
-				}
+				for (const keyword of keywordsLower) {
+					if (this.categoryKeywords[category].has(keyword)) {
+						score += 1.5;
+						continue;
+					}
 
-				for (const configKeyword of configKeywordsLower) {
-					if (
-						configKeyword.includes(keywordLower) ||
-						keywordLower.includes(configKeyword)
-					) {
-						score += 1;
-						break;
+					for (const configKeyword of this.categoryKeywords[category]) {
+						if (configKeyword.includes(keyword) || keyword.includes(configKeyword)) {
+							score += 0.75;
+							break;
+						}
 					}
 				}
 			}
@@ -172,28 +312,60 @@ FORMAT YOUR RESPONSE AS JSON:
 				weight: 1.0,
 			};
 
+			this.categoryKeywords[category] = new Set(keywords.map((k) => k.toLowerCase()));
+
 			console.log(`Added new context category: ${category}`);
 		}
 	}
 
 	_getCacheKey(text) {
-		if (text.length > 100) {
-			const start = text.substring(0, 30);
-			const middle = text.substring(
-				Math.floor(text.length / 2) - 15,
-				Math.floor(text.length / 2) + 15
-			);
-			const end = text.substring(text.length - 30);
-			text = start + middle + end;
+		if (text.length < 50) {
+			return text.toLowerCase();
 		}
 
-		let hash = 0;
-		for (let i = 0; i < text.length; i++) {
-			const char = text.charCodeAt(i);
-			hash = (hash << 5) - hash + char;
-			hash = hash & hash;
-		}
-		return hash.toString();
+		const start = text.substring(0, 50).toLowerCase();
+		const middle =
+			text.length > 100
+				? text
+						.substring(
+							Math.floor(text.length / 2) - 25,
+							Math.floor(text.length / 2) + 25
+						)
+						.toLowerCase()
+				: "";
+		const end = text.length > 50 ? text.substring(text.length - 50).toLowerCase() : "";
+
+		return crypto
+			.createHash("md5")
+			.update(start + middle + end)
+			.digest("hex");
+	}
+
+	getStats() {
+		return {
+			...this.stats,
+			cacheSize: this.cache.size,
+			cacheCapacity: this.cache.max,
+			hitRate: this.stats.cacheHits / Math.max(1, this.stats.totalAnalyzed),
+			aiUsageRate: this.stats.aiCalls / Math.max(1, this.stats.totalAnalyzed),
+			keywordMatchRate: this.stats.keywordMatches / Math.max(1, this.stats.totalAnalyzed),
+			errorRate: this.stats.errors / Math.max(1, this.stats.totalAnalyzed),
+		};
+	}
+
+	resetStats() {
+		this.stats = {
+			totalAnalyzed: 0,
+			aiCalls: 0,
+			cacheHits: 0,
+			keywordMatches: 0,
+			newCategories: 0,
+			errors: 0,
+		};
+	}
+
+	clearCache() {
+		this.cache.clear();
 	}
 }
 

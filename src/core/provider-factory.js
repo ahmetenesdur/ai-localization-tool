@@ -17,35 +17,60 @@ class ProviderFactory {
 			gemini: geminiProvider,
 		};
 
+		// Ensure the provider name is properly normalized
+		const normalizedProviderName = (providerName || "").toLowerCase();
+
+		// Check if a specific provider was requested
 		if (!useFallback) {
-			const selected = providers[providerName.toLowerCase()] || dashscopeProvider;
+			const selected = providers[normalizedProviderName];
 			if (!selected) {
-				throw new Error(`Provider ${providerName} not found`);
+				throw new Error(`Provider ${providerName} not found or not configured`);
 			}
+
+			// Verify the provider has required API key
+			if (!this.isProviderConfigured(normalizedProviderName)) {
+				throw new Error(`Provider ${providerName} is not configured. Missing API key.`);
+			}
+
 			return selected;
 		}
 
 		// For fallback mode, create array with selected provider first,
-		// then all remaining providers
+		// then all remaining providers, but only include providers with valid API keys
 		const allProviders = [];
+		const availableProviderNames = this.getAvailableProviders();
 
-		// First add the selected provider if available
-		const primaryProvider = providers[providerName.toLowerCase()];
-		if (primaryProvider) {
-			allProviders.push(primaryProvider);
-		} else {
-			console.warn(`Provider '${providerName}' not found, using default provider chain`);
+		// First add the selected provider if available and configured
+		if (
+			normalizedProviderName &&
+			providers[normalizedProviderName] &&
+			availableProviderNames.includes(normalizedProviderName)
+		) {
+			allProviders.push(providers[normalizedProviderName]);
+		} else if (normalizedProviderName) {
+			console.warn(
+				`Provider '${providerName}' not found or not configured, using default provider chain`
+			);
 		}
 
-		// Then add all other providers, skipping the one already added
-		Object.entries(providers).forEach(([key, provider]) => {
-			if (key.toLowerCase() !== providerName.toLowerCase() && provider) {
-				allProviders.push(provider);
+		// Then add all other providers that have API keys configured, in preferred order
+		for (const name of availableProviderNames) {
+			// Skip the already added primary provider
+			if (name !== normalizedProviderName && providers[name]) {
+				allProviders.push(providers[name]);
 			}
-		});
+		}
 
 		if (allProviders.length === 0) {
-			throw new Error("No valid providers found for fallback chain");
+			throw new Error(
+				"No valid providers found for fallback chain. Please check your API keys."
+			);
+		}
+
+		// Log the provider chain if in debug mode
+		if (process.env.DEBUG) {
+			const providerNames = allProviders.map((p) => p.constructor.name).join(", ");
+			console.log(`Provider fallback chain: ${providerNames}`);
 		}
 
 		// Create fallback provider with ordered list of providers
@@ -73,6 +98,21 @@ class ProviderFactory {
 			throw new Error("No API providers configured. Please set at least one API key.");
 		}
 		return available;
+	}
+
+	// Helper to check if a provider is properly configured
+	static isProviderConfigured(providerName) {
+		const envVarMap = {
+			dashscope: "DASHSCOPE_API_KEY",
+			xai: "XAI_API_KEY",
+			openai: "OPENAI_API_KEY",
+			azuredeepseek: "AZURE_DEEPSEEK_API_KEY",
+			deepseek: "DEEPSEEK_API_KEY",
+			gemini: "GEMINI_API_KEY",
+		};
+
+		const envKey = envVarMap[providerName.toLowerCase()];
+		return envKey && !!process.env[envKey];
 	}
 }
 

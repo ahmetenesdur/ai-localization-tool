@@ -1,28 +1,418 @@
-const fs = require("fs");
+const fs = require("fs").promises;
+const fsSync = require("fs");
 const path = require("path");
+const { promisify } = require("util");
 
+/**
+ * FileManager - Modern asynchronous file operations
+ * This is the preferred class for all file operations.
+ */
 class FileManager {
+	/**
+	 * Default options for file operations
+	 */
+	static defaultOptions = {
+		atomic: true, // Use atomic file operations
+		createMissingDirs: true, // Create missing directories
+		backupFiles: true, // Create backups before modifying
+		backupDir: "./backups", // Backup directory
+		encoding: "utf8", // File encoding
+		jsonIndent: 2, // JSON indentation spaces
+	};
+
+	/**
+	 * Configure global options for file operations
+	 * @param {Object} options - File operation options
+	 */
+	static configure(options) {
+		if (!options) return;
+
+		this.options = {
+			...this.defaultOptions,
+			...options,
+		};
+	}
+
+	/**
+	 * Get current configuration
+	 * @returns {Object} - Current configuration
+	 */
+	static getConfig() {
+		return this.options || this.defaultOptions;
+	}
+
+	/**
+	 * Find locale files in the specified directory
+	 * @param {string} localesDir - Directory containing locale files
+	 * @param {string} sourceLang - Source language code
+	 * @returns {Promise<string[]>} - Array of file paths
+	 */
+	static async findLocaleFiles(localesDir, sourceLang) {
+		try {
+			const sourceFile = path.join(localesDir, `${sourceLang}.json`);
+
+			// Check if source file exists
+			await fs.access(sourceFile);
+			return [sourceFile];
+		} catch (err) {
+			throw new Error(`Source language file not found: ${err.message}`);
+		}
+	}
+
+	/**
+	 * Read JSON file asynchronously
+	 * @param {string} filePath - Path to the JSON file
+	 * @param {Object} options - Options for reading
+	 * @returns {Promise<Object>} - Parsed JSON data
+	 */
+	static async readJSON(filePath, options = {}) {
+		const config = { ...this.getConfig(), ...options };
+
+		try {
+			const content = await fs.readFile(filePath, config.encoding);
+			return JSON.parse(content);
+		} catch (err) {
+			throw new Error(`File read error (${filePath}): ${err.message}`);
+		}
+	}
+
+	/**
+	 * Write data to JSON file asynchronously
+	 * @param {string} filePath - Path to write the file
+	 * @param {Object} data - Data to write
+	 * @param {Object} options - Options for writing
+	 * @returns {Promise<boolean>} - Success status
+	 */
+	static async writeJSON(filePath, data, options = {}) {
+		const config = { ...this.getConfig(), ...options };
+
+		try {
+			// Create target directory if it doesn't exist
+			const dir = path.dirname(filePath);
+			if (config.createMissingDirs) {
+				await this.ensureDir(dir);
+			}
+
+			// Create backup directory if needed
+			if (config.backupFiles) {
+				await this.ensureDir(config.backupDir);
+			}
+
+			// Create backup of existing file if it exists and backups are enabled
+			if (config.backupFiles) {
+				try {
+					await fs.access(filePath);
+					const backupPath = path.join(
+						config.backupDir,
+						`${path.basename(filePath)}.${Date.now()}.bak`
+					);
+					await fs.copyFile(filePath, backupPath);
+				} catch (err) {
+					// File doesn't exist, no need to backup
+				}
+			}
+
+			// Format JSON with optional formatting
+			const jsonString = JSON.stringify(
+				data,
+				null,
+				config.compact ? 0 : options.indent || config.jsonIndent
+			);
+
+			// Use atomic write if configured
+			if (config.atomic) {
+				// Write to temporary file first, then rename - to prevent corruption
+				const tempFile = `${filePath}.tmp`;
+				await fs.writeFile(tempFile, jsonString, config.encoding);
+
+				// Atomically replace the target file
+				await fs.rename(tempFile, filePath);
+			} else {
+				// Direct write
+				await fs.writeFile(filePath, jsonString, config.encoding);
+			}
+
+			return true;
+		} catch (err) {
+			throw new Error(`File write error (${filePath}): ${err.message}`);
+		}
+	}
+
+	/**
+	 * Ensure directory exists, create it if it doesn't
+	 * @param {string} dir - Directory path
+	 * @returns {Promise<void>}
+	 */
+	static async ensureDir(dir) {
+		try {
+			await fs.mkdir(dir, { recursive: true });
+		} catch (err) {
+			if (err.code !== "EEXIST") {
+				throw err;
+			}
+		}
+	}
+
+	/**
+	 * Scan for locale files with pattern matching
+	 * @param {string} localesDir - Directory to scan
+	 * @param {RegExp} pattern - File pattern to match
+	 * @returns {Promise<string[]>} - Array of matching file paths
+	 */
+	static async scanLocaleFiles(localesDir, pattern = /\.json$/) {
+		try {
+			const files = await fs.readdir(localesDir);
+			return files
+				.filter((file) => pattern.test(file))
+				.map((file) => path.join(localesDir, file));
+		} catch (err) {
+			throw new Error(`Error scanning locale directory: ${err.message}`);
+		}
+	}
+
+	/**
+	 * Get file modification time
+	 * @param {string} filePath - Path to the file
+	 * @returns {Promise<Date>} - Modification time
+	 */
+	static async getModifiedTime(filePath) {
+		try {
+			const stats = await fs.stat(filePath);
+			return stats.mtime;
+		} catch (err) {
+			throw new Error(`Error getting file stats: ${err.message}`);
+		}
+	}
+
+	/**
+	 * Check if file exists
+	 * @param {string} filePath - Path to the file
+	 * @returns {Promise<boolean>} - True if exists
+	 */
+	static async exists(filePath) {
+		try {
+			await fs.access(filePath);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	/**
+	 * Delete file
+	 * @param {string} filePath - Path to the file
+	 * @param {Object} options - Options for deletion
+	 * @returns {Promise<boolean>} - Success status
+	 */
+	static async deleteFile(filePath, options = {}) {
+		const config = { ...this.getConfig(), ...options };
+
+		try {
+			// Create backup before deletion if backups are enabled
+			if (config.backupFiles) {
+				try {
+					await fs.access(filePath);
+					await this.ensureDir(config.backupDir);
+					const backupPath = path.join(
+						config.backupDir,
+						`${path.basename(filePath)}.deleted.${Date.now()}.bak`
+					);
+					await fs.copyFile(filePath, backupPath);
+				} catch (err) {
+					// File doesn't exist or other error, can't backup
+				}
+			}
+
+			await fs.unlink(filePath);
+			return true;
+		} catch (err) {
+			throw new Error(`File deletion error (${filePath}): ${err.message}`);
+		}
+	}
+
+	/**
+	 * List files in a directory
+	 * @param {string} dirPath - Directory path
+	 * @param {Object} options - Options for listing
+	 * @returns {Promise<string[]>} - Array of file paths
+	 */
+	static async listFiles(dirPath, options = {}) {
+		try {
+			const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+			const files = entries
+				.filter((entry) => entry.isFile())
+				.map((entry) => path.join(dirPath, entry.name));
+
+			return files;
+		} catch (err) {
+			throw new Error(`Directory read error (${dirPath}): ${err.message}`);
+		}
+	}
+}
+
+// Initialize options with defaults
+FileManager.options = { ...FileManager.defaultOptions };
+
+/**
+ * SyncFileManager - Synchronous file operations
+ * Used for backward compatibility. New code should use FileManager instead.
+ * @deprecated Use the async FileManager for better performance
+ */
+class SyncFileManager {
+	/**
+	 * Default options for file operations
+	 */
+	static defaultOptions = {
+		atomic: false, // Atomic operations not supported in sync mode
+		createMissingDirs: true, // Create missing directories
+		backupFiles: true, // Create backups before modifying
+		backupDir: "./backups", // Backup directory
+		encoding: "utf8", // File encoding
+		jsonIndent: 2, // JSON indentation spaces
+	};
+
+	/**
+	 * Configure global options for file operations
+	 * @param {Object} options - File operation options
+	 */
+	static configure(options) {
+		if (!options) return;
+
+		this.options = {
+			...this.defaultOptions,
+			...options,
+			atomic: false, // Always false for sync operations
+		};
+	}
+
+	/**
+	 * Get current configuration
+	 * @returns {Object} - Current configuration
+	 */
+	static getConfig() {
+		return this.options || this.defaultOptions;
+	}
+
+	/**
+	 * Find locale files in the specified directory (sync)
+	 * @param {string} localesDir - Directory containing locale files
+	 * @param {string} sourceLang - Source language code
+	 * @returns {string[]} - Array of file paths
+	 */
 	static findLocaleFiles(localesDir, sourceLang) {
 		const sourceFile = path.join(localesDir, `${sourceLang}.json`);
 
-		if (!fs.existsSync(sourceFile)) {
+		if (!fsSync.existsSync(sourceFile)) {
 			throw new Error(`Source language file not found: ${sourceFile}`);
 		}
 
 		return [sourceFile];
 	}
 
-	static readJSON(filePath) {
+	/**
+	 * Read JSON file synchronously
+	 * @param {string} filePath - Path to the JSON file
+	 * @param {Object} options - Options for reading
+	 * @returns {Object} - Parsed JSON data
+	 */
+	static readJSON(filePath, options = {}) {
+		const config = { ...this.getConfig(), ...options };
+
 		try {
-			return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+			return JSON.parse(fsSync.readFileSync(filePath, config.encoding));
 		} catch (err) {
-			throw new Error(`File read error: ${err.message}`);
+			throw new Error(`File read error (${filePath}): ${err.message}`);
 		}
 	}
 
-	static writeJSON(filePath, data) {
-		fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+	/**
+	 * Write data to JSON file synchronously
+	 * @param {string} filePath - Path to write the file
+	 * @param {Object} data - Data to write
+	 * @param {Object} options - Options for writing
+	 * @returns {boolean} - Success status
+	 */
+	static writeJSON(filePath, data, options = {}) {
+		const config = { ...this.getConfig(), ...options };
+
+		try {
+			// Create target directory if it doesn't exist
+			const dir = path.dirname(filePath);
+			if (config.createMissingDirs && !fsSync.existsSync(dir)) {
+				fsSync.mkdirSync(dir, { recursive: true });
+			}
+
+			// Create backup directory if needed
+			if (config.backupFiles && !fsSync.existsSync(config.backupDir)) {
+				fsSync.mkdirSync(config.backupDir, { recursive: true });
+			}
+
+			// Create backup of existing file if it exists and backups are enabled
+			if (config.backupFiles && fsSync.existsSync(filePath)) {
+				const backupPath = path.join(
+					config.backupDir,
+					`${path.basename(filePath)}.${Date.now()}.bak`
+				);
+				fsSync.copyFileSync(filePath, backupPath);
+			}
+
+			// Format JSON with optional formatting
+			const jsonString = JSON.stringify(
+				data,
+				null,
+				config.compact ? 0 : options.indent || config.jsonIndent
+			);
+
+			// Write file
+			fsSync.writeFileSync(filePath, jsonString, config.encoding);
+			return true;
+		} catch (err) {
+			throw new Error(`File write error (${filePath}): ${err.message}`);
+		}
+	}
+
+	/**
+	 * Check if file exists synchronously
+	 * @param {string} filePath - Path to the file
+	 * @returns {boolean} - True if exists
+	 */
+	static exists(filePath) {
+		return fsSync.existsSync(filePath);
+	}
+
+	/**
+	 * Delete file synchronously
+	 * @param {string} filePath - Path to the file
+	 * @param {Object} options - Options for deletion
+	 * @returns {boolean} - Success status
+	 */
+	static deleteFile(filePath, options = {}) {
+		const config = { ...this.getConfig(), ...options };
+
+		try {
+			// Create backup before deletion if backups are enabled
+			if (config.backupFiles && fsSync.existsSync(filePath)) {
+				if (!fsSync.existsSync(config.backupDir)) {
+					fsSync.mkdirSync(config.backupDir, { recursive: true });
+				}
+
+				const backupPath = path.join(
+					config.backupDir,
+					`${path.basename(filePath)}.deleted.${Date.now()}.bak`
+				);
+				fsSync.copyFileSync(filePath, backupPath);
+			}
+
+			fsSync.unlinkSync(filePath);
+			return true;
+		} catch (err) {
+			throw new Error(`File deletion error (${filePath}): ${err.message}`);
+		}
 	}
 }
 
-module.exports = FileManager;
+// Initialize options with defaults
+SyncFileManager.options = { ...SyncFileManager.defaultOptions };
+
+module.exports = { FileManager, SyncFileManager };

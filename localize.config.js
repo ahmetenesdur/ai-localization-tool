@@ -1,31 +1,129 @@
+/**
+ * Localization Tool Configuration
+ * Version: 1.0.0
+ *
+ * This configuration file controls all aspects of the localization tool
+ * including API providers, performance settings, and quality controls.
+ */
+
 module.exports = {
-	// Basic Settings
+	/**
+	 * Basic Configuration
+	 */
+	version: "1.0.0", // Configuration version
 	localesDir: "./locales", // Directory where locale JSON files are stored
 	source: "en", // Source language
 	targets: ["tr", "de", "es", "fr", "hi", "ja", "pl", "ru", "th", "uk", "vi", "zh"], // Target languages
 
-	// Performance Settings
-	concurrencyLimit: 5, // Number of concurrent translations
-	cacheEnabled: true, // Enable caching of translations
+	/**
+	 * API Provider Configuration
+	 */
+	apiProvider: "dashscope", // Default/primary provider
+	useFallback: true, // Enable automatic fallback to other providers if primary fails
+	fallbackOrder: ["dashscope", "xai", "openai", "azureDeepseek", "deepseek", "gemini"], // Provider fallback order
+	apiConfig: {
+		dashscope: {
+			model: "qwen-plus",
+			temperature: 0.3,
+			maxTokens: 2000,
+			contextWindow: 8000, // Maximum context window size
+		},
+		xai: {
+			model: "grok-2-1212",
+			temperature: 0.3,
+			maxTokens: 2000,
+			contextWindow: 8000,
+		},
+		openai: {
+			model: "gpt-4o",
+			temperature: 0.3,
+			maxTokens: 2000,
+			contextWindow: 16000,
+		},
+		azureDeepseek: {
+			model: "DeepSeek-R1",
+			temperature: 0.1,
+			maxTokens: 2000,
+			contextWindow: 8000,
+		},
+		deepseek: {
+			model: "deepseek-chat",
+			temperature: 0.1,
+			maxTokens: 2000,
+			contextWindow: 8000,
+		},
+		gemini: {
+			model: "gemini-1.5-flash",
+			temperature: 0.3,
+			maxTokens: 2000,
+			contextWindow: 16000,
+		},
+	},
+
+	/**
+	 * Performance Optimization
+	 */
+	// Concurrency and Cache Settings
+	concurrencyLimit: 5, // Global limit for concurrent translations
+	cacheEnabled: true, // Enable translation caching
 	cacheTTL: 24 * 60 * 60 * 1000, // Cache TTL in milliseconds (24 hours)
 	cacheSize: 1000, // Maximum number of cached items
 
-	// Translation Quality
+	// Rate Limiter Configuration
+	rateLimiter: {
+		enabled: true, // Enable rate limiting
+		providerLimits: {
+			dashscope: { rpm: 50, concurrency: 4 }, // Requests per minute & concurrency
+			xai: { rpm: 60, concurrency: 5 },
+			openai: { rpm: 60, concurrency: 5 },
+			azureDeepseek: { rpm: 80, concurrency: 5 },
+			deepseek: { rpm: 45, concurrency: 3 },
+			gemini: { rpm: 100, concurrency: 8 },
+		},
+		queueStrategy: "priority", // priority, fifo
+		adaptiveThrottling: true, // Auto-adjust based on API responses
+		queueTimeout: 30000, // Maximum time in queue before timing out (ms)
+	},
+
+	/**
+	 * Error Handling and Reliability
+	 */
+	retryOptions: {
+		maxRetries: 2, // Global maximum retry attempts
+		initialDelay: 1000, // Initial delay before first retry (ms)
+		maxDelay: 10000, // Maximum delay cap for exponential backoff (ms)
+		jitter: true, // Add random jitter to retry delays
+		retryableErrors: [
+			"rate_limit", // Rate limit exceeded
+			"timeout", // Request timeout
+			"network", // Network errors
+			"server", // Server errors (5xx)
+			"unknown", // Unknown errors
+		],
+		perProviderRetry: {
+			dashscope: { maxRetries: 3 },
+			openai: { maxRetries: 2 },
+		},
+	},
+
+	/**
+	 * Translation Quality and Context
+	 */
+	// Context Detection System
 	context: {
-		enabled: true,
-		// AI-based context analysis settings
-		useAI: true, // Enable AI-based analysis
-		aiProvider: "openai", // AI provider to use for analysis
+		enabled: true, // Enable context detection
+		useAI: true, // Use AI for context analysis
+		aiProvider: "deepseek", // AI provider for context analysis
 		minTextLength: 50, // Minimum text length for AI analysis
 		allowNewCategories: true, // Allow AI to suggest new categories
-		debug: false, // Debug mode (shows detailed analysis information)
+		debug: false, // Show detailed analysis information
 		analysisOptions: {
-			model: "gpt-4o", // Model to use for analysis
-			temperature: 0.2, // Lower temperature gives more consistent results
-			maxTokens: 1000, // Maximum token count for analysis
+			model: "deepseek-chat", // Model for analysis
+			temperature: 0.1, // Lower temperature for consistency
+			maxTokens: 1000, // Maximum tokens for analysis
 		},
 		detection: {
-			threshold: 2, // Minimum number of keyword matches
+			threshold: 2, // Minimum keyword matches
 			minConfidence: 0.6, // Minimum confidence score
 		},
 		categories: {
@@ -109,75 +207,43 @@ module.exports = {
 			prompt: "Provide a natural translation",
 		},
 	},
+
+	// Quality Checks
 	qualityChecks: {
-		enabled: true,
+		enabled: true, // Enable quality checks
 		rules: {
-			placeholderConsistency: true, // Check for consistent placeholders
-			htmlTagsConsistency: true, // Check for consistent HTML tags
-			punctuationCheck: true, // Check for consistent punctuation
-			lengthValidation: true, // Validate text length
-			sanitizeOutput: true, // Sanitize output
+			placeholderConsistency: true, // Check placeholders
+			htmlTagsConsistency: true, // Check HTML tags
+			punctuationCheck: true, // Check punctuation
+			lengthValidation: true, // Check text length
+			sanitizeOutput: true, // Clean output text
+			markdownPreservation: true, // Preserve markdown
+			specialCharacters: true, // Maintain special characters
+			codeBlockPreservation: true, // Preserve code blocks
 		},
+		autoFix: true, // Auto-fix common issues
 	},
 
-	// Style Settings
+	// Style Guide
 	styleGuide: {
 		formality: "neutral", // formal, neutral, informal
-		toneOfVoice: "professional", // professional, friendly, casual
-	},
-
-	// Error Handling
-	retryOptions: {
-		maxRetries: 2, // Maximum number of retries
-		initialDelay: 1000, // Initial delay in milliseconds
-		maxDelay: 10000, // Maximum delay in milliseconds
-	},
-
-	// API Settings
-	apiProvider: "dashscope", // Preferred provider
-	useFallback: true, // Enable/disable API fallback system
-	apiConfig: {
-		dashscope: {
-			model: "qwen-plus",
-			temperature: 0.3,
-			maxTokens: 2000,
-		},
-		xai: {
-			model: "grok-2-1212",
-			temperature: 0.3,
-			maxTokens: 2000,
-		},
-		openai: {
-			model: "gpt-4o",
-			temperature: 0.3,
-			maxTokens: 2000,
-		},
-		azureDeepseek: {
-			model: "DeepSeek-R1",
-			temperature: 0.1,
-			maxTokens: 2000,
-		},
-		deepseek: {
-			model: "deepseek-chat",
-			temperature: 0.1,
-			maxTokens: 2000,
-		},
-		gemini: {
-			model: "gemini-1.5-flash",
-			temperature: 0.3,
-			maxTokens: 2000,
+		toneOfVoice: "professional", // professional, friendly, casual, technical
+		conventions: {
+			useOxfordComma: true, // Use Oxford comma in lists
+			useSentenceCase: true, // Use sentence case for headings
 		},
 	},
 
+	// Length Control
 	lengthControl: {
 		mode: "smart", // strict, flexible, exact, relaxed, smart
 		rules: {
-			strict: 0.1, // Maximum length difference ratio
-			flexible: 0.3, // Maximum length difference ratio
-			exact: 0.05, // Maximum length difference ratio
-			relaxed: 0.5, // Maximum length difference ratio
+			strict: 0.1, // 10% deviation
+			flexible: 0.3, // 30% deviation
+			exact: 0.05, // 5% deviation
+			relaxed: 0.5, // 50% deviation
 			smart: {
-				default: 0.15, // Default maximum length difference ratio
+				default: 0.15, // Default tolerance
 				byLanguage: {
 					ja: { max: 0.35, min: -0.2 }, // Japanese
 					zh: { max: 0.35, min: -0.2 }, // Chinese
@@ -200,5 +266,46 @@ module.exports = {
 				},
 			},
 		},
+	},
+
+	/**
+	 * File Operations and System Settings
+	 */
+	fileOperations: {
+		atomic: true, // Use atomic file operations
+		createMissingDirs: true, // Create missing directories
+		backupFiles: false, // Create backups before modifying
+		backupDir: "./backups", // Backup directory
+		encoding: "utf8", // File encoding
+		jsonIndent: 2, // JSON indentation spaces
+	},
+
+	/**
+	 * Logging and Diagnostics
+	 */
+	logging: {
+		verbose: false, // Enable verbose logging
+		diagnosticsLevel: "normal", // minimal, normal, detailed
+		outputFormat: "pretty", // pretty, json, minimal
+		saveErrorLogs: true, // Save error logs to file
+		logDirectory: "./logs", // Directory for log files
+		includeTimestamps: true, // Include timestamps in logs
+		logRotation: {
+			enabled: true, // Enable log rotation
+			maxFiles: 5, // Maximum number of log files to keep
+			maxSize: "10MB", // Maximum size of log files
+		},
+	},
+
+	/**
+	 * Advanced Settings
+	 * Generally you shouldn't need to modify these
+	 */
+	advanced: {
+		timeoutMs: 60000, // Global request timeout (ms)
+		maxKeyLength: 10000, // Maximum key length for translation
+		maxBatchSize: 50, // Maximum batch size for operations
+		autoOptimize: true, // Automatically optimize settings for hardware
+		debug: false, // Enable debug mode with additional information
 	},
 };
