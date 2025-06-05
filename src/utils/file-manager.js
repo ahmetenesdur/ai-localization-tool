@@ -295,6 +295,7 @@ FileManager.options = { ...FileManager.defaultOptions };
  * SyncFileManager - Synchronous file operations
  * Used for backward compatibility. New code should use FileManager instead.
  * @deprecated Use the async FileManager for better performance
+ * PERFORMANCE WARNING: This class blocks the event loop and should be avoided
  */
 class SyncFileManager {
 	/**
@@ -312,8 +313,13 @@ class SyncFileManager {
 	/**
 	 * Configure global options for file operations
 	 * @param {Object} options - File operation options
+	 * @deprecated Use FileManager.configure() instead for non-blocking operations
 	 */
 	static configure(options) {
+		console.warn(
+			"⚠️ DEPRECATION WARNING: SyncFileManager is deprecated. Use async FileManager for better performance."
+		);
+
 		if (!options) return;
 
 		this.options = {
@@ -326,8 +332,12 @@ class SyncFileManager {
 	/**
 	 * Get current configuration
 	 * @returns {Object} - Current configuration
+	 * @deprecated Use FileManager.getConfig() instead
 	 */
 	static getConfig() {
+		console.warn(
+			"⚠️ DEPRECATION WARNING: SyncFileManager is deprecated. Use async FileManager for better performance."
+		);
 		return this.options || this.defaultOptions;
 	}
 
@@ -336,8 +346,13 @@ class SyncFileManager {
 	 * @param {string} localesDir - Directory containing locale files
 	 * @param {string} sourceLang - Source language code
 	 * @returns {string[]} - Array of file paths
+	 * @deprecated Use FileManager.findLocaleFiles() instead for non-blocking operations
 	 */
 	static findLocaleFiles(localesDir, sourceLang) {
+		console.warn(
+			"⚠️ DEPRECATION WARNING: SyncFileManager.findLocaleFiles() is deprecated. Use async FileManager.findLocaleFiles() for better performance."
+		);
+
 		const sourceFile = path.join(localesDir, `${sourceLang}.json`);
 
 		if (!fsSync.existsSync(sourceFile)) {
@@ -352,8 +367,13 @@ class SyncFileManager {
 	 * @param {string} filePath - Path to the JSON file
 	 * @param {Object} options - Options for reading
 	 * @returns {Object} - Parsed JSON data
+	 * @deprecated Use FileManager.readJSON() instead for non-blocking operations
 	 */
 	static readJSON(filePath, options = {}) {
+		console.warn(
+			"⚠️ DEPRECATION WARNING: SyncFileManager.readJSON() is deprecated. Use async FileManager.readJSON() for better performance."
+		);
+
 		const config = { ...this.getConfig(), ...options };
 
 		try {
@@ -369,8 +389,13 @@ class SyncFileManager {
 	 * @param {Object} data - Data to write
 	 * @param {Object} options - Options for writing
 	 * @returns {boolean} - Success status
+	 * @deprecated Use FileManager.writeJSON() instead for non-blocking operations
 	 */
 	static writeJSON(filePath, data, options = {}) {
+		console.warn(
+			"⚠️ DEPRECATION WARNING: SyncFileManager.writeJSON() is deprecated. Use async FileManager.writeJSON() for better performance."
+		);
+
 		const config = { ...this.getConfig(), ...options };
 
 		try {
@@ -423,8 +448,13 @@ class SyncFileManager {
 	 * @param {string} filePath - Path to the file
 	 * @param {Object} options - Options for deletion
 	 * @returns {boolean} - Success status
+	 * @deprecated Use FileManager.deleteFile() instead for non-blocking operations
 	 */
 	static deleteFile(filePath, options = {}) {
+		console.warn(
+			"⚠️ DEPRECATION WARNING: SyncFileManager.deleteFile() is deprecated. Use async FileManager.deleteFile() for better performance."
+		);
+
 		const config = { ...this.getConfig(), ...options };
 
 		try {

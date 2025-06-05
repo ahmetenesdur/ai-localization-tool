@@ -16,14 +16,20 @@ const rateLimiter = require("../src/utils/rate-limiter");
 const Orchestrator = require("../src/core/orchestrator");
 const InputValidator = require("../src/utils/input-validator");
 
-// Load environment variables from .env.local if it exists
-const envLocalPath = path.resolve(process.cwd(), ".env.local");
-if (fsSync.existsSync(envLocalPath)) {
-	require("dotenv").config({ path: envLocalPath });
-}
+// FIXED: Load environment variables asynchronously to prevent blocking
+const loadEnvironmentVariables = async () => {
+	try {
+		const envLocalPath = path.resolve(process.cwd(), ".env.local");
+		await fs.access(envLocalPath);
+		require("dotenv").config({ path: envLocalPath });
+	} catch (error) {
+		// .env.local doesn't exist, which is fine
+	}
+};
 
 /**
  * Load configuration from localize.config.js
+ * FIXED: Use dynamic import to prevent blocking main thread with fallback support
  */
 const loadConfig = async () => {
 	try {
@@ -50,7 +56,32 @@ const loadConfig = async () => {
 		}
 
 		console.log(`🔍 Loading config from: ${path.relative(process.cwd(), configFile)}`);
-		return require(configFile);
+
+		// FIXED: Enhanced dynamic import with CommonJS/ES module compatibility
+		try {
+			// Convert to file:// URL for cross-platform compatibility
+			const configUrl = `file://${configFile.replace(/\\/g, "/")}`;
+			const configModule = await import(configUrl);
+
+			// Handle both CommonJS (module.exports) and ES module (export default/named) formats
+			const config = configModule.default || configModule;
+
+			// Validate that we got a valid config object
+			if (!config || typeof config !== "object") {
+				throw new Error("Config file does not export a valid configuration object");
+			}
+
+			return config;
+		} catch (importError) {
+			// Fallback to synchronous require for older Node.js versions or CommonJS issues
+			console.warn(
+				`⚠️ Dynamic import failed, falling back to synchronous loading: ${importError.message}`
+			);
+
+			// Clear require cache to ensure fresh load
+			delete require.cache[require.resolve(configFile)];
+			return require(configFile);
+		}
 	} catch (error) {
 		console.warn(`⚠️ Could not load config file: ${error.message}`);
 		return {
@@ -723,6 +754,7 @@ const displayPerformanceTips = async (options) => {
 	const startTime = Date.now();
 
 	try {
+		await loadEnvironmentVariables();
 		const defaultConfig = await loadConfig();
 		await configureCLI(defaultConfig);
 
