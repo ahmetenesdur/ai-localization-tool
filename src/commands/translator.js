@@ -4,6 +4,8 @@ const ObjectTransformer = require("../utils/object-transformer");
 const Orchestrator = require("../core/orchestrator");
 const QualityChecker = require("../utils/quality");
 const os = require("os");
+// SECURITY FIX: Add input validation
+const InputValidator = require("../utils/input-validator");
 
 // Add a simple console lock to prevent overlapping console output
 const consoleLock = {
@@ -40,13 +42,61 @@ const consoleLock = {
 /**
  * Main translator function to process a source file and create translations
  * for all target languages. Enhanced with better performance and error handling.
+ * SECURITY FIX: Added input validation to prevent path traversal and injection attacks
  */
 async function translateFile(file, options) {
 	await consoleLock.log(`\n📄 Processing File: "${path.basename(file)}"`);
 
+	// SECURITY FIX: Declare resolvedFile at function scope
+	let resolvedFile;
+
+	try {
+		// SECURITY FIX: Validate input parameters
+		if (!file || typeof file !== "string") {
+			throw new Error("File path must be a non-empty string");
+		}
+
+		if (!options || typeof options !== "object") {
+			throw new Error("Options must be an object");
+		}
+
+		// SECURITY FIX: Validate source language
+		if (options.source) {
+			options.source = InputValidator.validateLanguageCode(options.source, "source language");
+		}
+
+		// SECURITY FIX: Validate target languages
+		if (options.targets && Array.isArray(options.targets)) {
+			options.targets = InputValidator.validateLanguageCodes(
+				options.targets,
+				"target languages"
+			);
+		}
+
+		// SECURITY FIX: Validate locales directory if provided
+		if (options.localesDir) {
+			options.localesDir = InputValidator.validateDirectoryPath(
+				options.localesDir,
+				"locales directory"
+			);
+		}
+
+		// SECURITY FIX: Resolve and validate file path to prevent traversal
+		resolvedFile = path.resolve(file);
+		const cwd = process.cwd();
+		if (!resolvedFile.startsWith(cwd)) {
+			throw new Error(
+				`Source file '${file}' is outside working directory (resolved: ${resolvedFile})`
+			);
+		}
+	} catch (validationError) {
+		await consoleLock.log(`\n❌ Input validation error: ${validationError.message}`);
+		throw validationError;
+	}
+
 	// Read source content
 	const startTime = Date.now();
-	const sourceContent = await FileManager.readJSON(file);
+	const sourceContent = await FileManager.readJSON(resolvedFile);
 	const flattenedSource = ObjectTransformer.flatten(sourceContent);
 	const totalKeys = Object.keys(flattenedSource).length;
 
@@ -92,7 +142,7 @@ async function translateFile(file, options) {
 				currentBatch.map((targetLang) =>
 					processLanguage(
 						targetLang,
-						file,
+						resolvedFile,
 						flattenedSource,
 						// Use a separate orchestrator instance for each language in the batch
 						// to avoid progress tracker state conflicts
@@ -186,6 +236,7 @@ async function translateFile(file, options) {
 
 /**
  * Process a single language translation
+ * SECURITY FIX: Added input validation to prevent path traversal attacks
  */
 async function processLanguage(
 	targetLang,
@@ -195,22 +246,28 @@ async function processLanguage(
 	options,
 	globalStats // Used for aggregating final stats
 ) {
-	await consoleLock.log(`\n🌐 Starting translations for ${targetLang}`);
-	const langStartTime = Date.now();
-	let finalStatus = null;
-	let savedMessage = null;
-
-	// Initialize language stats in globalStats
-	globalStats.languages[targetLang] = {
-		processed: 0,
-		added: 0,
-		skipped: 0,
-		failed: 0,
-		timeMs: 0,
-	};
-
 	try {
-		const targetPath = path.join(path.dirname(sourceFile), `${targetLang}.json`);
+		// SECURITY FIX: Validate target language before processing
+		const safeTargetLang = InputValidator.validateLanguageCode(targetLang, "target language");
+
+		await consoleLock.log(`\n🌐 Starting translations for ${safeTargetLang}`);
+		const langStartTime = Date.now();
+		let finalStatus = null;
+		let savedMessage = null;
+
+		// Initialize language stats in globalStats
+		globalStats.languages[safeTargetLang] = {
+			processed: 0,
+			added: 0,
+			skipped: 0,
+			failed: 0,
+			timeMs: 0,
+		};
+
+		// SECURITY FIX: Create safe target file path to prevent path traversal
+		const sourceDir = path.dirname(sourceFile);
+		const safeTargetFilename = `${safeTargetLang}.json`;
+		const targetPath = InputValidator.createSafeFilePath(sourceDir, safeTargetFilename);
 
 		// Read target content (if exists)
 		let targetContent = {};
@@ -218,7 +275,7 @@ async function processLanguage(
 			targetContent = await FileManager.readJSON(targetPath);
 		} catch (err) {
 			// If file doesn't exist, use empty object (will create new file)
-			await consoleLock.log(`🆕 Creating new translation file for ${targetLang}`);
+			await consoleLock.log(`🆕 Creating new translation file for ${safeTargetLang}`);
 		}
 
 		const flattenedTarget = ObjectTransformer.flatten(targetContent);
@@ -227,12 +284,23 @@ async function processLanguage(
 		const missingKeys = [];
 
 		for (const [key, sourceText] of Object.entries(flattenedSource)) {
+			// SECURITY FIX: Validate translation key
+			try {
+				InputValidator.validateKey(key, "translation key");
+				InputValidator.validateText(sourceText, "source text");
+			} catch (keyError) {
+				await consoleLock.log(`⚠️ Skipping invalid key/text: ${keyError.message}`);
+				globalStats.languages[safeTargetLang].failed++;
+				globalStats.failed++;
+				continue;
+			}
+
 			// Track what we're processing for this language in globalStats
-			globalStats.languages[targetLang].processed++;
+			globalStats.languages[safeTargetLang].processed++;
 
 			// Skip if key exists in target and we're not forcing update
 			if (key in flattenedTarget && !options.forceUpdate) {
-				globalStats.languages[targetLang].skipped++;
+				globalStats.languages[safeTargetLang].skipped++;
 				globalStats.skipped++;
 				continue;
 			}
@@ -241,19 +309,19 @@ async function processLanguage(
 			missingKeys.push({
 				key,
 				text: sourceText,
-				targetLang,
+				targetLang: safeTargetLang,
 				existingTranslation: flattenedTarget[key],
 			});
 		}
 
 		if (missingKeys.length === 0) {
-			await consoleLock.log(`✅ All translations exist for ${targetLang}`);
-			globalStats.languages[targetLang].timeMs = Date.now() - langStartTime;
-			return { status: { completed: 0, total: 0, language: targetLang } }; // Return minimal status
+			await consoleLock.log(`✅ All translations exist for ${safeTargetLang}`);
+			globalStats.languages[safeTargetLang].timeMs = Date.now() - langStartTime;
+			return { status: { completed: 0, total: 0, language: safeTargetLang } }; // Return minimal status
 		}
 
 		await consoleLock.log(
-			`📝 Found ${missingKeys.length} missing translations for ${targetLang}`
+			`📝 Found ${missingKeys.length} missing translations for ${safeTargetLang}`
 		);
 
 		// Configure the progress tracker (should be handled by orchestrator constructor now)
@@ -285,8 +353,8 @@ async function processLanguage(
 			globalStats.total += validResults.length;
 			globalStats.success += validResults.length;
 			globalStats.failed += results.length - validResults.length;
-			globalStats.languages[targetLang].added += validResults.length;
-			globalStats.languages[targetLang].failed += results.length - validResults.length;
+			globalStats.languages[safeTargetLang].added += validResults.length;
+			globalStats.languages[safeTargetLang].failed += results.length - validResults.length;
 
 			// Update total time (consider aggregating this differently if needed)
 			// const orchestratorTime = parseFloat(orchestrator.progress.statistics.totalTime || 0);
@@ -310,18 +378,25 @@ async function processLanguage(
 				}
 			});
 
-			savedMessage = `\n💾 Translations saved: ${targetLang}.json`;
+			savedMessage = `\n💾 Translations saved: ${safeTargetLang}.json`;
 		}
 
 		// Update language timing in globalStats
-		globalStats.languages[targetLang].timeMs = Date.now() - langStartTime;
+		globalStats.languages[safeTargetLang].timeMs = Date.now() - langStartTime;
 		return { status: finalStatus, savedMessage }; // Return status and save message
 	} catch (error) {
+		// SECURITY FIX: Sanitize error messages to prevent information leakage
+		const safeError = error.message.includes("outside working directory")
+			? "Invalid file path detected"
+			: error.message;
+
 		// Log error but continue with other languages
-		await consoleLock.log(`\n❌ Error processing ${targetLang}: ${error.message}`);
-		globalStats.languages[targetLang].error = error.message;
-		globalStats.languages[targetLang].timeMs = Date.now() - langStartTime;
-		return { status: null, error: error.message }; // Return error info
+		await consoleLock.log(`\n❌ Error processing ${targetLang}: ${safeError}`);
+		if (globalStats.languages[targetLang]) {
+			globalStats.languages[targetLang].error = safeError;
+			globalStats.languages[targetLang].timeMs = Date.now() - langStartTime;
+		}
+		return { status: null, error: safeError }; // Return error info
 	}
 }
 

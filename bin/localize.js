@@ -14,6 +14,7 @@ const ProviderFactory = require("../src/core/provider-factory");
 const { FileManager } = require("../src/utils/file-manager");
 const rateLimiter = require("../src/utils/rate-limiter");
 const Orchestrator = require("../src/core/orchestrator");
+const InputValidator = require("../src/utils/input-validator");
 
 // Load environment variables from .env.local if it exists
 const envLocalPath = path.resolve(process.cwd(), ".env.local");
@@ -142,222 +143,344 @@ const configureCLI = async (defaultConfig) => {
 
 	// Run helper for all actions
 	const runCommand = async (options, commandOptions, commandName) => {
-		// Set up global debug mode if requested
-		const globalOpts = program.opts();
-
-		if (globalOpts.debug) {
-			// Debug CLI options
-			console.log("CLI Command:", commandName);
-			console.log("Global Options:", JSON.stringify(globalOpts, null, 2));
-			console.log("Command Options:", JSON.stringify(commandOptions, null, 2));
-		}
-
-		// Merge configurations: Defaults < Global < Command
-		const mergedOpts = { ...globalOpts, ...commandOptions };
-
-		// Set up concurrency options
-		let concurrencyLimit =
-			parseInt(mergedOpts.concurrency) || defaultConfig.concurrencyLimit || 5;
-
-		// Auto-optimize if requested
-		if (mergedOpts.autoOptimize) {
-			const cpuCount = os.cpus().length;
-			const memoryGB = Math.floor(os.totalmem() / (1024 * 1024 * 1024));
-
-			// Adjust concurrency based on available CPU cores and memory
-			if (memoryGB < 4) {
-				concurrencyLimit = Math.min(3, cpuCount);
-			} else if (memoryGB < 8) {
-				concurrencyLimit = Math.min(5, Math.ceil(cpuCount * 0.5));
-			} else {
-				concurrencyLimit = Math.min(10, Math.ceil(cpuCount * 0.75));
+		try {
+			// SECURITY FIX: Validate command name
+			const validCommands = ["translate", "fix", "analyze", "advanced"];
+			if (!validCommands.includes(commandName)) {
+				throw new Error(`Invalid command: ${commandName}`);
 			}
 
-			console.log(
-				`🔧 Auto-optimized settings for your system (${cpuCount} CPUs, ${memoryGB}GB RAM):`
-			);
-			console.log(`   - Concurrency: ${concurrencyLimit}`);
-		}
+			// Set up global debug mode if requested
+			const globalOpts = program.opts();
 
-		// Create final config
-		const finalConfig = {
-			...defaultConfig,
-			command: commandName,
-			source: mergedOpts.source,
-			targets: mergedOpts.targets,
-			localesDir: mergedOpts.localesDir,
-			apiProvider: mergedOpts.provider || defaultConfig.apiProvider,
-			concurrencyLimit: concurrencyLimit,
-			cacheEnabled:
-				mergedOpts.noCache === undefined ? defaultConfig.cacheEnabled : !mergedOpts.noCache,
-			debug: mergedOpts.debug,
-			verbose: mergedOpts.verbose || defaultConfig.logging?.verbose || false,
-			forceUpdate: mergedOpts.force || false,
-			showDetailedStats: mergedOpts.stats || false,
-			autoOptimize: mergedOpts.autoOptimize || defaultConfig.advanced?.autoOptimize || false,
-			fixLength: commandName === "fix",
-			apiConfig: defaultConfig.apiConfig || {},
-			styleGuide: defaultConfig.styleGuide,
-			qualityChecks: defaultConfig.qualityChecks,
-			lengthControl: {
-				...defaultConfig.lengthControl,
-				mode: mergedOpts.length || defaultConfig.lengthControl?.mode || "smart",
-			},
-			retryOptions: {
-				...defaultConfig.retryOptions,
-				maxRetries: mergedOpts.maxRetries || defaultConfig.retryOptions?.maxRetries || 2,
-				initialDelay:
-					mergedOpts.initialDelay || defaultConfig.retryOptions?.initialDelay || 1000,
-				maxDelay: mergedOpts.maxDelay || defaultConfig.retryOptions?.maxDelay || 10000,
-				jitter: defaultConfig.retryOptions?.jitter !== false,
-			},
-			context: {
-				...defaultConfig.context,
-				enabled: true,
-				debug: mergedOpts.contextDebug || defaultConfig.context.debug || false,
-				useAI:
-					mergedOpts.useAi ||
-					mergedOpts.contextProvider !== undefined ||
-					defaultConfig.context.useAI ||
-					false,
-				aiProvider: mergedOpts.contextProvider || defaultConfig.context.aiProvider,
-				minTextLength: mergedOpts.minTextLength || defaultConfig.context.minTextLength,
-				allowNewCategories:
-					mergedOpts.allowNewCategories !== undefined
-						? mergedOpts.allowNewCategories
-						: defaultConfig.context.allowNewCategories,
-				detection: {
-					threshold:
-						mergedOpts.contextThreshold ||
-						defaultConfig.context.detection?.threshold ||
-						2,
-					minConfidence:
-						mergedOpts.contextConfidence ||
-						defaultConfig.context.detection?.minConfidence ||
-						0.6,
-				},
-			},
-			// Include advanced configuration
-			advanced: {
-				...defaultConfig.advanced,
-				timeoutMs: mergedOpts.timeout || defaultConfig.advanced?.timeoutMs || 60000,
-				maxKeyLength: defaultConfig.advanced?.maxKeyLength || 10000,
-				maxBatchSize: defaultConfig.advanced?.maxBatchSize || 50,
+			if (globalOpts.debug) {
+				// Debug CLI options
+				console.log("CLI Command:", commandName);
+				console.log("Global Options:", JSON.stringify(globalOpts, null, 2));
+				console.log("Command Options:", JSON.stringify(commandOptions, null, 2));
+			}
+
+			// SECURITY FIX: Validate and sanitize CLI inputs
+			const sanitizedGlobalOpts = { ...globalOpts };
+			const sanitizedCommandOptions = { ...commandOptions };
+
+			// Validate source language
+			if (sanitizedGlobalOpts.source) {
+				sanitizedGlobalOpts.source = InputValidator.validateLanguageCode(
+					sanitizedGlobalOpts.source,
+					"source language"
+				);
+			}
+
+			// Validate target languages
+			if (sanitizedGlobalOpts.targets && Array.isArray(sanitizedGlobalOpts.targets)) {
+				sanitizedGlobalOpts.targets = InputValidator.validateLanguageCodes(
+					sanitizedGlobalOpts.targets,
+					"target languages"
+				);
+			}
+
+			// Validate locales directory
+			if (sanitizedGlobalOpts.localesDir) {
+				sanitizedGlobalOpts.localesDir = InputValidator.validateDirectoryPath(
+					sanitizedGlobalOpts.localesDir,
+					"locales directory"
+				);
+			}
+
+			// Validate API provider
+			if (sanitizedCommandOptions.provider) {
+				sanitizedCommandOptions.provider = InputValidator.validateProvider(
+					sanitizedCommandOptions.provider,
+					"API provider"
+				);
+			}
+
+			// Validate numeric inputs
+			if (sanitizedCommandOptions.concurrency !== undefined) {
+				const concurrency = parseInt(sanitizedCommandOptions.concurrency);
+				if (isNaN(concurrency) || concurrency < 1 || concurrency > 20) {
+					throw new Error("Concurrency must be a number between 1 and 20");
+				}
+				sanitizedCommandOptions.concurrency = concurrency;
+			}
+
+			if (sanitizedCommandOptions.contextThreshold !== undefined) {
+				const threshold = parseInt(sanitizedCommandOptions.contextThreshold);
+				if (isNaN(threshold) || threshold < 1 || threshold > 10) {
+					throw new Error("Context threshold must be a number between 1 and 10");
+				}
+				sanitizedCommandOptions.contextThreshold = threshold;
+			}
+
+			if (sanitizedCommandOptions.contextConfidence !== undefined) {
+				const confidence = parseFloat(sanitizedCommandOptions.contextConfidence);
+				if (isNaN(confidence) || confidence < 0 || confidence > 1) {
+					throw new Error("Context confidence must be a number between 0 and 1");
+				}
+				sanitizedCommandOptions.contextConfidence = confidence;
+			}
+
+			// Validate length mode
+			if (sanitizedCommandOptions.length) {
+				const validLengthModes = ["strict", "flexible", "exact", "relaxed", "smart"];
+				if (!validLengthModes.includes(sanitizedCommandOptions.length)) {
+					throw new Error(
+						`Invalid length mode: ${sanitizedCommandOptions.length}. Valid modes: ${validLengthModes.join(", ")}`
+					);
+				}
+			}
+
+			// Merge configurations: Defaults < Global < Command
+			const mergedOpts = { ...sanitizedGlobalOpts, ...sanitizedCommandOptions };
+
+			// Set up concurrency options
+			let concurrencyLimit =
+				parseInt(mergedOpts.concurrency) || defaultConfig.concurrencyLimit || 5;
+
+			// Auto-optimize if requested
+			if (mergedOpts.autoOptimize) {
+				const cpuCount = os.cpus().length;
+				const memoryGB = Math.floor(os.totalmem() / (1024 * 1024 * 1024));
+
+				// Adjust concurrency based on available CPU cores and memory
+				if (memoryGB < 4) {
+					concurrencyLimit = Math.min(3, cpuCount);
+				} else if (memoryGB < 8) {
+					concurrencyLimit = Math.min(5, Math.ceil(cpuCount * 0.5));
+				} else {
+					concurrencyLimit = Math.min(10, Math.ceil(cpuCount * 0.75));
+				}
+
+				console.log(
+					`🔧 Auto-optimized settings for your system (${cpuCount} CPUs, ${memoryGB}GB RAM):`
+				);
+				console.log(`   - Concurrency: ${concurrencyLimit}`);
+			}
+
+			// SECURITY FIX: Final validation of concurrency limit
+			if (concurrencyLimit < 1 || concurrencyLimit > 20) {
+				throw new Error("Invalid concurrency limit after optimization");
+			}
+
+			// Create final config
+			const finalConfig = {
+				...defaultConfig,
+				command: commandName,
+				source: mergedOpts.source,
+				targets: mergedOpts.targets,
+				localesDir: mergedOpts.localesDir,
+				apiProvider: mergedOpts.provider || defaultConfig.apiProvider,
+				concurrencyLimit: concurrencyLimit,
+				cacheEnabled:
+					mergedOpts.noCache === undefined
+						? defaultConfig.cacheEnabled
+						: !mergedOpts.noCache,
+				debug: mergedOpts.debug,
+				verbose: mergedOpts.verbose || defaultConfig.logging?.verbose || false,
+				forceUpdate: mergedOpts.force || false,
+				showDetailedStats: mergedOpts.stats || false,
 				autoOptimize:
 					mergedOpts.autoOptimize || defaultConfig.advanced?.autoOptimize || false,
-				debug: mergedOpts.debug || defaultConfig.advanced?.debug || false,
-			},
-			// Include rate limiter configuration
-			rateLimiter: {
-				...defaultConfig.rateLimiter,
-				enabled: defaultConfig.rateLimiter?.enabled !== false,
-			},
-			// Include file operations configuration
-			fileOperations: defaultConfig.fileOperations || {},
-			// Include logging configuration
-			logging: {
-				...defaultConfig.logging,
-				verbose: mergedOpts.verbose || defaultConfig.logging?.verbose || false,
-			},
-		};
-
-		// Update configurations with final settings
-		configureComponents(finalConfig);
-
-		// Validate environment
-		validateEnvironment();
-
-		// Debug configuration details
-		if (finalConfig.debug) {
-			console.log("\n📋 Configuration details:");
-			console.log(
-				JSON.stringify(
-					{
-						...finalConfig,
-						// Don't log the entire API config which may contain sensitive data
-						apiConfig: Object.keys(finalConfig.apiConfig || {}),
+				fixLength: commandName === "fix",
+				apiConfig: defaultConfig.apiConfig || {},
+				styleGuide: defaultConfig.styleGuide,
+				qualityChecks: defaultConfig.qualityChecks,
+				lengthControl: {
+					...defaultConfig.lengthControl,
+					mode: mergedOpts.length || defaultConfig.lengthControl?.mode || "smart",
+				},
+				retryOptions: {
+					...defaultConfig.retryOptions,
+					maxRetries:
+						mergedOpts.maxRetries || defaultConfig.retryOptions?.maxRetries || 2,
+					initialDelay:
+						mergedOpts.initialDelay || defaultConfig.retryOptions?.initialDelay || 1000,
+					maxDelay: mergedOpts.maxDelay || defaultConfig.retryOptions?.maxDelay || 10000,
+					jitter: defaultConfig.retryOptions?.jitter !== false,
+				},
+				context: {
+					...defaultConfig.context,
+					enabled: true,
+					debug: mergedOpts.contextDebug || defaultConfig.context.debug || false,
+					useAI:
+						mergedOpts.useAi ||
+						mergedOpts.contextProvider !== undefined ||
+						defaultConfig.context.useAI ||
+						false,
+					aiProvider: mergedOpts.contextProvider || defaultConfig.context.aiProvider,
+					minTextLength: mergedOpts.minTextLength || defaultConfig.context.minTextLength,
+					allowNewCategories:
+						mergedOpts.allowNewCategories !== undefined
+							? mergedOpts.allowNewCategories
+							: defaultConfig.context.allowNewCategories,
+					detection: {
+						threshold:
+							mergedOpts.contextThreshold ||
+							defaultConfig.context.detection?.threshold ||
+							2,
+						minConfidence:
+							mergedOpts.contextConfidence ||
+							defaultConfig.context.detection?.minConfidence ||
+							0.6,
 					},
-					null,
-					2
-				)
-			);
-		}
+				},
+				// Include advanced configuration
+				advanced: {
+					...defaultConfig.advanced,
+					timeoutMs: mergedOpts.timeout || defaultConfig.advanced?.timeoutMs || 60000,
+					maxKeyLength: defaultConfig.advanced?.maxKeyLength || 10000,
+					maxBatchSize: defaultConfig.advanced?.maxBatchSize || 50,
+					autoOptimize:
+						mergedOpts.autoOptimize || defaultConfig.advanced?.autoOptimize || false,
+					debug: mergedOpts.debug || defaultConfig.advanced?.debug || false,
+				},
+				// Include rate limiter configuration
+				rateLimiter: {
+					...defaultConfig.rateLimiter,
+					enabled: defaultConfig.rateLimiter?.enabled !== false,
+				},
+				// Include file operations configuration
+				fileOperations: defaultConfig.fileOperations || {},
+				// Include logging configuration
+				logging: {
+					...defaultConfig.logging,
+					verbose: mergedOpts.verbose || defaultConfig.logging?.verbose || false,
+				},
+			};
 
-		// Display performance tips
-		await displayPerformanceTips(finalConfig);
+			// SECURITY FIX: Final validation of entire config
+			try {
+				InputValidator.validateConfig(finalConfig);
+			} catch (configError) {
+				throw new Error(`Configuration validation failed: ${configError.message}`);
+			}
 
-		// Find locale files
-		const localesDir = path.resolve(finalConfig.localesDir);
-		console.log(`\n📁 Looking for source files in: ${localesDir}`);
+			// Update configurations with final settings
+			configureComponents(finalConfig);
 
-		const files = await findLocaleFiles(localesDir, finalConfig.source);
+			// Validate environment
+			validateEnvironment();
 
-		if (!files || !files.length) {
-			throw new Error(
-				`Source language file (${finalConfig.source}.json) not found in: ${localesDir}`
-			);
-		}
+			// Debug configuration details
+			if (finalConfig.debug) {
+				console.log("\n📋 Configuration details:");
 
-		// Execute the command
-		const startTime = Date.now();
+				// SECURITY FIX: Create safe config copy without sensitive data
+				const safeConfig = {
+					...finalConfig,
+					// Remove API config completely to prevent key exposure
+					apiConfig: Object.keys(finalConfig.apiConfig || {}).reduce((acc, provider) => {
+						acc[provider] = {
+							model: finalConfig.apiConfig[provider]?.model || "configured",
+							temperature: finalConfig.apiConfig[provider]?.temperature,
+							maxTokens: finalConfig.apiConfig[provider]?.maxTokens,
+							// Exclude any potential API keys or endpoints
+						};
+						return acc;
+					}, {}),
+					// Remove any other potentially sensitive fields
+					advanced: {
+						...finalConfig.advanced,
+						// Keep only non-sensitive advanced settings
+						timeoutMs: finalConfig.advanced?.timeoutMs,
+						maxKeyLength: finalConfig.advanced?.maxKeyLength,
+						maxBatchSize: finalConfig.advanced?.maxBatchSize,
+						autoOptimize: finalConfig.advanced?.autoOptimize,
+						debug: finalConfig.advanced?.debug,
+					},
+				};
 
-		switch (commandName) {
-			case "fix":
-				console.log("\n🔧 Running in FIX mode");
-				await Promise.all(
-					files.map((file) => validateAndFixExistingTranslations(file, finalConfig))
+				// SECURITY FIX: Additional sensitive field removal
+				delete safeConfig.apiProvider; // Could leak preferred provider info
+				delete safeConfig.localesDir; // Could leak file system structure
+
+				console.log(JSON.stringify(safeConfig, null, 2));
+			}
+
+			// Display performance tips
+			await displayPerformanceTips(finalConfig);
+
+			// Find locale files
+			const localesDir = path.resolve(finalConfig.localesDir);
+			console.log(`\n📁 Looking for source files in: ${localesDir}`);
+
+			const files = await findLocaleFiles(localesDir, finalConfig.source);
+
+			if (!files || !files.length) {
+				throw new Error(
+					`Source language file (${finalConfig.source}.json) not found in: ${localesDir}`
 				);
-				break;
+			}
 
-			case "analyze":
-				console.log("\n🔍 Running in ANALYZE mode");
-				console.log("Context analysis mode is not fully implemented yet.");
-				break;
+			// Execute the command
+			const startTime = Date.now();
 
-			case "advanced":
-				console.log("\n⚙️ Running ADVANCED configuration");
-			// Fall through to translate
-
-			case "translate":
-			default:
-				console.log("\n🚀 Running in TRANSLATION mode");
-
-				if (finalConfig.context.useAI) {
-					console.log(
-						`🧠 AI Context Analysis: ENABLED (Provider: ${finalConfig.context.aiProvider || finalConfig.apiProvider})`
+			switch (commandName) {
+				case "fix":
+					console.log("\n🔧 Running in FIX mode");
+					await Promise.all(
+						files.map((file) => validateAndFixExistingTranslations(file, finalConfig))
 					);
-					if (finalConfig.context.allowNewCategories) {
-						console.log("🔄 New category suggestions: ENABLED");
+					break;
+
+				case "analyze":
+					console.log("\n🔍 Running in ANALYZE mode");
+					console.log("Context analysis mode is not fully implemented yet.");
+					break;
+
+				case "advanced":
+					console.log("\n⚙️ Running ADVANCED configuration");
+				// Fall through to translate
+
+				case "translate":
+				default:
+					console.log("\n🚀 Running in TRANSLATION mode");
+
+					if (finalConfig.context.useAI) {
+						console.log(
+							`🧠 AI Context Analysis: ENABLED (Provider: ${finalConfig.context.aiProvider || finalConfig.apiProvider})`
+						);
+						if (finalConfig.context.allowNewCategories) {
+							console.log("🔄 New category suggestions: ENABLED");
+						}
 					}
-				}
 
-				console.log(`⚙️ Performance settings:`);
-				console.log(
-					`   - Concurrency: ${finalConfig.concurrencyLimit} parallel operations`
-				);
-				console.log(`   - Caching: ${finalConfig.cacheEnabled ? "Enabled" : "Disabled"}`);
-				console.log(`   - Retries: ${finalConfig.retryOptions.maxRetries} max retries`);
-
-				if (finalConfig.rateLimiter?.adaptiveThrottling) {
-					console.log(`   - Adaptive Rate Limiting: Enabled`);
-				}
-
-				if (finalConfig.forceUpdate) {
+					console.log(`⚙️ Performance settings:`);
 					console.log(
-						`⚠️ Force update mode: ENABLED (will update existing translations)`
+						`   - Concurrency: ${finalConfig.concurrencyLimit} parallel operations`
 					);
-				}
+					console.log(
+						`   - Caching: ${finalConfig.cacheEnabled ? "Enabled" : "Disabled"}`
+					);
+					console.log(`   - Retries: ${finalConfig.retryOptions.maxRetries} max retries`);
 
-				// Process all files
-				for (const file of files) {
-					await translateFile(file, finalConfig);
-				}
-				break;
+					if (finalConfig.rateLimiter?.adaptiveThrottling) {
+						console.log(`   - Adaptive Rate Limiting: Enabled`);
+					}
+
+					if (finalConfig.forceUpdate) {
+						console.log(
+							`⚠️ Force update mode: ENABLED (will update existing translations)`
+						);
+					}
+
+					// Process all files
+					for (const file of files) {
+						await translateFile(file, finalConfig);
+					}
+					break;
+			}
+
+			// Calculate and display total execution time
+			const executionTime = (Date.now() - startTime) / 1000;
+			console.log(
+				`\n✅ All operations completed successfully in ${executionTime.toFixed(1)}s`
+			);
+		} catch (validationError) {
+			console.error(`\n❌ Input validation error: ${validationError.message}`);
+			process.exit(1);
 		}
-
-		// Calculate and display total execution time
-		const executionTime = (Date.now() - startTime) / 1000;
-		console.log(`\n✅ All operations completed successfully in ${executionTime.toFixed(1)}s`);
 	};
 
 	// Translate command - the default action

@@ -132,7 +132,6 @@ class FileManager {
 
 			// Use atomic write if configured
 			if (config.atomic) {
-				// FIXED: Proper error handling with temp file cleanup and collision prevention
 				const tempFile = this._generateTempFilePath(filePath);
 				let tempFileCreated = false;
 
@@ -147,7 +146,6 @@ class FileManager {
 					// Success - temp file has been renamed, no cleanup needed
 					tempFileCreated = false;
 				} catch (renameError) {
-					// FIXED: Clean up temp file if rename failed
 					if (tempFileCreated) {
 						try {
 							await fs.unlink(tempFile);
@@ -172,7 +170,6 @@ class FileManager {
 
 			return true;
 		} catch (err) {
-			// FIXED: Enhanced error message with operation context
 			const operation = config.atomic ? "atomic write" : "direct write";
 			throw new Error(`File ${operation} error (${filePath}): ${err.message}`);
 		}

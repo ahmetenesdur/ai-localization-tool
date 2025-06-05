@@ -1,14 +1,12 @@
 /**
  * Enhanced progress tracking for monitoring translation and processing operations
  * with improved ETA calculation and detailed statistics
- * FIXED: Thread-safe operations to prevent race conditions
  */
 class ProgressTracker {
 	constructor(options = {}) {
 		this.logToConsole = options.logToConsole !== false;
 		this.logFrequency = options.logFrequency || 20; // How many times to log during process
 
-		// FIXED: Add locking mechanism for thread safety
 		this._isUpdating = false;
 		this._pendingUpdates = [];
 
@@ -27,7 +25,6 @@ class ProgressTracker {
 		this.language = null;
 		this.isCompleted = false;
 
-		// FIXED: Reset lock state
 		this._isUpdating = false;
 		this._pendingUpdates = [];
 
@@ -55,7 +52,6 @@ class ProgressTracker {
 		}
 	}
 
-	// FIXED: Thread-safe increment with atomic operations
 	increment(type = "success") {
 		if (!this.startTime) {
 			throw new Error("Progress tracker not started");
@@ -76,7 +72,6 @@ class ProgressTracker {
 		this._processUpdate(type);
 	}
 
-	// FIXED: Atomic update processing
 	_processUpdate(type) {
 		// Set lock
 		this._isUpdating = true;
@@ -139,7 +134,6 @@ class ProgressTracker {
 		}
 	}
 
-	// FIXED: Ensure data consistency
 	_ensureDataConsistency() {
 		// Ensure counts don't exceed limits
 		this.completed = Math.min(this.total, Math.max(0, this.completed));
@@ -159,7 +153,6 @@ class ProgressTracker {
 		}
 	}
 
-	// FIXED: Process queued updates atomically
 	_processPendingUpdates() {
 		if (this._pendingUpdates.length === 0) {
 			return;
@@ -174,7 +167,6 @@ class ProgressTracker {
 		});
 	}
 
-	// FIXED: Extract log condition to separate method
 	_shouldLog() {
 		return (
 			this.completed % Math.max(1, Math.floor(this.total / this.logFrequency)) === 0 || // Log based on frequency

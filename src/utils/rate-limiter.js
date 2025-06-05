@@ -14,7 +14,6 @@ class RateLimiter {
 			adaptiveThrottling: config.adaptiveThrottling !== false, // Enabled by default
 		};
 
-		// Adaptive throttling metrics - FIXED: Sliding window approach
 		this.metrics = {
 			responseTimes: {},
 			errorRates: {}, // Will store arrays instead of counters
@@ -63,12 +62,10 @@ class RateLimiter {
 			},
 		};
 
-		// Initialize queues and metrics for each provider - FIXED: Sliding window arrays
 		Object.keys(this.providers).forEach((provider) => {
 			this.queues[provider] = [];
 			this.processing[provider] = 0;
 			this.metrics.responseTimes[provider] = [];
-			// FIXED: Use sliding window for error tracking instead of counters
 			this.metrics.errorRates[provider] = [];
 			this.metrics.adjustments[provider] = { rpm: 0, concurrency: 0 };
 			this.metrics.lastMetricsReset[provider] = Date.now();
@@ -77,7 +74,6 @@ class RateLimiter {
 		// Auto-reset counters every minute
 		setInterval(() => this._resetCounters(), 60000);
 
-		// FIXED: More frequent metrics cleanup to prevent memory leak
 		setInterval(() => this._cleanupMetrics(), 2 * 60 * 1000); // Every 2 minutes
 
 		// Adaptive throttling adjustment interval (every 5 minutes)
@@ -369,7 +365,6 @@ class RateLimiter {
 		return { ...this.config };
 	}
 
-	// FIXED: More frequent metrics cleanup to prevent memory leak
 	_cleanupMetrics() {
 		const now = Date.now();
 
