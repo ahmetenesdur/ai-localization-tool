@@ -138,9 +138,15 @@ class FallbackProvider {
 					attempt: currentAttempt + 1,
 				});
 
-				// Log the error
+				// SECURITY FIX: Sanitize error logging to prevent information leakage
+				const safeProviderName = `Provider_${(this.currentIndex % totalProviders) + 1}`;
+				const safeErrorMessage =
+					error.message.includes("API") || error.message.includes("key")
+						? "Authentication or API error"
+						: error.message.substring(0, 100); // Truncate long errors
+
 				console.warn(
-					`Provider ${providerName} failed (attempt ${currentAttempt + 1}/${maxAttempts}): ${error.message}`
+					`${safeProviderName} failed (attempt ${currentAttempt + 1}/${maxAttempts}): ${safeErrorMessage}`
 				);
 
 				// Move to next provider or retry current
@@ -274,9 +280,15 @@ class FallbackProvider {
 					attempt: currentAttempt + 1,
 				});
 
-				// Log the error
+				// SECURITY FIX: Sanitize error logging to prevent information leakage
+				const safeProviderName = `Provider_${(this.currentIndex % totalProviders) + 1}`;
+				const safeErrorMessage =
+					error.message.includes("API") || error.message.includes("key")
+						? "Authentication or API error"
+						: error.message.substring(0, 100); // Truncate long errors
+
 				console.warn(
-					`Provider ${providerName} analysis failed (attempt ${currentAttempt + 1}/${maxAttempts}): ${error.message}`
+					`${safeProviderName} failed (attempt ${currentAttempt + 1}/${maxAttempts}): ${safeErrorMessage}`
 				);
 
 				// Move to next provider

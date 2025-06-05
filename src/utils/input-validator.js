@@ -8,8 +8,9 @@ const path = require("path");
 class InputValidator {
 	/**
 	 * Valid language code pattern (ISO 639-1 and common extensions)
+	 * FIXED: Pattern updated to handle lowercase input after sanitization
 	 */
-	static LANGUAGE_CODE_PATTERN = /^[a-z]{2}(-[A-Z]{2})?$/;
+	static LANGUAGE_CODE_PATTERN = /^[a-z]{2}(-[a-z]{2})?$/;
 
 	/**
 	 * Valid provider names

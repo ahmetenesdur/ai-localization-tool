@@ -67,10 +67,11 @@ class ProviderFactory {
 			);
 		}
 
-		// Log the provider chain if in debug mode
+		// SECURITY FIX: Log the provider chain safely if in debug mode
 		if (process.env.DEBUG) {
-			const providerNames = allProviders.map((p) => p.constructor.name).join(", ");
-			console.log(`Provider fallback chain: ${providerNames}`);
+			// Sanitize provider names to prevent information leakage
+			const safeProviderNames = allProviders.map((p, index) => `Provider_${index + 1}`);
+			console.log(`Provider fallback chain: ${safeProviderNames.join(" → ")}`);
 		}
 
 		// Create fallback provider with ordered list of providers

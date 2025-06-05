@@ -154,10 +154,24 @@ const configureCLI = async (defaultConfig) => {
 			const globalOpts = program.opts();
 
 			if (globalOpts.debug) {
-				// Debug CLI options
+				// SECURITY FIX: Debug CLI options safely without exposing sensitive data
+				const safeGlobalOpts = { ...globalOpts };
+				const safeCommandOptions = { ...commandOptions };
+
+				// Remove or mask sensitive information
+				if (safeGlobalOpts.targets) {
+					safeGlobalOpts.targets = `[${safeGlobalOpts.targets.length} languages]`;
+				}
+				if (safeGlobalOpts.localesDir) {
+					safeGlobalOpts.localesDir = "[directory_path]";
+				}
+				if (safeCommandOptions.provider) {
+					safeCommandOptions.provider = "[provider_name]";
+				}
+
 				console.log("CLI Command:", commandName);
-				console.log("Global Options:", JSON.stringify(globalOpts, null, 2));
-				console.log("Command Options:", JSON.stringify(commandOptions, null, 2));
+				console.log("Global Options:", JSON.stringify(safeGlobalOpts, null, 2));
+				console.log("Command Options:", JSON.stringify(safeCommandOptions, null, 2));
 			}
 
 			// SECURITY FIX: Validate and sanitize CLI inputs
