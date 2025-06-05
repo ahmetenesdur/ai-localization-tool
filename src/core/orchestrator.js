@@ -353,18 +353,28 @@ class Orchestrator {
 		};
 	}
 
-	// Generate a more robust cache key
+	/**
+	 * Generate a collision-resistant cache key for translation
+	 */
 	_generateCacheKey(text, targetLang, category = "unknown") {
-		// For shorter texts, use them directly
+		const keyParts = [text, targetLang, category, `LEN:${text.length}`];
+
+		// For shorter texts, we can still use them directly but with hashing for consistency
 		if (text.length < 100) {
-			return `${text}:${targetLang}:${category}`;
+			const directKey = keyParts.join(":");
+			return crypto
+				.createHash("sha256")
+				.update(directKey, "utf8")
+				.digest("hex")
+				.substring(0, 32);
 		}
 
-		// For longer texts, create a hash
+		// For longer texts, create a secure hash with all components
 		const hash = crypto
-			.createHash("sha1")
-			.update(`${text}:${targetLang}:${category}`)
-			.digest("hex");
+			.createHash("sha256")
+			.update(keyParts.join(":"), "utf8")
+			.digest("hex")
+			.substring(0, 32); // Truncate for storage efficiency
 
 		return hash;
 	}

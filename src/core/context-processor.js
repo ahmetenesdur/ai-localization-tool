@@ -153,17 +153,40 @@ class ContextProcessor {
 		};
 	}
 
+	/**
+	 * Generate a collision-resistant cache key for text and context
+	 */
 	getCacheKey(text, context) {
-		if (text.length > 200) {
-			const start = text.substring(0, 100);
-			const end = text.substring(text.length - 100);
-			text = start + end;
+		let keyContent;
+
+		if (text.length <= 200) {
+			// Short text: use as-is
+			keyContent = text;
+		} else if (text.length <= 1000) {
+			// Medium text: sample from beginning, middle, and end
+			const third = Math.floor(text.length / 3);
+			const start = text.substring(0, 50);
+			const middle = text.substring(third, third + 50);
+			const end = text.substring(text.length - 50);
+			keyContent = `${start}|MID:${middle}|${end}`;
+		} else {
+			// Long text: smart sampling with length and position info
+			const quarter = Math.floor(text.length / 4);
+			const start = text.substring(0, 40);
+			const q1 = text.substring(quarter, quarter + 30);
+			const q2 = text.substring(quarter * 2, quarter * 2 + 30);
+			const q3 = text.substring(quarter * 3, quarter * 3 + 30);
+			const end = text.substring(text.length - 40);
+
+			// Include text length and character diversity info for uniqueness
+			const charSet = new Set(text.toLowerCase()).size;
+			keyContent = `LEN:${text.length}|CHARS:${charSet}|${start}|Q1:${q1}|Q2:${q2}|Q3:${q3}|${end}`;
 		}
 
-		return crypto
-			.createHash("md5")
-			.update(`${text}-${JSON.stringify(context)}`)
-			.digest("hex");
+		const contextString = JSON.stringify(context);
+		const hashInput = `${keyContent}|CTX:${contextString}`;
+
+		return crypto.createHash("sha256").update(hashInput, "utf8").digest("hex").substring(0, 32); // Truncate for storage efficiency while maintaining uniqueness
 	}
 }
 

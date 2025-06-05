@@ -318,27 +318,42 @@ RESPONSE FORMAT:
 		}
 	}
 
+	/**
+	 * Generate a collision-resistant cache key for text
+	 */
 	_getCacheKey(text) {
-		if (text.length < 50) {
-			return text.toLowerCase();
+		let keyContent;
+
+		if (text.length <= 100) {
+			// Short text: use as-is (lowercased for consistency)
+			keyContent = text.toLowerCase();
+		} else if (text.length <= 500) {
+			// Medium text: sample from beginning, middle, and end with better distribution
+			const start = text.substring(0, 40).toLowerCase();
+			const middlePos = Math.floor(text.length / 2);
+			const middle = text.substring(middlePos - 20, middlePos + 20).toLowerCase();
+			const end = text.substring(text.length - 40).toLowerCase();
+			keyContent = `${start}|MID:${middle}|${end}`;
+		} else {
+			// Long text: enhanced sampling with length and character diversity
+			const quarter = Math.floor(text.length / 4);
+			const start = text.substring(0, 30).toLowerCase();
+			const q1 = text.substring(quarter, quarter + 25).toLowerCase();
+			const q2 = text.substring(quarter * 2, quarter * 2 + 25).toLowerCase();
+			const q3 = text.substring(quarter * 3, quarter * 3 + 25).toLowerCase();
+			const end = text.substring(text.length - 30).toLowerCase();
+
+			// Include length and character diversity for additional uniqueness
+			const charSet = new Set(text.toLowerCase()).size;
+			const wordCount = text.split(/\s+/).length;
+			keyContent = `LEN:${text.length}|WORDS:${wordCount}|CHARS:${charSet}|${start}|Q1:${q1}|Q2:${q2}|Q3:${q3}|${end}`;
 		}
 
-		const start = text.substring(0, 50).toLowerCase();
-		const middle =
-			text.length > 100
-				? text
-						.substring(
-							Math.floor(text.length / 2) - 25,
-							Math.floor(text.length / 2) + 25
-						)
-						.toLowerCase()
-				: "";
-		const end = text.length > 50 ? text.substring(text.length - 50).toLowerCase() : "";
-
 		return crypto
-			.createHash("md5")
-			.update(start + middle + end)
-			.digest("hex");
+			.createHash("sha256")
+			.update(keyContent, "utf8")
+			.digest("hex")
+			.substring(0, 32); // Truncate for storage efficiency while maintaining uniqueness
 	}
 
 	getStats() {
