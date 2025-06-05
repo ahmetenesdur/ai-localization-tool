@@ -17,7 +17,7 @@ class FileManager {
 		backupFiles: true, // Create backups before modifying
 		backupDir: "./backups", // Backup directory
 		encoding: "utf8", // File encoding
-		jsonIndent: 2, // JSON indentation spaces
+		jsonIndent: 4, // JSON indentation spaces
 	};
 
 	/**
@@ -307,7 +307,7 @@ class SyncFileManager {
 		backupFiles: true, // Create backups before modifying
 		backupDir: "./backups", // Backup directory
 		encoding: "utf8", // File encoding
-		jsonIndent: 2, // JSON indentation spaces
+		jsonIndent: 4, // JSON indentation spaces
 	};
 
 	/**
