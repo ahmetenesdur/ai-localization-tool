@@ -6,7 +6,6 @@ const QualityChecker = require("../utils/quality");
 const os = require("os");
 // SECURITY FIX: Add input validation
 const InputValidator = require("../utils/input-validator");
-const CONSTANTS = require("../utils/constants");
 
 // Add a simple console lock to prevent overlapping console output
 const consoleLock = {
@@ -206,8 +205,7 @@ async function translateFile(file, options) {
 
 		// Calculate final metrics
 		globalStats.endTime = new Date().toISOString();
-		globalStats.totalDuration =
-			(Date.now() - startTime) / CONSTANTS.PROGRESS_TRACKER.MS_TO_SECONDS;
+		globalStats.totalDuration = (Date.now() - startTime) / 1000;
 
 		// Display final summary
 		await displayGlobalSummary(globalStats, options.targets.length);
@@ -539,7 +537,7 @@ async function displayGlobalSummary(stats, totalLanguages) {
 	// Display detailed language stats
 	await consoleLock.log("\n📊 Per-language Performance:");
 	for (const [lang, langStats] of Object.entries(stats.languages)) {
-		const timeSeconds = langStats.timeMs / CONSTANTS.PROGRESS_TRACKER.MS_TO_SECONDS;
+		const timeSeconds = langStats.timeMs / 1000;
 		await consoleLock.log(
 			`${lang}: ${langStats.added} added, ${langStats.skipped} skipped, ${langStats.failed} failed (${timeSeconds.toFixed(1)}s)`
 		);
@@ -571,7 +569,7 @@ async function displayGlobalSummary(stats, totalLanguages) {
 	// The delay ensures any buffered console output is flushed
 	setTimeout(() => {
 		process.exit(0);
-	}, CONSTANTS.LOGGING.PROCESS_EXIT_DELAY);
+	}, 500);
 }
 
 /**

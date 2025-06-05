@@ -2,14 +2,10 @@
  * Enhanced progress tracking for monitoring translation and processing operations
  * with improved ETA calculation and detailed statistics
  */
-
-const CONSTANTS = require("./constants");
-
 class ProgressTracker {
 	constructor(options = {}) {
 		this.logToConsole = options.logToConsole !== false;
-		this.logFrequency =
-			options.logFrequency || CONSTANTS.PROGRESS_TRACKER.DEFAULT_LOG_FREQUENCY;
+		this.logFrequency = options.logFrequency || 20; // How many times to log during process
 
 		this._isUpdating = false;
 		this._pendingUpdates = [];
@@ -109,9 +105,7 @@ class ProgressTracker {
 
 			// Keep track of recent operation times (for more accurate ETA)
 			this.recentOperationTimes.push(timeSinceLastUpdate);
-			if (
-				this.recentOperationTimes.length > CONSTANTS.PROGRESS_TRACKER.MAX_RECENT_OPERATIONS
-			) {
+			if (this.recentOperationTimes.length > 10) {
 				this.recentOperationTimes.shift(); // Keep only last 10
 			}
 
@@ -176,7 +170,7 @@ class ProgressTracker {
 	_shouldLog() {
 		return (
 			this.completed % Math.max(1, Math.floor(this.total / this.logFrequency)) === 0 || // Log based on frequency
-			this.completed === CONSTANTS.PROGRESS_TRACKER.FIRST_ITEM_THRESHOLD || // First item
+			this.completed === 1 || // First item
 			this.completed === this.total // Last item
 		);
 	}
@@ -201,37 +195,22 @@ class ProgressTracker {
 
 		// Make sure percentComplete is between 0-100
 		const percentComplete = Math.min(
-			CONSTANTS.PROGRESS_TRACKER.PERCENTAGE_MULTIPLIER,
-			Math.max(
-				0,
-				(this.completed / this.total) * CONSTANTS.PROGRESS_TRACKER.PERCENTAGE_MULTIPLIER ||
-					0
-			)
+			100,
+			Math.max(0, (this.completed / this.total) * 100 || 0)
 		);
 
 		// Make sure success rate is between 0-100
 		const successRate =
 			this.completed > 0
-				? Math.min(
-						CONSTANTS.PROGRESS_TRACKER.PERCENTAGE_MULTIPLIER,
-						Math.max(
-							0,
-							(this.success / this.completed) *
-								CONSTANTS.PROGRESS_TRACKER.PERCENTAGE_MULTIPLIER
-						)
-					)
+				? Math.min(100, Math.max(0, (this.success / this.completed) * 100))
 				: 0;
 
 		this.statistics = {
 			avgTimePerItem: averageTime,
 			recentAvgTimePerItem: recentAverage,
-			totalTime: elapsed / CONSTANTS.PROGRESS_TRACKER.MS_TO_SECONDS, // in seconds
-			estimatedTimeRemaining:
-				estimatedTimeRemaining / CONSTANTS.PROGRESS_TRACKER.MS_TO_SECONDS, // in seconds
-			itemsPerSecond:
-				this.completed > 0
-					? this.completed / (elapsed / CONSTANTS.PROGRESS_TRACKER.MS_TO_SECONDS)
-					: 0,
+			totalTime: elapsed / 1000, // in seconds
+			estimatedTimeRemaining: estimatedTimeRemaining / 1000, // in seconds
+			itemsPerSecond: this.completed > 0 ? this.completed / (elapsed / 1000) : 0,
 			percentComplete: percentComplete,
 			successRate: successRate,
 			startTime: new Date(this.startTime).toISOString(),
@@ -240,12 +219,11 @@ class ProgressTracker {
 	}
 
 	_logProgress() {
-		const percent =
-			(this.completed / this.total) * CONSTANTS.PROGRESS_TRACKER.PERCENTAGE_MULTIPLIER;
-		const elapsed = (Date.now() - this.startTime) / CONSTANTS.PROGRESS_TRACKER.MS_TO_SECONDS;
+		const percent = (this.completed / this.total) * 100;
+		const elapsed = (Date.now() - this.startTime) / 1000;
 
 		// Create a progress bar
-		const width = CONSTANTS.PROGRESS_TRACKER.PROGRESS_BAR_WIDTH;
+		const width = 20;
 		const filledWidth = Math.max(0, Math.round((this.completed / this.total) * width));
 		const emptyWidth = Math.max(0, width - filledWidth);
 		const progressBar = `[${"=".repeat(filledWidth)}${" ".repeat(emptyWidth)}]`;
@@ -254,27 +232,22 @@ class ProgressTracker {
 		let etaText = "";
 		if (this.completed > 0 && this.completed < this.total) {
 			const eta = this.statistics.estimatedTimeRemaining;
-			if (eta < CONSTANTS.PROGRESS_TRACKER.SECONDS_IN_MINUTE) {
+			if (eta < 60) {
 				etaText = `ETA: ${Math.round(eta)}s`;
-			} else if (eta < CONSTANTS.PROGRESS_TRACKER.SECONDS_IN_HOUR) {
-				etaText = `ETA: ${Math.floor(eta / CONSTANTS.PROGRESS_TRACKER.SECONDS_IN_MINUTE)}m ${Math.round(eta % CONSTANTS.PROGRESS_TRACKER.SECONDS_IN_MINUTE)}s`;
+			} else if (eta < 3600) {
+				etaText = `ETA: ${Math.floor(eta / 60)}m ${Math.round(eta % 60)}s`;
 			} else {
-				etaText = `ETA: ${Math.floor(eta / CONSTANTS.PROGRESS_TRACKER.SECONDS_IN_HOUR)}h ${Math.floor((eta % CONSTANTS.PROGRESS_TRACKER.SECONDS_IN_HOUR) / CONSTANTS.PROGRESS_TRACKER.SECONDS_IN_MINUTE)}m`;
+				etaText = `ETA: ${Math.floor(eta / 3600)}h ${Math.floor((eta % 3600) / 60)}m`;
 			}
 		}
 
 		// Format current status with consistent field widths to prevent jumping text
 		const langInfo = this.language ? `[${this.language}] ` : "";
-		const percentText =
-			`${percent.toFixed(CONSTANTS.PROGRESS_TRACKER.PERCENTAGE_PRECISION)}%`.padStart(6);
-		const itemsText = `${this.completed}/${this.total}`.padEnd(
-			CONSTANTS.PROGRESS_TRACKER.TIME_DISPLAY_PADDING
-		);
+		const percentText = `${percent.toFixed(1)}%`.padStart(6);
+		const itemsText = `${this.completed}/${this.total}`.padEnd(10);
 		const successText = `✅ ${this.success}`.padEnd(8);
 		const failedText = `❌ ${this.failed}`.padEnd(8);
-		const timeText = `⏱️ ${elapsed.toFixed(CONSTANTS.PROGRESS_TRACKER.TIME_PRECISION)}s`.padEnd(
-			CONSTANTS.PROGRESS_TRACKER.TIME_DISPLAY_PADDING
-		);
+		const timeText = `⏱️ ${elapsed.toFixed(1)}s`.padEnd(10);
 
 		console.log(
 			`${langInfo}${progressBar} ${percentText} | ${itemsText}items | ` +
@@ -283,28 +256,18 @@ class ProgressTracker {
 	}
 
 	_finalReport() {
-		const totalTime =
-			(this.endTime - this.startTime) / CONSTANTS.PROGRESS_TRACKER.MS_TO_SECONDS;
+		const totalTime = (this.endTime - this.startTime) / 1000;
 		const avgTimePerItem = totalTime / this.total;
-		const successRate =
-			(this.success / this.total) * CONSTANTS.PROGRESS_TRACKER.PERCENTAGE_MULTIPLIER;
+		const successRate = (this.success / this.total) * 100;
 
 		console.log(`\n📊 Translation Summary:`);
 		console.log(`🔤 Language: ${this.language || "Unknown"}`);
 		console.log(`🔢 Total Items: ${this.total}`);
-		console.log(
-			`✅ Successful: ${this.success} (${successRate.toFixed(CONSTANTS.PROGRESS_TRACKER.PERCENTAGE_PRECISION)}%)`
-		);
+		console.log(`✅ Successful: ${this.success} (${successRate.toFixed(1)}%)`);
 		console.log(`❌ Failed: ${this.failed}`);
-		console.log(
-			`⏱️ Total Time: ${totalTime.toFixed(CONSTANTS.PROGRESS_TRACKER.SPEED_PRECISION)}s`
-		);
-		console.log(
-			`⚡ Average Speed: ${(this.total / totalTime).toFixed(CONSTANTS.PROGRESS_TRACKER.SPEED_PRECISION)} items/second`
-		);
-		console.log(
-			`📏 Average Time per Item: ${(avgTimePerItem * CONSTANTS.PROGRESS_TRACKER.MS_TO_SECONDS).toFixed(CONSTANTS.PROGRESS_TRACKER.AVG_TIME_PRECISION)}ms`
-		);
+		console.log(`⏱️ Total Time: ${totalTime.toFixed(2)}s`);
+		console.log(`⚡ Average Speed: ${(this.total / totalTime).toFixed(2)} items/second`);
+		console.log(`📏 Average Time per Item: ${(avgTimePerItem * 1000).toFixed(0)}ms`);
 	}
 
 	// Get a snapshot of the current progress

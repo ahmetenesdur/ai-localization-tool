@@ -4,7 +4,6 @@
  */
 
 const path = require("path");
-const CONSTANTS = require("./constants");
 
 class InputValidator {
 	/**
@@ -21,12 +20,12 @@ class InputValidator {
 	/**
 	 * Maximum text length for translation (prevent DoS)
 	 */
-	static MAX_TEXT_LENGTH = CONSTANTS.VALIDATION.MAX_TEXT_LENGTH;
+	static MAX_TEXT_LENGTH = 50000; // 50KB
 
 	/**
 	 * Maximum key length
 	 */
-	static MAX_KEY_LENGTH = CONSTANTS.VALIDATION.MAX_KEY_LENGTH;
+	static MAX_KEY_LENGTH = 1000;
 
 	/**
 	 * Validate and sanitize language code
@@ -47,10 +46,8 @@ class InputValidator {
 			throw new Error(`${paramName} cannot be empty after trimming`);
 		}
 
-		if (sanitized.length > CONSTANTS.VALIDATION.MAX_LANG_CODE_LENGTH) {
-			throw new Error(
-				`${paramName} code too long: '${langCode}' (max ${CONSTANTS.VALIDATION.MAX_LANG_CODE_LENGTH} characters)`
-			);
+		if (sanitized.length > 10) {
+			throw new Error(`${paramName} code too long: '${langCode}' (max 10 characters)`);
 		}
 
 		// Check for path traversal attempts
@@ -83,10 +80,8 @@ class InputValidator {
 			throw new Error(`${paramName} array cannot be empty`);
 		}
 
-		if (langCodes.length > CONSTANTS.VALIDATION.MAX_LANGUAGES_ARRAY) {
-			throw new Error(
-				`${paramName} array too large (max ${CONSTANTS.VALIDATION.MAX_LANGUAGES_ARRAY} languages)`
-			);
+		if (langCodes.length > 50) {
+			throw new Error(`${paramName} array too large (max 50 languages)`);
 		}
 
 		return langCodes.map((code, index) =>
@@ -206,7 +201,7 @@ class InputValidator {
 		// Remove path components and dangerous characters
 		let sanitized = path
 			.basename(filename)
-			.replace(CONSTANTS.VALIDATION.FILENAME_SANITIZE_REGEX, "") // Remove illegal filename chars
+			.replace(/[<>:"/\\|?*\x00-\x1f]/g, "") // Remove illegal filename chars
 			.replace(/^\.+/, "") // Remove leading dots
 			.trim();
 

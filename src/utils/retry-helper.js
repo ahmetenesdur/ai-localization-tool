@@ -5,8 +5,6 @@
  * - Better logging and error tracking
  */
 
-const CONSTANTS = require("./constants");
-
 class RetryHelper {
 	/**
 	 * Retry an operation with configurable backoff strategy
@@ -22,9 +20,9 @@ class RetryHelper {
 	 * @returns {Promise<*>} - Result of operation
 	 */
 	static async withRetry(operation, options = {}) {
-		const maxRetries = options.maxRetries ?? CONSTANTS.PROVIDERS.DEFAULT_RETRY_COUNT;
-		const initialDelay = options.initialDelay ?? CONSTANTS.PROVIDERS.DEFAULT_RETRY_DELAY;
-		const maxDelay = options.maxDelay ?? CONSTANTS.PROVIDERS.MAX_RETRY_DELAY;
+		const maxRetries = options.maxRetries ?? 2;
+		const initialDelay = options.initialDelay ?? 1000;
+		const maxDelay = options.maxDelay ?? 10000;
 		const context = options.context ?? "Operation";
 		const logContext = options.logContext ?? {};
 		const retryCondition = options.retryCondition ?? this.defaultRetryCondition;
@@ -119,10 +117,7 @@ class RetryHelper {
 	static calculateBackoff(attempt, initialDelay, maxDelay) {
 		// Full jitter exponential backoff:
 		// https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
-		const expBackoff = Math.min(
-			maxDelay,
-			initialDelay * Math.pow(CONSTANTS.ERRORS.RETRY_EXPONENTIAL_BASE, attempt - 1)
-		);
+		const expBackoff = Math.min(maxDelay, initialDelay * Math.pow(2, attempt - 1));
 
 		// Add jitter - random value between 0 and expBackoff
 		return Math.floor(Math.random() * expBackoff);
@@ -136,23 +131,12 @@ class RetryHelper {
 	 */
 	static defaultRetryCondition(error) {
 		// Don't retry on client errors (4xx) except specific cases
-		if (
-			error.status &&
-			error.status >= CONSTANTS.HTTP_STATUS.CLIENT_ERROR_MIN &&
-			error.status < CONSTANTS.HTTP_STATUS.SERVER_ERROR_MIN
-		) {
+		if (error.status && error.status >= 400 && error.status < 500) {
 			// Rate limit errors should be retried
-			if (error.status === CONSTANTS.HTTP_STATUS.TOO_MANY_REQUESTS) return true;
+			if (error.status === 429) return true;
 
 			// Certain 4xx errors are retryable
-			if (
-				[
-					CONSTANTS.HTTP_STATUS.REQUEST_TIMEOUT,
-					CONSTANTS.HTTP_STATUS.TOO_EARLY,
-					CONSTANTS.HTTP_STATUS.RETRY_WITH,
-				].includes(error.status)
-			)
-				return true;
+			if ([408, 425, 449].includes(error.status)) return true;
 
 			return false;
 		}
@@ -171,7 +155,7 @@ class RetryHelper {
 		}
 
 		// By default, retry server errors
-		return error.status >= CONSTANTS.HTTP_STATUS.SERVER_ERROR_MIN || !error.status;
+		return error.status >= 500 || !error.status;
 	}
 
 	/**
