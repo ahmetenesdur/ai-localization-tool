@@ -14,11 +14,12 @@ class RateLimiter {
 			adaptiveThrottling: config.adaptiveThrottling !== false, // Enabled by default
 		};
 
-		// Adaptive throttling metrics
+		// Adaptive throttling metrics - FIXED: Sliding window approach
 		this.metrics = {
 			responseTimes: {},
-			errorRates: {},
+			errorRates: {}, // Will store arrays instead of counters
 			adjustments: {},
+			lastMetricsReset: {},
 		};
 
 		// API 공급자별 제한 설정
@@ -62,17 +63,22 @@ class RateLimiter {
 			},
 		};
 
-		// Initialize queues and metrics for each provider
+		// Initialize queues and metrics for each provider - FIXED: Sliding window arrays
 		Object.keys(this.providers).forEach((provider) => {
 			this.queues[provider] = [];
 			this.processing[provider] = 0;
 			this.metrics.responseTimes[provider] = [];
-			this.metrics.errorRates[provider] = { total: 0, errors: 0 };
+			// FIXED: Use sliding window for error tracking instead of counters
+			this.metrics.errorRates[provider] = [];
 			this.metrics.adjustments[provider] = { rpm: 0, concurrency: 0 };
+			this.metrics.lastMetricsReset[provider] = Date.now();
 		});
 
 		// Auto-reset counters every minute
 		setInterval(() => this._resetCounters(), 60000);
+
+		// FIXED: More frequent metrics cleanup to prevent memory leak
+		setInterval(() => this._cleanupMetrics(), 2 * 60 * 1000); // Every 2 minutes
 
 		// Adaptive throttling adjustment interval (every 5 minutes)
 		if (this.config.adaptiveThrottling) {
@@ -218,16 +224,12 @@ class RateLimiter {
 
 	// Track error rate for adaptive throttling
 	_trackErrorRate(provider, isError) {
-		const stats = this.metrics.errorRates[provider];
-		stats.total++;
-		if (isError) {
-			stats.errors++;
-		}
+		const errorRates = this.metrics.errorRates[provider];
+		errorRates.push(isError ? 1 : 0);
 
-		// Reset counts if too large to avoid overflow
-		if (stats.total > 1000) {
-			stats.errors = Math.round((stats.errors / stats.total) * 100);
-			stats.total = 100;
+		// Keep only the last 100 error rates
+		if (errorRates.length > 100) {
+			errorRates.shift();
 		}
 	}
 
@@ -236,8 +238,11 @@ class RateLimiter {
 		if (!this.config.adaptiveThrottling) return;
 
 		Object.keys(this.providers).forEach((provider) => {
-			const errorStats = this.metrics.errorRates[provider];
-			const errorRate = errorStats.total === 0 ? 0 : errorStats.errors / errorStats.total;
+			const errorRates = this.metrics.errorRates[provider];
+			const errorRate =
+				errorRates.length === 0
+					? 0
+					: errorRates.reduce((a, b) => a + b, 0) / errorRates.length;
 
 			const respTimes = this.metrics.responseTimes[provider];
 			const avgResponseTime =
@@ -335,8 +340,11 @@ class RateLimiter {
 		const status = {};
 
 		Object.entries(this.providers).forEach(([name, config]) => {
-			const errorStats = this.metrics.errorRates[name];
-			const errorRate = errorStats.total === 0 ? 0 : errorStats.errors / errorStats.total;
+			const errorRates = this.metrics.errorRates[name];
+			const errorRate =
+				errorRates.length === 0
+					? 0
+					: errorRates.reduce((a, b) => a + b, 0) / errorRates.length;
 
 			status[name] = {
 				queueSize: this.queues[name]?.length || 0,
@@ -359,6 +367,19 @@ class RateLimiter {
 	// Get configuration
 	getConfig() {
 		return { ...this.config };
+	}
+
+	// FIXED: More frequent metrics cleanup to prevent memory leak
+	_cleanupMetrics() {
+		const now = Date.now();
+
+		// Reset all providers' metrics
+		Object.values(this.providers).forEach((provider) => {
+			this.metrics.responseTimes[provider] = [];
+			this.metrics.errorRates[provider] = [];
+			this.metrics.adjustments[provider] = { rpm: 0, concurrency: 0 };
+			this.metrics.lastMetricsReset[provider] = now;
+		});
 	}
 }
 
