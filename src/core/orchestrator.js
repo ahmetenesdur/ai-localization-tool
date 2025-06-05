@@ -148,7 +148,8 @@ class Orchestrator {
 		try {
 			const provider = ProviderFactory.getProvider(
 				this.options.apiProvider,
-				this.options.useFallback !== false
+				this.options.useFallback !== false,
+				this.options // Pass full config for fallbackOrder support
 			);
 
 			if (!provider) {
@@ -388,7 +389,8 @@ class Orchestrator {
 		try {
 			const provider = ProviderFactory.getProvider(
 				this.options.apiProvider,
-				this.options.useFallback !== false
+				this.options.useFallback !== false,
+				this.options // Pass full config for fallbackOrder support
 			);
 
 			const translated = await rateLimiter.enqueue(

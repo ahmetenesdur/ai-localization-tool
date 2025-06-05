@@ -67,7 +67,7 @@ class AIContextAnalyzer {
 			this.stats.totalAnalyzed++;
 			this.stats.aiCalls++;
 
-			const provider = ProviderFactory.getProvider(apiProvider, true);
+			const provider = ProviderFactory.getProvider(apiProvider, true, this.config);
 
 			if (!provider) {
 				throw new Error("AI provider not available for context analysis");

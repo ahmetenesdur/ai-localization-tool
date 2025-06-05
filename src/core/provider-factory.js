@@ -7,7 +7,11 @@ const xaiProvider = require("../providers/xai");
 const FallbackProvider = require("./fallback-provider");
 
 class ProviderFactory {
-	static getProvider(providerName, useFallback = true) {
+	/**
+	 * Get provider with intelligent fallback based on configuration
+	 * FIXED: Now respects config.fallbackOrder for proper provider chaining
+	 */
+	static getProvider(providerName, useFallback = true, config = null) {
 		const providers = {
 			dashscope: dashscopeProvider,
 			xai: xaiProvider,
@@ -53,8 +57,23 @@ class ProviderFactory {
 			);
 		}
 
-		// Then add all other providers that have API keys configured, in preferred order
-		for (const name of availableProviderNames) {
+		// FIXED: Use config.fallbackOrder if available, otherwise use availableProviderNames
+		let fallbackOrder = availableProviderNames;
+		if (config?.fallbackOrder && Array.isArray(config.fallbackOrder)) {
+			// Filter fallbackOrder to only include available providers
+			fallbackOrder = config.fallbackOrder
+				.filter((name) => availableProviderNames.includes(name.toLowerCase()))
+				.map((name) => name.toLowerCase());
+
+			// Add any remaining available providers not in fallbackOrder
+			const remainingProviders = availableProviderNames.filter(
+				(name) => !fallbackOrder.includes(name)
+			);
+			fallbackOrder = [...fallbackOrder, ...remainingProviders];
+		}
+
+		// Then add providers according to fallback order
+		for (const name of fallbackOrder) {
 			// Skip the already added primary provider
 			if (name !== normalizedProviderName && providers[name]) {
 				allProviders.push(providers[name]);

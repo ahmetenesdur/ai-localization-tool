@@ -8,9 +8,9 @@ async function translate(text, sourceLang, targetLang, options) {
 		process.env.AZURE_DEEPSEEK_ENDPOINT ||
 		"https://DeepSeek-R1-fbbcn.eastus2.models.ai.azure.com";
 	const apiKey = process.env.AZURE_DEEPSEEK_API_KEY;
-	const model = options.apiConfig?.azureDeepseek?.model || "DeepSeek-R1";
-	const temperature = options.apiConfig?.azureDeepseek?.temperature || 0.3;
-	const maxTokens = options.apiConfig?.azureDeepseek?.maxTokens || 2048;
+	const model = options.apiConfig?.azuredeepseek?.model || "DeepSeek-R1";
+	const temperature = options.apiConfig?.azuredeepseek?.temperature || 0.3;
+	const maxTokens = options.apiConfig?.azuredeepseek?.maxTokens || 2048;
 
 	if (!apiKey) {
 		throw new Error("Azure DeepSeek API key not found");

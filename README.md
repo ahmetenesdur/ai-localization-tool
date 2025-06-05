@@ -28,7 +28,7 @@ module.exports = {
 	// API Provider Settings
 	apiProvider: "dashscope", // Primary provider
 	useFallback: true, // Enable fallback system
-	fallbackOrder: ["dashscope", "xai", "openai", "azureDeepseek", "deepseek", "gemini"], // Provider fallback order
+	fallbackOrder: ["dashscope", "xai", "openai", "azuredeepseek", "deepseek", "gemini"], // Provider fallback order
 
 	// API Configuration
 	apiConfig: {
@@ -50,7 +50,7 @@ module.exports = {
 			maxTokens: 2000,
 			contextWindow: 16000,
 		},
-		azureDeepseek: {
+		azuredeepseek: {
 			model: "DeepSeek-R1",
 			temperature: 0.1,
 			maxTokens: 2000,
@@ -77,7 +77,7 @@ module.exports = {
 			dashscope: { rpm: 50, concurrency: 4 }, // Requests per minute & concurrency
 			xai: { rpm: 60, concurrency: 5 },
 			openai: { rpm: 60, concurrency: 5 },
-			azureDeepseek: { rpm: 80, concurrency: 5 },
+			azuredeepseek: { rpm: 80, concurrency: 5 },
 			deepseek: { rpm: 45, concurrency: 3 },
 			gemini: { rpm: 100, concurrency: 8 },
 		},
