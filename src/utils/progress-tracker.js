@@ -1,11 +1,17 @@
 /**
  * Enhanced progress tracking for monitoring translation and processing operations
  * with improved ETA calculation and detailed statistics
+ * FIXED: Thread-safe operations to prevent race conditions
  */
 class ProgressTracker {
 	constructor(options = {}) {
 		this.logToConsole = options.logToConsole !== false;
 		this.logFrequency = options.logFrequency || 20; // How many times to log during process
+
+		// FIXED: Add locking mechanism for thread safety
+		this._isUpdating = false;
+		this._pendingUpdates = [];
+
 		this.reset();
 	}
 
@@ -20,6 +26,11 @@ class ProgressTracker {
 		this.recentOperationTimes = [];
 		this.language = null;
 		this.isCompleted = false;
+
+		// FIXED: Reset lock state
+		this._isUpdating = false;
+		this._pendingUpdates = [];
+
 		this.statistics = {
 			avgTimePerItem: 0,
 			totalTime: 0,
@@ -44,58 +55,132 @@ class ProgressTracker {
 		}
 	}
 
+	// FIXED: Thread-safe increment with atomic operations
 	increment(type = "success") {
 		if (!this.startTime) {
 			throw new Error("Progress tracker not started");
 		}
 
-		// Check if already completed
+		// Early return if already completed (thread-safe check)
 		if (this.isCompleted) {
-			// Silently ignore instead of console warning to avoid cluttering output
 			return;
 		}
 
-		// Update counts
-		this.completed++;
-		if (type === "success") this.success++;
-		else if (type === "failed") this.failed++;
+		// If currently updating, queue this update
+		if (this._isUpdating) {
+			this._pendingUpdates.push({ type, timestamp: Date.now() });
+			return;
+		}
 
-		// Make sure counts are valid
+		// Process this update atomically
+		this._processUpdate(type);
+	}
+
+	// FIXED: Atomic update processing
+	_processUpdate(type) {
+		// Set lock
+		this._isUpdating = true;
+
+		try {
+			// Early return if completed during the wait
+			if (this.isCompleted) {
+				return;
+			}
+
+			// Atomic counter updates
+			const previousCompleted = this.completed;
+			this.completed = Math.min(this.total, this.completed + 1);
+
+			// Only update success/failed if we actually incremented
+			if (this.completed > previousCompleted) {
+				if (type === "success") {
+					this.success = Math.min(this.completed, this.success + 1);
+				} else if (type === "failed") {
+					this.failed = Math.min(this.completed, this.failed + 1);
+				}
+			}
+
+			// Ensure data consistency
+			this._ensureDataConsistency();
+
+			// Calculate time since last update
+			const now = Date.now();
+			const timeSinceLastUpdate = now - this.lastUpdateTime;
+			this.lastUpdateTime = now;
+
+			// Keep track of recent operation times (for more accurate ETA)
+			this.recentOperationTimes.push(timeSinceLastUpdate);
+			if (this.recentOperationTimes.length > 10) {
+				this.recentOperationTimes.shift(); // Keep only last 10
+			}
+
+			// Update statistics
+			this._updateStatistics();
+
+			// Log progress periodically or for first/last items
+			if (this.logToConsole && this._shouldLog()) {
+				this._logProgress();
+			}
+
+			// Check if completed
+			if (this.completed >= this.total && !this.isCompleted) {
+				this.endTime = Date.now();
+				this.isCompleted = true;
+				if (this.logToConsole) {
+					this._finalReport();
+				}
+			}
+		} finally {
+			// Release lock
+			this._isUpdating = false;
+
+			// Process any pending updates
+			this._processPendingUpdates();
+		}
+	}
+
+	// FIXED: Ensure data consistency
+	_ensureDataConsistency() {
+		// Ensure counts don't exceed limits
 		this.completed = Math.min(this.total, Math.max(0, this.completed));
 		this.success = Math.min(this.completed, Math.max(0, this.success));
 		this.failed = Math.min(this.completed, Math.max(0, this.failed));
 
-		// Calculate time since last update
-		const now = Date.now();
-		const timeSinceLastUpdate = now - this.lastUpdateTime;
-		this.lastUpdateTime = now;
+		// Ensure success + failed = completed
+		const totalCounted = this.success + this.failed;
+		if (totalCounted > this.completed) {
+			// Adjust to maintain consistency (prioritize success)
+			if (this.success > this.completed) {
+				this.success = this.completed;
+				this.failed = 0;
+			} else {
+				this.failed = this.completed - this.success;
+			}
+		}
+	}
 
-		// Keep track of recent operation times (for more accurate ETA)
-		this.recentOperationTimes.push(timeSinceLastUpdate);
-		if (this.recentOperationTimes.length > 10) {
-			this.recentOperationTimes.shift(); // Keep only last 10
+	// FIXED: Process queued updates atomically
+	_processPendingUpdates() {
+		if (this._pendingUpdates.length === 0) {
+			return;
 		}
 
-		// Update statistics
-		this._updateStatistics();
+		// Process all pending updates in batch
+		setImmediate(() => {
+			while (this._pendingUpdates.length > 0 && !this._isUpdating) {
+				const { type } = this._pendingUpdates.shift();
+				this._processUpdate(type);
+			}
+		});
+	}
 
-		// Log progress periodically or for first/last items
-		if (this.logToConsole && (
+	// FIXED: Extract log condition to separate method
+	_shouldLog() {
+		return (
 			this.completed % Math.max(1, Math.floor(this.total / this.logFrequency)) === 0 || // Log based on frequency
 			this.completed === 1 || // First item
 			this.completed === this.total // Last item
-		)) {
-			this._logProgress();
-		}
-
-		// Check if completed
-		if (this.completed >= this.total) {
-			this.endTime = Date.now();
-			this.isCompleted = true;
-			if (this.logToConsole) {
-				this._finalReport();
-			}
-		}
+		);
 	}
 
 	_updateStatistics() {
@@ -117,11 +202,16 @@ class ProgressTracker {
 		const estimatedTimeRemaining = remaining * Math.min(averageTime, recentAverage);
 
 		// Make sure percentComplete is between 0-100
-		const percentComplete = Math.min(100, Math.max(0, (this.completed / this.total) * 100 || 0));
-		
+		const percentComplete = Math.min(
+			100,
+			Math.max(0, (this.completed / this.total) * 100 || 0)
+		);
+
 		// Make sure success rate is between 0-100
-		const successRate = this.completed > 0 ? 
-			Math.min(100, Math.max(0, (this.success / this.completed) * 100)) : 0;
+		const successRate =
+			this.completed > 0
+				? Math.min(100, Math.max(0, (this.success / this.completed) * 100))
+				: 0;
 
 		this.statistics = {
 			avgTimePerItem: averageTime,
@@ -166,10 +256,10 @@ class ProgressTracker {
 		const successText = `✅ ${this.success}`.padEnd(8);
 		const failedText = `❌ ${this.failed}`.padEnd(8);
 		const timeText = `⏱️ ${elapsed.toFixed(1)}s`.padEnd(10);
-		
+
 		console.log(
 			`${langInfo}${progressBar} ${percentText} | ${itemsText}items | ` +
-			`${successText}| ${failedText}| ${timeText}${etaText}`
+				`${successText}| ${failedText}| ${timeText}${etaText}`
 		);
 	}
 
@@ -200,7 +290,7 @@ class ProgressTracker {
 			statistics: { ...this.statistics },
 		};
 	}
-	
+
 	// Allow disabling console output after creation
 	setLogToConsole(value) {
 		this.logToConsole = value;
