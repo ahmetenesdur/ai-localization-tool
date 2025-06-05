@@ -108,8 +108,31 @@ class Orchestrator {
 
 			// Update cache statistics
 			this.cacheStats.hits++;
-			if (this.translationCache.isStale(cacheKey)) {
-				this.cacheStats.staleHits++;
+
+			try {
+				// Try different methods for checking stale status
+				let isStale = false;
+
+				if (typeof this.translationCache.isStale === "function") {
+					// LRU Cache v10 and earlier
+					isStale = this.translationCache.isStale(cacheKey);
+				} else if (typeof this.translationCache.getRemainingTTL === "function") {
+					// LRU Cache v11+ approach
+					const ttl = this.translationCache.getRemainingTTL(cacheKey);
+					isStale = ttl !== undefined && ttl <= 0;
+				} else {
+					// Fallback: assume not stale
+					isStale = false;
+				}
+
+				if (isStale) {
+					this.cacheStats.staleHits++;
+				}
+			} catch (error) {
+				// Ignore stale check errors - just for statistics
+				if (this.advanced.debug) {
+					console.warn("Cache stale check failed:", error.message);
+				}
 			}
 
 			return {
@@ -137,9 +160,9 @@ class Orchestrator {
 				existingTranslation: existingTranslation || null,
 			};
 
-			// Create promise with timeout
+			let timeoutId = null;
 			const timeoutPromise = new Promise((_, reject) => {
-				setTimeout(() => {
+				timeoutId = setTimeout(() => {
 					reject(new Error(`Translation timed out after ${this.advanced.timeoutMs}ms`));
 				}, this.advanced.timeoutMs);
 			});
@@ -156,8 +179,21 @@ class Orchestrator {
 				priority
 			);
 
-			// Race between translation and timeout
-			let translated = await Promise.race([translationPromise, timeoutPromise]);
+			let translated;
+			try {
+				translated = await Promise.race([translationPromise, timeoutPromise]);
+
+				if (timeoutId) {
+					clearTimeout(timeoutId);
+					timeoutId = null;
+				}
+			} catch (error) {
+				if (timeoutId) {
+					clearTimeout(timeoutId);
+					timeoutId = null;
+				}
+				throw error; // Re-throw the original error
+			}
 
 			// Apply quality checks and fixes
 			const qualityResult = this.qualityChecker.validateAndFix(text, translated);
