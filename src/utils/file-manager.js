@@ -77,6 +77,17 @@ class FileManager {
 	}
 
 	/**
+	 * Generate a unique temporary file path to prevent collisions
+	 * @param {string} filePath - Original file path
+	 * @returns {string} - Unique temporary file path
+	 */
+	static _generateTempFilePath(filePath) {
+		const timestamp = Date.now();
+		const random = Math.random().toString(36).substring(2, 8);
+		return `${filePath}.tmp.${timestamp}.${random}`;
+	}
+
+	/**
 	 * Write data to JSON file asynchronously
 	 * @param {string} filePath - Path to write the file
 	 * @param {Object} data - Data to write
@@ -121,12 +132,39 @@ class FileManager {
 
 			// Use atomic write if configured
 			if (config.atomic) {
-				// Write to temporary file first, then rename - to prevent corruption
-				const tempFile = `${filePath}.tmp`;
-				await fs.writeFile(tempFile, jsonString, config.encoding);
+				// FIXED: Proper error handling with temp file cleanup and collision prevention
+				const tempFile = this._generateTempFilePath(filePath);
+				let tempFileCreated = false;
 
-				// Atomically replace the target file
-				await fs.rename(tempFile, filePath);
+				try {
+					// Write to temporary file first
+					await fs.writeFile(tempFile, jsonString, config.encoding);
+					tempFileCreated = true;
+
+					// Atomically replace the target file
+					await fs.rename(tempFile, filePath);
+
+					// Success - temp file has been renamed, no cleanup needed
+					tempFileCreated = false;
+				} catch (renameError) {
+					// FIXED: Clean up temp file if rename failed
+					if (tempFileCreated) {
+						try {
+							await fs.unlink(tempFile);
+						} catch (cleanupError) {
+							// Log cleanup failure but don't throw - original error is more important
+							console.warn(
+								`Warning: Failed to clean up temporary file ${tempFile}: ${cleanupError.message}`
+							);
+						}
+					}
+
+					// Re-throw the original error with better context
+					throw new Error(
+						`Atomic write failed during rename operation (${filePath}): ${renameError.message}. ` +
+							`Temp file cleanup ${tempFileCreated ? "attempted" : "not needed"}.`
+					);
+				}
 			} else {
 				// Direct write
 				await fs.writeFile(filePath, jsonString, config.encoding);
@@ -134,7 +172,9 @@ class FileManager {
 
 			return true;
 		} catch (err) {
-			throw new Error(`File write error (${filePath}): ${err.message}`);
+			// FIXED: Enhanced error message with operation context
+			const operation = config.atomic ? "atomic write" : "direct write";
+			throw new Error(`File ${operation} error (${filePath}): ${err.message}`);
 		}
 	}
 
