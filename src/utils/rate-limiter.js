@@ -1,4 +1,5 @@
 const { performance } = require("perf_hooks");
+const CONSTANTS = require("./constants");
 
 class RateLimiter {
 	constructor(config = {}) {
@@ -10,7 +11,7 @@ class RateLimiter {
 		// Configuration
 		this.config = {
 			queueStrategy: config.queueStrategy || "priority", // priority, fifo
-			queueTimeout: config.queueTimeout || 30000, // 30 seconds default
+			queueTimeout: config.queueTimeout || CONSTANTS.RATE_LIMITER.DEFAULT_QUEUE_TIMEOUT,
 			adaptiveThrottling: config.adaptiveThrottling !== false, // Enabled by default
 		};
 
@@ -25,40 +26,40 @@ class RateLimiter {
 		// API provider rate limit settings - each provider has different limits
 		this.providers = {
 			openai: {
-				requestsPerMinute: 60,
+				requestsPerMinute: CONSTANTS.PROVIDERS.OPENAI.REQUESTS_PER_MINUTE,
 				currentRequests: 0,
 				lastReset: performance.now(),
-				maxConcurrent: 5,
+				maxConcurrent: CONSTANTS.PROVIDERS.OPENAI.MAX_CONCURRENT,
 			},
 			deepseek: {
-				requestsPerMinute: 45,
+				requestsPerMinute: CONSTANTS.PROVIDERS.DEEPSEEK.REQUESTS_PER_MINUTE,
 				currentRequests: 0,
 				lastReset: performance.now(),
-				maxConcurrent: 3,
+				maxConcurrent: CONSTANTS.PROVIDERS.DEEPSEEK.MAX_CONCURRENT,
 			},
 			gemini: {
-				requestsPerMinute: 100,
+				requestsPerMinute: CONSTANTS.PROVIDERS.GEMINI.REQUESTS_PER_MINUTE,
 				currentRequests: 0,
 				lastReset: performance.now(),
-				maxConcurrent: 8,
+				maxConcurrent: CONSTANTS.PROVIDERS.GEMINI.MAX_CONCURRENT,
 			},
 			azuredeepseek: {
-				requestsPerMinute: 80,
+				requestsPerMinute: CONSTANTS.PROVIDERS.AZUREDEEPSEEK.REQUESTS_PER_MINUTE,
 				currentRequests: 0,
 				lastReset: performance.now(),
-				maxConcurrent: 5,
+				maxConcurrent: CONSTANTS.PROVIDERS.AZUREDEEPSEEK.MAX_CONCURRENT,
 			},
 			dashscope: {
-				requestsPerMinute: 50,
+				requestsPerMinute: CONSTANTS.PROVIDERS.DASHSCOPE.REQUESTS_PER_MINUTE,
 				currentRequests: 0,
 				lastReset: performance.now(),
-				maxConcurrent: 4,
+				maxConcurrent: CONSTANTS.PROVIDERS.DASHSCOPE.MAX_CONCURRENT,
 			},
 			xai: {
-				requestsPerMinute: 60,
+				requestsPerMinute: CONSTANTS.PROVIDERS.XAI.REQUESTS_PER_MINUTE,
 				currentRequests: 0,
 				lastReset: performance.now(),
-				maxConcurrent: 5,
+				maxConcurrent: CONSTANTS.PROVIDERS.XAI.MAX_CONCURRENT,
 			},
 		};
 
@@ -72,13 +73,16 @@ class RateLimiter {
 		});
 
 		// Auto-reset counters every minute
-		setInterval(() => this._resetCounters(), 60000);
+		setInterval(() => this._resetCounters(), CONSTANTS.RATE_LIMITER.COUNTER_RESET_INTERVAL);
 
-		setInterval(() => this._cleanupMetrics(), 2 * 60 * 1000); // Every 2 minutes
+		setInterval(() => this._cleanupMetrics(), CONSTANTS.RATE_LIMITER.METRICS_CLEANUP_INTERVAL);
 
 		// Adaptive throttling adjustment interval (every 5 minutes)
 		if (this.config.adaptiveThrottling) {
-			setInterval(() => this._adjustThrottling(), 5 * 60 * 1000);
+			setInterval(
+				() => this._adjustThrottling(),
+				CONSTANTS.RATE_LIMITER.ADAPTIVE_ADJUSTMENT_INTERVAL
+			);
 		}
 	}
 
@@ -176,7 +180,7 @@ class RateLimiter {
 		const startTime = performance.now();
 		const queueTime = Date.now() - timestamp;
 
-		if (queueTime > 5000) {
+		if (queueTime > CONSTANTS.LOGGING.QUEUE_WARNING_THRESHOLD) {
 			console.warn(`Task for ${provider} waited ${queueTime}ms in queue`);
 		}
 
@@ -213,7 +217,7 @@ class RateLimiter {
 		times.push(time);
 
 		// Keep only the last 100 response times
-		if (times.length > 100) {
+		if (times.length > CONSTANTS.RATE_LIMITER.DEFAULT_METRICS_WINDOW) {
 			times.shift();
 		}
 	}
@@ -224,7 +228,7 @@ class RateLimiter {
 		errorRates.push(isError ? 1 : 0);
 
 		// Keep only the last 100 error rates
-		if (errorRates.length > 100) {
+		if (errorRates.length > CONSTANTS.RATE_LIMITER.DEFAULT_METRICS_WINDOW) {
 			errorRates.shift();
 		}
 	}
@@ -251,25 +255,25 @@ class RateLimiter {
 			let rpmAdjustment = 0;
 
 			// If error rate is high, reduce concurrency and RPM
-			if (errorRate > 0.1) {
+			if (errorRate > CONSTANTS.RATE_LIMITER.ERROR_RATE_THRESHOLD) {
 				// >10% errors
-				concurrencyAdjustment = -1;
-				rpmAdjustment = -5;
+				concurrencyAdjustment = -CONSTANTS.RATE_LIMITER.MAX_CONCURRENCY_ADJUSTMENT;
+				rpmAdjustment = -CONSTANTS.RATE_LIMITER.MAX_RPM_ADJUSTMENT;
 			}
 			// If error rate is low and response time is good, increase limits
 			else if (
-				errorRate < 0.02 &&
-				avgResponseTime < 2000 &&
+				errorRate < CONSTANTS.RATE_LIMITER.LOW_ERROR_RATE_THRESHOLD &&
+				avgResponseTime < CONSTANTS.RATE_LIMITER.RESPONSE_TIME_THRESHOLD &&
 				this.queues[provider].length > 0
 			) {
-				concurrencyAdjustment = 1;
-				rpmAdjustment = 5;
+				concurrencyAdjustment = CONSTANTS.RATE_LIMITER.MAX_CONCURRENCY_ADJUSTMENT;
+				rpmAdjustment = CONSTANTS.RATE_LIMITER.MAX_RPM_ADJUSTMENT;
 			}
 
 			// Apply adjustments
 			if (concurrencyAdjustment !== 0) {
 				const newConcurrency = Math.max(
-					1,
+					CONSTANTS.RATE_LIMITER.MIN_CONCURRENCY,
 					this.providers[provider].maxConcurrent + concurrencyAdjustment
 				);
 				this.providers[provider].maxConcurrent = newConcurrency;
@@ -278,7 +282,7 @@ class RateLimiter {
 
 			if (rpmAdjustment !== 0) {
 				const newRPM = Math.max(
-					10,
+					CONSTANTS.RATE_LIMITER.MIN_RPM,
 					this.providers[provider].requestsPerMinute + rpmAdjustment
 				);
 				this.providers[provider].requestsPerMinute = newRPM;
@@ -296,7 +300,7 @@ class RateLimiter {
 		}
 
 		// Reset counter if a minute has passed
-		if (now - limits.lastReset >= 60000) {
+		if (now - limits.lastReset >= CONSTANTS.RATE_LIMITER.COUNTER_RESET_INTERVAL) {
 			limits.currentRequests = 0;
 			limits.lastReset = now;
 			return false;
@@ -312,7 +316,10 @@ class RateLimiter {
 			throw new Error(`Unknown provider: ${provider}`);
 		}
 
-		return Math.max(0, 60000 - (performance.now() - limits.lastReset));
+		return Math.max(
+			0,
+			CONSTANTS.RATE_LIMITER.COUNTER_RESET_INTERVAL - (performance.now() - limits.lastReset)
+		);
 	}
 
 	_resetCounters() {
@@ -347,8 +354,15 @@ class RateLimiter {
 				processing: this.processing[name] || 0,
 				requestsUsed: config.currentRequests,
 				requestsLimit: config.requestsPerMinute,
-				resetIn: Math.max(0, 60000 - (performance.now() - config.lastReset)) / 1000,
-				errorRate: Math.round(errorRate * 100) / 100,
+				resetIn:
+					Math.max(
+						0,
+						CONSTANTS.RATE_LIMITER.COUNTER_RESET_INTERVAL -
+							(performance.now() - config.lastReset)
+					) / CONSTANTS.PROGRESS_TRACKER.MS_TO_SECONDS,
+				errorRate:
+					Math.round(errorRate * CONSTANTS.PROGRESS_TRACKER.PERCENTAGE_MULTIPLIER) /
+					CONSTANTS.PROGRESS_TRACKER.PERCENTAGE_MULTIPLIER,
 				adjustments: this.metrics.adjustments[name],
 				config: {
 					maxConcurrent: config.maxConcurrent,
@@ -381,7 +395,9 @@ class RateLimiter {
 // Configure from environment if available
 const config = {
 	queueStrategy: process.env.QUEUE_STRATEGY || "priority",
-	queueTimeout: parseInt(process.env.QUEUE_TIMEOUT || "30000"),
+	queueTimeout: parseInt(
+		process.env.QUEUE_TIMEOUT || CONSTANTS.RATE_LIMITER.DEFAULT_QUEUE_TIMEOUT.toString()
+	),
 	adaptiveThrottling: process.env.ADAPTIVE_THROTTLING !== "false",
 };
 

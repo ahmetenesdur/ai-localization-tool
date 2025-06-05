@@ -5,6 +5,8 @@ const QualityChecker = require("../utils/quality");
 const ContextProcessor = require("./context-processor");
 const { LRUCache } = require("lru-cache");
 const crypto = require("crypto");
+const CONSTANTS = require("../utils/constants");
+const { TimeoutError, TranslationError, ErrorFactory } = require("../utils/errors");
 
 class Orchestrator {
 	constructor(options) {
@@ -14,426 +16,583 @@ class Orchestrator {
 		// Allow progress tracker to be configured via options
 		this.progress = new ProgressTracker(options.progressOptions || {});
 
+		// MEMORY FIX: Setup translation cache with constants
+		this.cache = new LRUCache({
+			max: options.cacheSize || CONSTANTS.CACHE.TRANSLATION_CACHE_SIZE,
+			ttl: options.cacheTTL || CONSTANTS.CACHE.DEFAULT_TTL,
+			updateAgeOnGet: true,
+			allowStale: true,
+		});
+
+		// Cache stats for reporting
+		this.cacheStats = {
+			hits: 0,
+			misses: 0,
+			errors: 0,
+			totalRequests: 0,
+		};
+
+		// PERFORMANCE FIX: Array operations optimization with constants
+		this.batchSize = Math.min(
+			options.batchSize || CONSTANTS.ORCHESTRATOR.DEFAULT_BATCH_SIZE,
+			CONSTANTS.ORCHESTRATOR.MAX_BATCH_SIZE
+		);
+
+		// MEMORY FIX: Concurrency limits
+		this.maxConcurrency = Math.min(
+			options.maxConcurrency || CONSTANTS.ORCHESTRATOR.DEFAULT_CONCURRENCY,
+			CONSTANTS.ORCHESTRATOR.MAX_CONCURRENCY
+		);
+
+		// Quality checker
 		this.qualityChecker = new QualityChecker({
 			styleGuide: options.styleGuide,
 			context: options.context,
 			lengthControl: options.lengthControl,
 		});
 
-		// Advanced options
-		this.advanced = {
-			timeoutMs: options.advanced?.timeoutMs || 60000, // Default 60 seconds
-			maxKeyLength: options.advanced?.maxKeyLength || 10000, // Max length for a translation key
-			maxBatchSize: options.advanced?.maxBatchSize || 50, // Max items per batch
-			autoOptimize: options.advanced?.autoOptimize !== false, // Auto-optimize settings
-			debug: options.advanced?.debug || false, // Debug mode
+		// Track operation statistics
+		this.stats = {
+			successful: 0,
+			failed: 0,
+			cached: 0,
+			retries: 0,
+			qualityRejections: 0,
+			timeouts: 0,
+			providerSwitches: 0,
+			startTime: null,
+			endTime: null,
 		};
 
-		// Configure rate limiter
-		if (options.rateLimiter) {
-			rateLimiter.updateConfig({
-				queueStrategy: options.rateLimiter.queueStrategy,
-				queueTimeout: options.rateLimiter.queueTimeout,
-				adaptiveThrottling: options.rateLimiter.adaptiveThrottling,
-			});
-		}
-
-		// Enhanced cache configuration
-		this.translationCache = new LRUCache({
-			max: options.cacheSize || 1000,
-			ttl: options.cacheTTL || 1000 * 60 * 60 * 24, // Default 24h
-			updateAgeOnGet: true,
-			allowStale: true,
-			fetchMethod: async (key, staleValue, { context }) => {
-				// This is used when a cache entry expires but is allowed to be stale
-				// We'll return the stale value and asynchronously refresh it
-				if (staleValue) {
-					// Schedule a refresh of this translation in the background
-					this._refreshCacheEntry(key, context).catch((err) => {
-						console.warn(`Cache refresh failed for key ${key}: ${err.message}`);
-					});
-					return staleValue;
-				}
-				return null;
-			},
-		});
-
-		this.cacheStats = {
-			hits: 0,
-			misses: 0,
-			staleHits: 0,
-			stored: 0,
-			refreshes: 0,
+		// PERFORMANCE FIX: Connection pool limits
+		this.connectionLimits = {
+			maxPoolSize: options.maxPoolSize || CONSTANTS.ORCHESTRATOR.MAX_POOL_SIZE,
+			keepAlive: options.keepAlive !== false,
+			timeout: options.connectionTimeout || CONSTANTS.ORCHESTRATOR.CONNECTION_TIMEOUT,
 		};
 
-		this.concurrencyLimit = options.concurrencyLimit || 5;
-
-		// Apply auto-optimization if enabled
-		if (this.advanced.autoOptimize) {
-			this._applyAutoOptimizations();
-		}
-
-		// Debug mode logging
-		if (this.advanced.debug) {
-			console.log("Orchestrator initialized with options:", {
-				concurrencyLimit: this.concurrencyLimit,
-				cacheEnabled: options.cacheEnabled !== false,
-				cacheSize: options.cacheSize || 1000,
-				cacheTTL: options.cacheTTL || 1000 * 60 * 60 * 24,
-				rateLimiter: rateLimiter.getConfig(),
-				advanced: this.advanced,
-			});
-		}
-	}
-
-	async processTranslation(key, text, targetLang, contextData, existingTranslation) {
-		if (typeof text !== "string") return { key, translated: text, error: "Invalid input type" };
-
-		// Validate key length to prevent issues with extremely long keys
-		if (key.length > this.advanced.maxKeyLength) {
-			return {
-				key: key.substring(0, 100) + "...", // Truncate for error message
-				translated: text,
-				error: `Key exceeds maximum length of ${this.advanced.maxKeyLength} characters`,
-				success: false,
-			};
-		}
-
-		// More robust cache key generation with hash to handle large texts
-		const cacheKey = this._generateCacheKey(text, targetLang, contextData?.category);
-
-		// Check if we have this in cache
-		if (this.options.cacheEnabled !== false && this.translationCache.has(cacheKey)) {
-			const cachedResult = this.translationCache.get(cacheKey);
-
-			// Update cache statistics
-			this.cacheStats.hits++;
-
-			try {
-				// Try different methods for checking stale status
-				let isStale = false;
-
-				if (typeof this.translationCache.isStale === "function") {
-					// LRU Cache v10 and earlier
-					isStale = this.translationCache.isStale(cacheKey);
-				} else if (typeof this.translationCache.getRemainingTTL === "function") {
-					// LRU Cache v11+ approach
-					const ttl = this.translationCache.getRemainingTTL(cacheKey);
-					isStale = ttl !== undefined && ttl <= 0;
-				} else {
-					// Fallback: assume not stale
-					isStale = false;
-				}
-
-				if (isStale) {
-					this.cacheStats.staleHits++;
-				}
-			} catch (error) {
-				// Ignore stale check errors - just for statistics
-				if (this.advanced.debug) {
-					console.warn("Cache stale check failed:", error.message);
-				}
-			}
-
-			return {
-				...cachedResult,
-				key,
-				fromCache: true,
-			};
-		}
-
-		// Update cache statistics
-		this.cacheStats.misses++;
-
-		try {
-			const provider = ProviderFactory.getProvider(
-				this.options.apiProvider,
-				this.options.useFallback !== false,
-				this.options // Pass full config for fallbackOrder support
-			);
-
-			if (!provider) {
-				throw new Error("Translation provider not available");
-			}
-
-			const translationContext = {
-				...contextData,
-				existingTranslation: existingTranslation || null,
-			};
-
-			let timeoutId = null;
-			const timeoutPromise = new Promise((_, reject) => {
-				timeoutId = setTimeout(() => {
-					reject(new Error(`Translation timed out after ${this.advanced.timeoutMs}ms`));
-				}, this.advanced.timeoutMs);
-			});
-
-			// Create translation promise with priority based on key importance
-			const priority = this._calculatePriority(key, text);
-			const translationPromise = rateLimiter.enqueue(
-				this.options.apiProvider.toLowerCase(),
-				() =>
-					provider.translate(text, this.options.source, targetLang, {
-						...this.options,
-						detectedContext: translationContext,
-					}),
-				priority
-			);
-
-			let translated;
-			try {
-				translated = await Promise.race([translationPromise, timeoutPromise]);
-
-				if (timeoutId) {
-					clearTimeout(timeoutId);
-					timeoutId = null;
-				}
-			} catch (error) {
-				if (timeoutId) {
-					clearTimeout(timeoutId);
-					timeoutId = null;
-				}
-				throw error; // Re-throw the original error
-			}
-
-			// Apply quality checks and fixes
-			const qualityResult = this.qualityChecker.validateAndFix(text, translated);
-			translated = qualityResult.fixedText;
-
-			const result = {
-				key,
-				translated,
-				context: contextData,
-				success: true,
-				qualityChecks: qualityResult,
-			};
-
-			// Add result to cache if enabled
-			if (this.options.cacheEnabled !== false) {
-				this.translationCache.set(cacheKey, result, {
-					context: {
-						// Additional context for fetchMethod
-						text,
-						targetLang,
-						contextData,
-					},
-				});
-				this.cacheStats.stored++;
-			}
-
-			return result;
-		} catch (err) {
-			console.error(`Translation error - key "${key}":`, err);
-			return {
-				key,
-				translated: text,
-				error: err.message,
-				success: false,
-			};
-		}
-	}
-
-	async processTranslations(items) {
-		this.progress.start(items.length, items[0].targetLang);
-
-		// Respect maxBatchSize setting
-		const batchSize = Math.min(this.concurrencyLimit, this.advanced.maxBatchSize);
-		const results = [];
-		const chunks = this._chunkArray(items, batchSize);
-
-		if (this.advanced.debug) {
-			console.log(
-				`Processing ${items.length} items in ${chunks.length} chunks of size ${batchSize}`
-			);
-		}
-
-		for (const chunk of chunks) {
-			const chunkPromises = chunk.map(async (item) => {
-				try {
-					const contextData = await this.contextProcessor.analyze(item.text);
-
-					const result = await this.processTranslation(
-						item.key,
-						item.text,
-						item.targetLang,
-						contextData,
-						item.existingTranslation
-					);
-
-					this.progress.increment(result.success ? "success" : "failed");
-					return result;
-				} catch (error) {
-					console.error(`Error processing item ${item.key}:`, error);
-					this.progress.increment("failed");
-					return {
-						key: item.key,
-						translated: item.text,
-						error: error.message,
-						success: false,
-					};
-				}
-			});
-
-			const chunkResults = await Promise.all(chunkPromises);
-			results.push(...chunkResults);
-		}
-
-		return results;
-	}
-
-	_chunkArray(array, chunkSize) {
-		const chunks = [];
-		for (let i = 0; i < array.length; i += chunkSize) {
-			chunks.push(array.slice(i, i + chunkSize));
-		}
-		return chunks;
-	}
-
-	// Calculate priority for queue (higher = more important)
-	_calculatePriority(key, text) {
-		// Give higher priority to shorter texts (they complete faster)
-		if (text.length < 50) return 2;
-		if (text.length > 500) return 0;
-		return 1;
-	}
-
-	// Auto-optimize settings based on system capabilities
-	_applyAutoOptimizations() {
-		try {
-			// Get system info via Node.js
-			const os = require("os");
-			const cpuCount = os.cpus().length;
-			const totalMemory = os.totalmem();
-			const memoryGB = Math.floor(totalMemory / (1024 * 1024 * 1024));
-
-			// Optimize concurrency based on CPU and memory
-			if (memoryGB >= 8 && cpuCount >= 4) {
-				// High-end system
-				this.concurrencyLimit = Math.min(10, cpuCount);
-			} else if (memoryGB >= 4 && cpuCount >= 2) {
-				// Mid-range system
-				this.concurrencyLimit = Math.min(5, cpuCount);
-			} else {
-				// Low-end system
-				this.concurrencyLimit = 2;
-			}
-
-			if (this.advanced.debug) {
-				console.log(
-					`Auto-optimized settings - CPU: ${cpuCount}, Memory: ${memoryGB}GB, Concurrency: ${this.concurrencyLimit}`
-				);
-			}
-		} catch (error) {
-			console.warn("Failed to auto-optimize settings:", error.message);
-		}
-	}
-
-	clearCache() {
-		this.translationCache.clear();
-		this.resetCacheStats();
-	}
-
-	// Reset cache statistics
-	resetCacheStats() {
-		this.cacheStats = {
-			hits: 0,
-			misses: 0,
-			staleHits: 0,
-			stored: 0,
-			refreshes: 0,
-		};
-	}
-
-	// Get cache statistics
-	getCacheStats() {
-		return {
-			...this.cacheStats,
-			size: this.translationCache.size,
-			capacity: this.translationCache.max,
-			hitRate: this.cacheStats.hits / (this.cacheStats.hits + this.cacheStats.misses) || 0,
-		};
+		// MEMORY FIX: Add cleanup intervals
+		this.lastCleanup = Date.now();
+		this.cleanupInterval = CONSTANTS.ORCHESTRATOR.CLEANUP_INTERVAL;
+		this._scheduleCleanup();
 	}
 
 	/**
-	 * Generate a collision-resistant cache key for translation
+	 * MEMORY FIX: Schedule periodic cleanup to prevent memory growth
 	 */
-	_generateCacheKey(text, targetLang, category = "unknown") {
-		const keyParts = [text, targetLang, category, `LEN:${text.length}`];
-
-		// For shorter texts, we can still use them directly but with hashing for consistency
-		if (text.length < 100) {
-			const directKey = keyParts.join(":");
-			return crypto
-				.createHash("sha256")
-				.update(directKey, "utf8")
-				.digest("hex")
-				.substring(0, 32);
+	_scheduleCleanup() {
+		if (this._cleanupTimer) {
+			clearInterval(this._cleanupTimer);
 		}
 
-		// For longer texts, create a secure hash with all components
-		const hash = crypto
-			.createHash("sha256")
-			.update(keyParts.join(":"), "utf8")
-			.digest("hex")
-			.substring(0, 32); // Truncate for storage efficiency
-
-		return hash;
+		this._cleanupTimer = setInterval(() => {
+			this._performMemoryCleanup();
+		}, this.cleanupInterval);
 	}
 
-	// Background refresh of a stale cache entry
-	async _refreshCacheEntry(key, context) {
-		if (!context || !context.text || !context.targetLang) {
+	/**
+	 * MEMORY FIX: Perform memory cleanup operations
+	 */
+	_performMemoryCleanup() {
+		const now = Date.now();
+
+		// Only run cleanup if enough time has passed
+		if (now - this.lastCleanup < this.cleanupInterval) {
 			return;
 		}
 
 		try {
-			const provider = ProviderFactory.getProvider(
-				this.options.apiProvider,
-				this.options.useFallback !== false,
-				this.options // Pass full config for fallbackOrder support
-			);
-
-			const translated = await rateLimiter.enqueue(
-				this.options.apiProvider.toLowerCase(),
-				() =>
-					provider.translate(context.text, this.options.source, context.targetLang, {
-						...this.options,
-						detectedContext: context.contextData,
-					})
-			);
-
-			// Get current entry to update only the translation
-			const currentEntry = this.translationCache.get(key);
-			if (currentEntry) {
-				// Apply quality checks
-				const qualityResult = this.qualityChecker.validateAndFix(context.text, translated);
-
-				// Update cache with fresh data
-				this.translationCache.set(
-					key,
-					{
-						...currentEntry,
-						translated: qualityResult.fixedText,
-						qualityChecks: qualityResult,
-						refreshed: new Date().toISOString(),
-					},
-					{ context }
-				);
-
-				this.cacheStats.refreshes++;
+			// Clean cache if it's getting too large
+			if (this.cache.size > this.cache.max * CONSTANTS.CACHE.UTILIZATION_THRESHOLD) {
+				const toRemove = Math.floor(this.cache.size * CONSTANTS.CACHE.CLEANUP_PERCENTAGE);
+				const keys = [...this.cache.keys()];
+				for (let i = 0; i < toRemove && i < keys.length; i++) {
+					this.cache.delete(keys[i]);
+				}
 			}
+
+			this.lastCleanup = now;
 		} catch (error) {
-			console.warn(`Failed to refresh cache entry: ${error.message}`);
+			console.warn("Memory cleanup failed:", error.message);
 		}
 	}
 
-	// Get orchestrator statistics and status
-	getStatus() {
+	/**
+	 * Process multiple translation tasks in parallel with batching
+	 */
+	async processTranslations(tasks) {
+		if (!Array.isArray(tasks) || tasks.length === 0) {
+			return [];
+		}
+
+		this.stats.startTime = Date.now();
+		this.progress.start(tasks.length, tasks[0]?.targetLang);
+
+		try {
+			// PERFORMANCE FIX: Process in batches to manage memory and connections
+			const results = [];
+			const batches = this._createBatches(tasks);
+
+			for (const batch of batches) {
+				const batchResults = await this._processBatch(batch);
+				results.push(...batchResults);
+
+				// MEMORY FIX: Perform cleanup between batches
+				if (results.length % CONSTANTS.ORCHESTRATOR.CLEANUP_FREQUENCY === 0) {
+					this._performMemoryCleanup();
+				}
+			}
+
+			this.stats.endTime = Date.now();
+			return results;
+		} catch (error) {
+			this.stats.endTime = Date.now();
+			throw error;
+		} finally {
+			// MEMORY FIX: Final cleanup
+			this._performMemoryCleanup();
+		}
+	}
+
+	/**
+	 * PERFORMANCE FIX: Create optimized batches based on task characteristics
+	 */
+	_createBatches(tasks) {
+		// PERFORMANCE FIX: Use Map for O(1) grouping instead of array operations
+		const languageGroups = new Map();
+
+		for (const task of tasks) {
+			const lang = task.targetLang;
+			if (!languageGroups.has(lang)) {
+				languageGroups.set(lang, []);
+			}
+			languageGroups.get(lang).push(task);
+		}
+
+		// PERFORMANCE FIX: Create balanced batches within each language
+		const batches = [];
+		for (const [lang, langTasks] of languageGroups) {
+			// Process each language in batches
+			for (let i = 0; i < langTasks.length; i += this.batchSize) {
+				const batch = langTasks.slice(i, i + this.batchSize);
+				batches.push(batch);
+			}
+		}
+
+		return batches;
+	}
+
+	/**
+	 * PERFORMANCE FIX: Process a batch with controlled concurrency
+	 */
+	async _processBatch(batch) {
+		const semaphore = this._createSemaphore(Math.min(this.maxConcurrency, batch.length));
+
+		const promises = batch.map((task) => {
+			return semaphore(() => this._processTranslationTask(task));
+		});
+
+		return Promise.all(promises);
+	}
+
+	/**
+	 * PERFORMANCE FIX: Create a semaphore for concurrency control
+	 */
+	_createSemaphore(maxConcurrent) {
+		let currentCount = 0;
+		const queue = [];
+
+		return (task) => {
+			return new Promise((resolve, reject) => {
+				const run = async () => {
+					currentCount++;
+					try {
+						const result = await task();
+						resolve(result);
+					} catch (error) {
+						reject(error);
+					} finally {
+						currentCount--;
+						if (queue.length > 0) {
+							const next = queue.shift();
+							next();
+						}
+					}
+				};
+
+				if (currentCount < maxConcurrent) {
+					run();
+				} else {
+					queue.push(run);
+				}
+			});
+		};
+	}
+
+	/**
+	 * Process a single translation task
+	 */
+	async _processTranslationTask(task) {
+		const { key, text, targetLang, existingTranslation } = task;
+
+		try {
+			this.cacheStats.totalRequests++;
+
+			// PERFORMANCE FIX: Enhanced cache key generation
+			const cacheKey = this._generateEnhancedCacheKey(text, this.options.source, targetLang);
+
+			// Check cache first
+			if (this.cache.has(cacheKey) && !this.options.forceUpdate) {
+				this.cacheStats.hits++;
+				this.stats.cached++;
+				this.progress.increment("success");
+
+				return {
+					key,
+					translated: this.cache.get(cacheKey),
+					success: true,
+					cached: true,
+				};
+			}
+
+			this.cacheStats.misses++;
+
+			// Get context information
+			const contextInfo = await this.contextProcessor.getContext(text);
+
+			// Attempt translation with provider fallbacks
+			const translationResult = await this._translateWithFallback(
+				text,
+				this.options.source,
+				targetLang,
+				contextInfo
+			);
+
+			if (!translationResult.success) {
+				this.progress.increment("failed");
+				this.stats.failed++;
+				return {
+					key,
+					success: false,
+					error: translationResult.error,
+				};
+			}
+
+			// Quality check
+			const qualityResult = this.qualityChecker.validate(
+				text,
+				translationResult.translation,
+				{
+					...this.options,
+					targetLang,
+					context: contextInfo,
+				}
+			);
+
+			if (!qualityResult.valid) {
+				this.stats.qualityRejections++;
+
+				// Try one more time with stricter instructions
+				const retryResult = await this._translateWithFallback(
+					text,
+					this.options.source,
+					targetLang,
+					contextInfo,
+					{
+						strictMode: true,
+						qualityHints: qualityResult.issues.map((i) => i.message),
+					}
+				);
+
+				if (retryResult.success) {
+					const retryQualityResult = this.qualityChecker.validate(
+						text,
+						retryResult.translation,
+						{
+							...this.options,
+							targetLang,
+							context: contextInfo,
+						}
+					);
+
+					if (retryQualityResult.valid) {
+						// Cache the successful retry
+						this.cache.set(cacheKey, retryResult.translation);
+						this.progress.increment("success");
+						this.stats.successful++;
+						this.stats.retries++;
+
+						return {
+							key,
+							translated: retryResult.translation,
+							success: true,
+							context: contextInfo,
+							retried: true,
+						};
+					}
+				}
+
+				// If retry also failed quality check, use original but mark as low quality
+				this.progress.increment("failed");
+				this.stats.failed++;
+				return {
+					key,
+					translated: translationResult.translation,
+					success: false,
+					error: `Quality check failed: ${qualityResult.issues.map((i) => i.message).join(", ")}`,
+					lowQuality: true,
+				};
+			}
+
+			// Cache successful translation
+			this.cache.set(cacheKey, translationResult.translation);
+			this.progress.increment("success");
+			this.stats.successful++;
+
+			return {
+				key,
+				translated: translationResult.translation,
+				success: true,
+				context: contextInfo,
+				provider: translationResult.provider,
+			};
+		} catch (error) {
+			this.cacheStats.errors++;
+			this.progress.increment("failed");
+			this.stats.failed++;
+
+			return {
+				key,
+				success: false,
+				error: error.message,
+			};
+		}
+	}
+
+	/**
+	 * MEMORY FIX & PERFORMANCE FIX: Enhanced cache key generation with constants
+	 */
+	_generateEnhancedCacheKey(text, sourceLang, targetLang) {
+		// PERFORMANCE FIX: Use constants for different text length strategies
+		let keyContent;
+
+		if (text.length <= CONSTANTS.CACHE.SHORT_TEXT_CACHE_LIMIT) {
+			// Short text: use full text
+			keyContent = `${sourceLang}-${targetLang}-${text}`;
+		} else if (text.length <= CONSTANTS.CACHE.MEDIUM_TEXT_CACHE_LIMIT) {
+			// Medium text: use beginning + end + length
+			const start = text.substring(0, CONSTANTS.CACHE.CACHE_SAMPLE_SIZE);
+			const end = text.substring(text.length - CONSTANTS.CACHE.CACHE_SAMPLE_SIZE);
+			keyContent = `${sourceLang}-${targetLang}-${start}...${end}-${text.length}`;
+		} else {
+			// Long text: use multiple samples
+			const size = CONSTANTS.CACHE.CACHE_SAMPLE_SIZE;
+			const quarter = Math.floor(text.length / 4);
+			const samples = [
+				text.substring(0, size),
+				text.substring(quarter, quarter + size),
+				text.substring(quarter * 2, quarter * 2 + size),
+				text.substring(quarter * 3, quarter * 3 + size),
+				text.substring(text.length - size),
+			];
+			keyContent = `${sourceLang}-${targetLang}-${samples.join("|")}-${text.length}`;
+		}
+
+		// MEMORY FIX: Use SHA-256 instead of MD5 and truncate to constant length
+		return crypto
+			.createHash("sha256")
+			.update(keyContent)
+			.digest("hex")
+			.substring(0, CONSTANTS.CACHE.HASH_TRUNCATE_LENGTH);
+	}
+
+	/**
+	 * Translate text with provider fallbacks
+	 */
+	async _translateWithFallback(text, sourceLang, targetLang, contextInfo, options = {}) {
+		const providers = ProviderFactory.getOrderedProviders(this.options);
+		let lastError = null;
+
+		for (const providerName of providers) {
+			try {
+				// PERFORMANCE FIX: Add timeout wrapper with constants
+				const result = await this._withTimeout(
+					this._translateWithProvider(
+						providerName,
+						text,
+						sourceLang,
+						targetLang,
+						contextInfo,
+						options
+					),
+					this.options.translationTimeout || CONSTANTS.ORCHESTRATOR.TRANSLATION_TIMEOUT
+				);
+
+				return {
+					success: true,
+					translation: result,
+					provider: providerName,
+				};
+			} catch (error) {
+				lastError = error;
+
+				if (error instanceof TimeoutError) {
+					this.stats.timeouts++;
+				}
+
+				// Don't try fallback for certain types of errors
+				if (this._isNonRetryableError(error)) {
+					break;
+				}
+
+				this.stats.providerSwitches++;
+				console.warn(`Provider ${providerName} failed, trying next: ${error.message}`);
+			}
+		}
+
 		return {
-			cache: this.getCacheStats(),
-			rateLimiter: rateLimiter.getStatus(),
-			concurrency: this.concurrencyLimit,
-			advanced: this.advanced,
+			success: false,
+			error: lastError?.message || "All providers failed",
+		};
+	}
+
+	/**
+	 * PERFORMANCE FIX: Timeout wrapper with proper cleanup
+	 */
+	async _withTimeout(promise, timeoutMs) {
+		let timeoutId;
+
+		const timeoutPromise = new Promise((_, reject) => {
+			timeoutId = setTimeout(() => {
+				reject(
+					new TimeoutError(
+						`Operation timed out after ${timeoutMs}ms`,
+						"translation",
+						timeoutMs
+					)
+				);
+			}, timeoutMs);
+		});
+
+		try {
+			const result = await Promise.race([promise, timeoutPromise]);
+			return result;
+		} finally {
+			// MEMORY FIX: Always clear timeout to prevent memory leaks
+			if (timeoutId) {
+				clearTimeout(timeoutId);
+			}
+		}
+	}
+
+	/**
+	 * Check if error should skip provider fallback
+	 */
+	_isNonRetryableError(error) {
+		// Don't retry on authentication errors, invalid input, etc.
+		return (
+			error.message.includes("authentication") ||
+			error.message.includes("unauthorized") ||
+			error.message.includes("invalid input") ||
+			error.message.includes("quota exceeded")
+		);
+	}
+
+	/**
+	 * Translate using specific provider
+	 */
+	async _translateWithProvider(providerName, text, sourceLang, targetLang, contextInfo, options) {
+		const provider = ProviderFactory.getProvider(providerName, true, this.options);
+
+		if (!provider) {
+			throw new Error(`Provider ${providerName} not available`);
+		}
+
+		// Enhance options with context and quality hints
+		const enhancedOptions = {
+			...this.options,
+			context: contextInfo,
+			qualityHints: options.qualityHints,
+			strictMode: options.strictMode,
+		};
+
+		// Use rate limiter to queue the translation
+		return await rateLimiter.enqueue(providerName.toLowerCase(), () =>
+			provider.translate(text, sourceLang, targetLang, enhancedOptions)
+		);
+	}
+
+	/**
+	 * Get comprehensive statistics
+	 */
+	getStats() {
+		const totalTime = this.stats.endTime ? this.stats.endTime - this.stats.startTime : 0;
+
+		return {
+			...this.stats,
+			totalTime,
+			cacheStats: { ...this.cacheStats },
+			hitRate:
+				this.cacheStats.totalRequests > 0
+					? this.cacheStats.hits / this.cacheStats.totalRequests
+					: 0,
+			successRate:
+				this.stats.successful + this.stats.failed > 0
+					? this.stats.successful / (this.stats.successful + this.stats.failed)
+					: 0,
+			progressSnapshot: this.progress.getStatus(),
+		};
+	}
+
+	/**
+	 * Get cache statistics
+	 */
+	getCacheStats() {
+		return {
+			size: this.cache.size,
+			maxSize: this.cache.max,
+			...this.cacheStats,
+			hitRate:
+				this.cacheStats.totalRequests > 0
+					? (this.cacheStats.hits / this.cacheStats.totalRequests) *
+						CONSTANTS.PROGRESS_TRACKER.PERCENTAGE_MULTIPLIER
+					: 0,
+		};
+	}
+
+	/**
+	 * Clear cache and reset stats
+	 */
+	clearCache() {
+		this.cache.clear();
+		this.cacheStats = {
+			hits: 0,
+			misses: 0,
+			errors: 0,
+			totalRequests: 0,
+		};
+	}
+
+	/**
+	 * MEMORY FIX: Cleanup resources when orchestrator is no longer needed
+	 */
+	destroy() {
+		if (this._cleanupTimer) {
+			clearInterval(this._cleanupTimer);
+			this._cleanupTimer = null;
+		}
+
+		this.cache.clear();
+		this.stats = {
+			successful: 0,
+			failed: 0,
+			cached: 0,
+			retries: 0,
+			qualityRejections: 0,
+			timeouts: 0,
+			providerSwitches: 0,
+			startTime: null,
+			endTime: null,
 		};
 	}
 }

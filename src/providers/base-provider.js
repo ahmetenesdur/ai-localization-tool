@@ -1,6 +1,7 @@
 const axios = require("axios");
 const { getPrompt, getAnalysisPrompt } = require("../utils/prompt-templates");
 const RetryHelper = require("../utils/retry-helper");
+const CONSTANTS = require("../utils/constants");
 
 /**
  * BaseProvider - Abstract base class for all translation providers
@@ -10,7 +11,7 @@ class BaseProvider {
 	constructor(config) {
 		this.providerName = config.name;
 		this.baseURL = config.baseURL;
-		this.timeout = config.timeout || 30000;
+		this.timeout = config.timeout || CONSTANTS.PROVIDERS.DEFAULT_TIMEOUT;
 		this.apiKeyEnvVar = config.apiKeyEnvVar;
 		this.defaultModel = config.defaultModel;
 		this.defaultHeaders = config.defaultHeaders || { "Content-Type": "application/json" };
@@ -31,8 +32,16 @@ class BaseProvider {
 
 		return {
 			model: providerConfig.model || this.defaultModel,
-			temperature: providerConfig.temperature || (operation === "analyze" ? 0.2 : 0.3),
-			maxTokens: providerConfig.maxTokens || (operation === "analyze" ? 1000 : 2000),
+			temperature:
+				providerConfig.temperature ||
+				(operation === "analyze"
+					? CONSTANTS.PROVIDERS.DEFAULT_TEMPERATURE_ANALYZE
+					: CONSTANTS.PROVIDERS.DEFAULT_TEMPERATURE_TRANSLATE),
+			maxTokens:
+				providerConfig.maxTokens ||
+				(operation === "analyze"
+					? CONSTANTS.PROVIDERS.DEFAULT_MAX_TOKENS_ANALYZE
+					: CONSTANTS.PROVIDERS.DEFAULT_MAX_TOKENS_TRANSLATE),
 		};
 	}
 
@@ -52,8 +61,9 @@ class BaseProvider {
 	 */
 	_getRetryConfig(options, operation = "translate", context = {}) {
 		return {
-			maxRetries: options.retryOptions?.maxRetries || 2,
-			initialDelay: options.retryOptions?.initialDelay || 1000,
+			maxRetries: options.retryOptions?.maxRetries || CONSTANTS.PROVIDERS.DEFAULT_RETRY_COUNT,
+			initialDelay:
+				options.retryOptions?.initialDelay || CONSTANTS.PROVIDERS.DEFAULT_RETRY_DELAY,
 			context: `${this.providerName.charAt(0).toUpperCase() + this.providerName.slice(1)} Provider`,
 			logContext: operation === "translate" ? context : undefined,
 		};
