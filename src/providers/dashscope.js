@@ -1,101 +1,116 @@
-const BaseProvider = require("./base-provider");
+const axios = require("axios");
+const { getPrompt, getAnalysisPrompt } = require("../utils/prompt-templates");
+const RetryHelper = require("../utils/retry-helper");
 
-/**
- * DashScope Provider - Extends BaseProvider for Alibaba DashScope API
- * REFACTORED: Eliminated code duplication using BaseProvider with DashScope-specific overrides
- */
-class DashScopeProvider extends BaseProvider {
-	constructor() {
-		super({
-			name: "dashscope",
-			baseURL: "https://dashscope-intl.aliyuncs.com",
-			apiKeyEnvVar: "DASHSCOPE_API_KEY",
-			defaultModel: "qwen-plus",
-			timeout: 30000,
-		});
+// Create axios instance with default config
+const dashscopeClient = axios.create({
+	baseURL: "https://dashscope-intl.aliyuncs.com",
+	headers: {
+		"Content-Type": "application/json",
+	},
+	timeout: 30000, // 30 second timeout
+});
 
-		// Create separate client for text generation API
-		const axios = require("axios");
-		this.generationClient = axios.create({
-			baseURL: "https://dashscope.aliyuncs.com/api/v1/services/aigc",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			timeout: 30000,
-		});
-	}
+// Create another axios instance for text generation API
+const dashscopeGenerationClient = axios.create({
+	baseURL: "https://dashscope.aliyuncs.com/api/v1/services/aigc",
+	headers: {
+		"Content-Type": "application/json",
+	},
+	timeout: 30000, // 30 second timeout
+});
 
-	/**
-	 * DashScope translate endpoint (compatible mode)
-	 */
-	_getTranslateEndpoint() {
-		return "/compatible-mode/v1/chat/completions";
-	}
+async function translate(text, sourceLang, targetLang, options) {
+	const model = options.apiConfig?.dashscope?.model || "qwen-plus";
+	const temperature = options.apiConfig?.dashscope?.temperature || 0.3;
+	const maxTokens = options.apiConfig?.dashscope?.maxTokens || 2000;
 
-	/**
-	 * DashScope analyze endpoint (different API)
-	 */
-	_getAnalyzeEndpoint() {
-		return "/text-generation/generation";
-	}
+	const promptData = getPrompt("dashscope", sourceLang, targetLang, text, options);
 
-	/**
-	 * DashScope analysis uses different response format
-	 */
-	_extractResponse(response, operation = "translate") {
-		if (operation === "analyze") {
-			// DashScope analysis API response format
-			if (!response.data?.output?.text) {
-				throw new Error("Invalid response format from DashScope API");
-			}
-			return response.data.output.text.trim();
-		} else {
-			// DashScope translate API (OpenAI-compatible)
+	// Add API key to headers
+	const headers = {
+		Authorization: `Bearer ${process.env.DASHSCOPE_API_KEY}`,
+	};
+
+	// Çeviri işlemini RetryHelper ile gerçekleştir
+	return RetryHelper.withRetry(
+		// API çağrısı işlemi
+		async () => {
+			const response = await dashscopeClient.post(
+				"/compatible-mode/v1/chat/completions",
+				{
+					model,
+					...promptData,
+					temperature,
+					max_tokens: maxTokens,
+				},
+				{ headers }
+			);
+
+			// Validate response
 			if (!response.data?.choices?.[0]?.message?.content) {
 				throw new Error("Invalid response format from DashScope API");
 			}
+
 			return response.data.choices[0].message.content.trim();
+		},
+		// Yapılandırma seçenekleri
+		{
+			maxRetries: options.retryOptions?.maxRetries || 2,
+			initialDelay: options.retryOptions?.initialDelay || 1000,
+			context: "DashScope Provider",
+			logContext: {
+				source: sourceLang,
+				target: targetLang,
+			},
 		}
-	}
+	);
+}
 
-	/**
-	 * Override analyze to use different client and endpoint
-	 */
-	async analyze(prompt, options = {}) {
-		const config = this._getConfig(options, "analyze");
-		const { getAnalysisPrompt } = require("../utils/prompt-templates");
-		const promptData = getAnalysisPrompt(this.providerName, prompt, {
-			...options,
-			model: config.model,
-			temperature: config.temperature,
-			maxTokens: config.maxTokens,
-		});
-		const apiKey = this._getApiKey();
-		const headers = this._prepareHeaders(apiKey);
-		const retryConfig = this._getRetryConfig(options, "analyze");
+async function analyze(prompt, options = {}) {
+	const model = options.model || "qwen-plus";
+	const temperature = options.temperature || 0.2;
+	const maxTokens = options.maxTokens || 1000;
 
-		const RetryHelper = require("../utils/retry-helper");
+	// Analiz şablonunu al
+	const promptData = getAnalysisPrompt("dashscope", prompt, {
+		...options,
+		model,
+		temperature,
+		maxTokens,
+	});
 
-		return RetryHelper.withRetry(async () => {
-			// Use generation client for analysis
-			const response = await this.generationClient.post(
-				this._getAnalyzeEndpoint(),
+	// Add API key to headers
+	const headers = {
+		Authorization: `Bearer ${process.env.DASHSCOPE_API_KEY}`,
+	};
+
+	// Analiz işlemini RetryHelper ile gerçekleştir
+	return RetryHelper.withRetry(
+		// API çağrısı işlemi
+		async () => {
+			const response = await dashscopeGenerationClient.post(
+				"/text-generation/generation",
 				{
 					...promptData,
 				},
 				{ headers }
 			);
 
-			return this._extractResponse(response, "analyze");
-		}, retryConfig);
-	}
+			// Validate response
+			if (!response.data?.output?.text) {
+				throw new Error("Invalid response format from DashScope API");
+			}
+
+			return response.data.output.text.trim();
+		},
+		// Yapılandırma seçenekleri
+		{
+			maxRetries: options.maxRetries || 2,
+			initialDelay: options.initialDelay || 1000,
+			context: "DashScope Provider",
+		}
+	);
 }
 
-// Create and export instance
-const dashscopeProvider = new DashScopeProvider();
-
-module.exports = {
-	translate: (text, sourceLang, targetLang, options) =>
-		dashscopeProvider.translate(text, sourceLang, targetLang, options),
-	analyze: (prompt, options) => dashscopeProvider.analyze(prompt, options),
-};
+module.exports = { translate, analyze };

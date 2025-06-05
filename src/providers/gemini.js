@@ -1,159 +1,129 @@
-const BaseProvider = require("./base-provider");
+const axios = require("axios");
+const { getPrompt, getAnalysisPrompt } = require("../utils/prompt-templates");
+const RetryHelper = require("../utils/retry-helper");
 
-/**
- * Gemini Provider - Extends BaseProvider for Google Gemini API
- * REFACTORED: Eliminated code duplication using BaseProvider with Gemini-specific overrides
- */
-class GeminiProvider extends BaseProvider {
-	constructor() {
-		super({
-			name: "gemini",
-			baseURL: "https://generativelanguage.googleapis.com/v1beta",
-			apiKeyEnvVar: "GEMINI_API_KEY",
-			defaultModel: "gemini-1.5-flash",
-			timeout: 30000,
-		});
+// Create axios instance with default config
+const geminiClient = axios.create({
+	baseURL: "https://generativelanguage.googleapis.com/v1beta",
+	headers: {
+		"Content-Type": "application/json",
+	},
+	timeout: 30000, // 30 second timeout
+});
+
+async function translate(text, sourceLang, targetLang, options) {
+	const model = options.apiConfig?.gemini?.model || "gemini-1.5-flash";
+	const temperature = options.apiConfig?.gemini?.temperature || 0.3;
+	const maxOutputTokens = options.apiConfig?.gemini?.maxTokens || 2048;
+
+	// Check API key
+	const apiKey = process.env.GEMINI_API_KEY;
+	if (!apiKey) {
+		throw new Error("GEMINI_API_KEY environment variable not found");
 	}
 
-	/**
-	 * Gemini doesn't use Authorization header, instead uses API key as query param
-	 */
-	_prepareHeaders(apiKey) {
-		// Gemini doesn't need Authorization header
-		return {};
-	}
+	const promptData = getPrompt("gemini", sourceLang, targetLang, text, options);
 
-	/**
-	 * Gemini has a different request format
-	 */
-	_prepareTranslateRequest(promptData, config) {
-		return {
-			...promptData,
-			generationConfig: {
-				temperature: config.temperature,
-				maxOutputTokens: config.maxTokens,
-			},
-		};
-	}
-
-	/**
-	 * Gemini analysis request format
-	 */
-	_prepareAnalyzeRequest(promptData, config) {
-		return {
-			...promptData,
-			generationConfig: {
-				temperature: config.temperature,
-				maxOutputTokens: config.maxTokens,
-			},
-		};
-	}
-
-	/**
-	 * Gemini has different endpoints for each model
-	 */
-	_getTranslateEndpoint() {
-		const config = this._getConfig({ apiConfig: {} }, "translate");
-		return `/models/${config.model}:generateContent`;
-	}
-
-	/**
-	 * Gemini analysis endpoint
-	 */
-	_getAnalyzeEndpoint() {
-		const config = this._getConfig({ apiConfig: {} }, "analyze");
-		return `/models/${config.model}:generateContent`;
-	}
-
-	/**
-	 * Gemini-specific response extraction
-	 */
-	_extractResponse(response, operation = "translate") {
-		// Validate Gemini response format
-		if (!response.data?.candidates || response.data.candidates.length === 0) {
-			throw new Error(`Failed to get ${operation} result from Gemini API`);
-		}
-
-		if (!response.data.candidates[0]?.content?.parts?.[0]?.text) {
-			throw new Error("Invalid response format from Gemini API");
-		}
-
-		return response.data.candidates[0].content.parts[0].text.trim();
-	}
-
-	/**
-	 * Override make request to include API key as query param
-	 */
-	async _makeRequest(endpoint, requestData, headers, options = {}) {
-		const apiKey = this._getApiKey();
-		const config = {
-			headers,
-			params: {
-				key: apiKey,
-			},
-			...options,
-		};
-
-		return await this.client.post(endpoint, requestData, config);
-	}
-
-	/**
-	 * Override translate to pass the correct endpoint
-	 */
-	async translate(text, sourceLang, targetLang, options) {
-		const config = this._getConfig(options, "translate");
-		const promptData = getPrompt(this.providerName, sourceLang, targetLang, text, options);
-		const headers = this._prepareHeaders();
-		const requestData = this._prepareTranslateRequest(promptData, config);
-		const retryConfig = this._getRetryConfig(options, "translate", {
-			source: sourceLang,
-			target: targetLang,
-		});
-
-		// Import required function
-		const RetryHelper = require("../utils/retry-helper");
-
-		return RetryHelper.withRetry(async () => {
-			const response = await this._makeRequest(
-				this._getTranslateEndpoint(),
-				requestData,
-				headers
+	// Çeviri işlemini RetryHelper ile gerçekleştir
+	return RetryHelper.withRetry(
+		// API çağrısı işlemi
+		async () => {
+			// Sending request to Gemini API endpoint
+			const response = await geminiClient.post(
+				`/models/${model}:generateContent`,
+				{
+					...promptData,
+					generationConfig: {
+						temperature,
+						maxOutputTokens,
+					},
+				},
+				{
+					params: {
+						key: apiKey,
+					},
+				}
 			);
 
-			return this._extractResponse(response, "translate");
-		}, retryConfig);
-	}
+			// Validate response
+			if (!response.data?.candidates || response.data.candidates.length === 0) {
+				throw new Error("Failed to get translation candidate from Gemini API");
+			}
 
-	/**
-	 * Override analyze to pass the correct endpoint
-	 */
-	async analyze(prompt, options = {}) {
-		const config = this._getConfig(options, "analyze");
-		const promptData = getAnalysisPrompt(this.providerName, prompt, options);
-		const headers = this._prepareHeaders();
-		const requestData = this._prepareAnalyzeRequest(promptData, config);
-		const retryConfig = this._getRetryConfig(options, "analyze");
+			if (!response.data.candidates[0]?.content?.parts?.[0]?.text) {
+				throw new Error("Invalid response format from Gemini API");
+			}
 
-		// Import required function
-		const RetryHelper = require("../utils/retry-helper");
-
-		return RetryHelper.withRetry(async () => {
-			const response = await this._makeRequest(
-				this._getAnalyzeEndpoint(),
-				requestData,
-				headers
-			);
-
-			return this._extractResponse(response, "analyze");
-		}, retryConfig);
-	}
+			// Returning the first translation candidate
+			return response.data.candidates[0].content.parts[0].text.trim();
+		},
+		// Yapılandırma seçenekleri
+		{
+			maxRetries: options.retryOptions?.maxRetries || 2,
+			initialDelay: options.retryOptions?.initialDelay || 1000,
+			context: "Gemini Provider",
+			logContext: {
+				source: sourceLang,
+				target: targetLang,
+			},
+		}
+	);
 }
 
-// Create and export instance
-const geminiProvider = new GeminiProvider();
+async function analyze(prompt, options = {}) {
+	const model = options.model || "gemini-1.5-flash";
+	const temperature = options.temperature || 0.2;
+	const maxOutputTokens = options.maxTokens || 1000;
 
-module.exports = {
-	translate: (text, sourceLang, targetLang, options) =>
-		geminiProvider.translate(text, sourceLang, targetLang, options),
-	analyze: (prompt, options) => geminiProvider.analyze(prompt, options),
-};
+	// Check API key
+	const apiKey = process.env.GEMINI_API_KEY;
+	if (!apiKey) {
+		throw new Error("GEMINI_API_KEY environment variable not found");
+	}
+
+	// Analiz şablonunu al
+	const promptData = getAnalysisPrompt("gemini", prompt, options);
+
+	// Analiz işlemini RetryHelper ile gerçekleştir
+	return RetryHelper.withRetry(
+		// API çağrısı işlemi
+		async () => {
+			// Format the analysis prompt for Gemini
+			const response = await geminiClient.post(
+				`/models/${model}:generateContent`,
+				{
+					...promptData,
+					generationConfig: {
+						temperature,
+						maxOutputTokens,
+					},
+				},
+				{
+					params: {
+						key: apiKey,
+					},
+				}
+			);
+
+			// Validate response
+			if (!response.data?.candidates || response.data.candidates.length === 0) {
+				throw new Error("Failed to get analysis result from Gemini API");
+			}
+
+			if (!response.data.candidates[0]?.content?.parts?.[0]?.text) {
+				throw new Error("Invalid response format from Gemini API");
+			}
+
+			// Return the analysis result
+			return response.data.candidates[0].content.parts[0].text.trim();
+		},
+		// Yapılandırma seçenekleri
+		{
+			maxRetries: options.maxRetries || 2,
+			initialDelay: options.initialDelay || 1000,
+			context: "Gemini Provider",
+		}
+	);
+}
+
+module.exports = { translate, analyze };
