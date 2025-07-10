@@ -20,7 +20,7 @@ module.exports = {
 	 */
 	apiProvider: "deepseek", // Default/primary provider
 	useFallback: true, // Enable automatic fallback to other providers if primary fails
-	fallbackOrder: ["dashscope", "xai", "openai", "azuredeepseek", "deepseek", "gemini"], // Provider fallback order
+	fallbackOrder: ["deepseek", "openai", "dashscope", "xai", "gemini", "azuredeepseek"], // Fallback order
 	apiConfig: {
 		dashscope: {
 			model: "qwen-plus",
@@ -64,7 +64,7 @@ module.exports = {
 	 * Performance Optimization
 	 */
 	// Concurrency and Cache Settings
-	concurrencyLimit: 5, // Global limit for concurrent translations
+	concurrencyLimit: 3, // Global limit for concurrent translations
 	cacheEnabled: true, // Enable translation caching
 	cacheTTL: 24 * 60 * 60 * 1000, // Cache TTL in milliseconds (24 hours)
 	cacheSize: 1000, // Maximum number of cached items
@@ -73,16 +73,16 @@ module.exports = {
 	rateLimiter: {
 		enabled: true, // Enable rate limiting
 		providerLimits: {
-			dashscope: { rpm: 50, concurrency: 4 }, // Requests per minute & concurrency
-			xai: { rpm: 60, concurrency: 5 },
-			openai: { rpm: 60, concurrency: 5 },
-			azuredeepseek: { rpm: 80, concurrency: 5 },
-			deepseek: { rpm: 60, concurrency: 5 }, // Increased limits
-			gemini: { rpm: 100, concurrency: 8 },
+			dashscope: { rpm: 50, concurrency: 3 }, // Requests per minute & concurrency
+			xai: { rpm: 60, concurrency: 3 },
+			openai: { rpm: 60, concurrency: 3 },
+			azuredeepseek: { rpm: 80, concurrency: 3 },
+			deepseek: { rpm: 60, concurrency: 3 }, // Increased limits
+			gemini: { rpm: 100, concurrency: 3 },
 		},
 		queueStrategy: "priority", // priority, fifo
 		adaptiveThrottling: true, // Auto-adjust based on API responses
-		queueTimeout: 120000, // Maximum time in queue before timing out (ms) - increased to 2 minutes
+		queueTimeout: 10000, // Maximum time in queue before timing out (ms)
 	},
 
 	/**
