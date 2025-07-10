@@ -384,10 +384,10 @@ localize -t tr,es fix
 Analyze context patterns in translations:
 
 ```bash
-# Analyze context using AI with config settings
+# Analyze context using AI with config settings (OpenAI by default)
 localize analyze --use-ai
 
-# Specify context provider
+# Specify different context provider
 localize analyze --use-ai --context-provider deepseek
 
 # Adjust threshold for matching
@@ -539,11 +539,11 @@ The tool creates a `.localize-cache/` directory to store translation state. This
 
 #### Analyze Command Options
 
-| Option              | Description                | Default  |
-| ------------------- | -------------------------- | -------- |
-| --use-ai            | Enable AI context analysis | false    |
-| --context-provider  | AI provider for analysis   | deepseek |
-| --context-threshold | Keyword match threshold    | 2        |
+| Option              | Description                | Default |
+| ------------------- | -------------------------- | ------- |
+| --use-ai            | Enable AI context analysis | true    |
+| --context-provider  | AI provider for analysis   | openai  |
+| --context-threshold | Keyword match threshold    | 2       |
 
 #### Advanced Command Options
 
@@ -563,16 +563,21 @@ The tool creates a `.localize-cache/` directory to store translation state. This
 
 ### Smart Synchronization System
 
-- **Change Detection**: Automatically detects changes in source files using hash-based comparison
-- **Deleted Key Cleanup**: Removes deleted keys from all target language files
-- **Modified Key Re-translation**: Re-translates keys when source content changes
-- **State Management**: Maintains translation state between runs for optimal performance
+- **Intelligent Change Detection**: SHA-256 hash-based comparison for precise change tracking
+- **Automatic Key Cleanup**: Removes deleted keys from all target language files
+- **Smart Re-translation**: Re-translates only modified keys with AI context analysis
+- **State Management**: Persistent state tracking in `.localize-cache/` directory
+- **Performance Optimized**: Processes only changed content for faster runs
+- **AI Context Integration**: Uses OpenAI for intelligent context-aware translations
 - **Backward Compatibility**: Works seamlessly with existing projects
 
-The tool now tracks changes in your source locale file and synchronizes them across all target languages:
+The tool now tracks changes in your source locale file and synchronizes them across all target languages with AI-powered context analysis:
 
 ```bash
-# Example output showing sync detection
+# Example output showing sync detection with AI context analysis
+🧠 AI Context Analysis: ENABLED (Provider: openai)
+🔄 New category suggestions: ENABLED
+
 🔄 Sync Analysis:
    📝 New keys: 5
    ✏️  Modified keys: 2
@@ -581,6 +586,9 @@ The tool now tracks changes in your source locale file and synchronizes them acr
 🗑️ Removing 1 deleted keys from target files...
    ✅ tr.json: Removed 1 keys
    ✅ es.json: Removed 1 keys
+
+🧠 AI Context Analysis: defi (85.2%)
+📝 Processing 7 keys with intelligent context detection...
 ```
 
 ### Provider Integration
@@ -591,18 +599,18 @@ The tool now tracks changes in your source locale file and synchronizes them acr
 | XAI            | grok-2-1212      | 60        | 5          | 2              |
 | OpenAI         | gpt-4o           | 60        | 5          | 3              |
 | Azure DeepSeek | DeepSeek-R1      | 80        | 5          | 4              |
-| DeepSeek       | deepseek-chat    | 45        | 3          | 5              |
+| DeepSeek       | deepseek-chat    | 60        | 5          | 5              |
 | Gemini         | gemini-1.5-flash | 100       | 8          | 6              |
 
 ### Performance Optimizations
 
 - **Enhanced Rate Limiter**:
 
-    - Provider-specific dedicated queues
-    - Per-provider concurrency limits
+    - Provider-specific dedicated queues with improved timeouts (2 minutes default)
+    - Per-provider concurrency limits with optimized DeepSeek settings (RPM: 60, Concurrency: 5)
     - Automatic rate limiting based on API specifications
     - Intelligent queue prioritization (priority vs. FIFO)
-    - Queue timeout protection
+    - Extended queue timeout protection to prevent request failures
     - Adaptive throttling with auto-adjustment based on response times and error rates
 
 - **Advanced Caching**:
@@ -639,15 +647,14 @@ The tool now tracks changes in your source locale file and synchronizes them acr
 
 ### Context Detection System
 
-- Weighted category matching
-- Confidence-based selection
-- Automatic fallback handling
-- Debug mode for analysis
-- Category-specific prompts
-- AI-powered context analysis with configurable provider
-- Fast keyword matching to avoid unnecessary AI calls
-- Dynamic category suggestion (with allowNewCategories option)
-- Minimum text length threshold for efficient processing
+- **AI-Powered Analysis**: Uses OpenAI (gpt-4o) for intelligent context detection
+- **Weighted Category Matching**: Keyword-based fast matching with confidence scoring
+- **Confidence-based Selection**: Automatic fallback to keyword matching for low-confidence results
+- **Debug Mode**: Detailed analysis information for troubleshooting
+- **Category-specific Prompts**: Customized translation instructions per context
+- **Dynamic Category Suggestion**: AI can suggest new categories (allowNewCategories option)
+- **Minimum Text Length Threshold**: Efficient processing with configurable text length limits
+- **Hybrid Approach**: Fast keyword matching + AI analysis for optimal performance
 
 ### Quality Control
 

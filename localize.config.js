@@ -13,12 +13,12 @@ module.exports = {
 	version: "1.0.0", // Configuration version
 	localesDir: "./locales", // Directory where locale JSON files are stored
 	source: "en", // Source language
-	targets: ["tr", "de", "es", "fr", "hi", "ja", "pl", "ru", "th", "uk", "vi", "zh"], // Target languages
+	targets: ["tr", "de", "es", "fr", "hi", "ja", "pl", "ru", "th", "uk", "vi", "yo", "zh"], // Target languages
 
 	/**
 	 * API Provider Configuration
 	 */
-	apiProvider: "dashscope", // Default/primary provider
+	apiProvider: "deepseek", // Default/primary provider
 	useFallback: true, // Enable automatic fallback to other providers if primary fails
 	fallbackOrder: ["dashscope", "xai", "openai", "azuredeepseek", "deepseek", "gemini"], // Provider fallback order
 	apiConfig: {
@@ -77,12 +77,12 @@ module.exports = {
 			xai: { rpm: 60, concurrency: 5 },
 			openai: { rpm: 60, concurrency: 5 },
 			azuredeepseek: { rpm: 80, concurrency: 5 },
-			deepseek: { rpm: 45, concurrency: 3 },
+			deepseek: { rpm: 60, concurrency: 5 }, // Increased limits
 			gemini: { rpm: 100, concurrency: 8 },
 		},
 		queueStrategy: "priority", // priority, fifo
 		adaptiveThrottling: true, // Auto-adjust based on API responses
-		queueTimeout: 30000, // Maximum time in queue before timing out (ms)
+		queueTimeout: 120000, // Maximum time in queue before timing out (ms) - increased to 2 minutes
 	},
 
 	/**
@@ -113,13 +113,13 @@ module.exports = {
 	context: {
 		enabled: true, // Enable context detection
 		useAI: true, // Use AI for context analysis
-		aiProvider: "deepseek", // AI provider for context analysis
+		aiProvider: "openai", // AI provider for context analysis
 		minTextLength: 50, // Minimum text length for AI analysis
 		allowNewCategories: true, // Allow AI to suggest new categories
 		debug: false, // Show detailed analysis information
 		analysisOptions: {
-			model: "deepseek-chat", // Model for analysis
-			temperature: 0.1, // Lower temperature for consistency
+			model: "gpt-4o", // OpenAI model for analysis
+			temperature: 0.2, // Slightly higher temperature for more creative context analysis
 			maxTokens: 1000, // Maximum tokens for analysis
 		},
 		detection: {
