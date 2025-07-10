@@ -5,6 +5,7 @@ const openaiProvider = require("../providers/openai");
 const dashscopeProvider = require("../providers/dashscope");
 const xaiProvider = require("../providers/xai");
 const FallbackProvider = require("./fallback-provider");
+const rateLimiter = require("../utils/rate-limiter");
 
 class ProviderFactory {
 	/**
@@ -36,7 +37,30 @@ class ProviderFactory {
 				throw new Error(`Provider ${providerName} is not configured. Missing API key.`);
 			}
 
-			return selected;
+			// Wrap the provider's functions with rate limiting
+			const wrappedProvider = {};
+
+			if (selected.translate) {
+				wrappedProvider.translate = (text, sourceLang, targetLang, options) => {
+					// This assumes a simple priority calculation. This could be enhanced.
+					const priority = text.length < 100 ? 1 : 0;
+					return rateLimiter.enqueue(
+						normalizedProviderName,
+						() => selected.translate(text, sourceLang, targetLang, options),
+						priority
+					);
+				};
+			}
+
+			if (selected.analyze) {
+				wrappedProvider.analyze = (prompt, options) => {
+					return rateLimiter.enqueue(normalizedProviderName, () =>
+						selected.analyze(prompt, options)
+					);
+				};
+			}
+
+			return wrappedProvider;
 		}
 
 		// For fallback mode, create array with selected provider first,
@@ -50,7 +74,10 @@ class ProviderFactory {
 			providers[normalizedProviderName] &&
 			availableProviderNames.includes(normalizedProviderName)
 		) {
-			allProviders.push(providers[normalizedProviderName]);
+			allProviders.push({
+				name: normalizedProviderName,
+				implementation: providers[normalizedProviderName],
+			});
 		} else if (normalizedProviderName) {
 			console.warn(
 				`Provider '${providerName}' not found or not configured, using default provider chain`
@@ -75,8 +102,8 @@ class ProviderFactory {
 		// Then add providers according to fallback order
 		for (const name of fallbackOrder) {
 			// Skip the already added primary provider
-			if (name !== normalizedProviderName && providers[name]) {
-				allProviders.push(providers[name]);
+			if (!allProviders.some((p) => p.name === name) && providers[name]) {
+				allProviders.push({ name, implementation: providers[name] });
 			}
 		}
 
@@ -89,7 +116,9 @@ class ProviderFactory {
 		// SECURITY FIX: Log the provider chain safely if in debug mode
 		if (process.env.DEBUG) {
 			// Sanitize provider names to prevent information leakage
-			const safeProviderNames = allProviders.map((p, index) => `Provider_${index + 1}`);
+			const safeProviderNames = allProviders.map(
+				(p) => p.constructor?.name || "UnknownProvider"
+			);
 			console.log(`Provider fallback chain: ${safeProviderNames.join(" → ")}`);
 		}
 

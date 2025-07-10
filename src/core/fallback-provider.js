@@ -1,4 +1,5 @@
 const RetryHelper = require("../utils/retry-helper");
+const rateLimiter = require("../utils/rate-limiter");
 
 class FallbackProvider {
 	constructor(providers) {
@@ -30,6 +31,13 @@ class FallbackProvider {
 		});
 	}
 
+	_calculatePriority(text) {
+		if (!text) return 1;
+		if (text.length < 100) return 2; // Higher priority for shorter texts
+		if (text.length > 800) return 0; // Lower priority for very long texts
+		return 1;
+	}
+
 	async translate(text, sourceLang, targetLang, options) {
 		const errors = [];
 		const startTime = Date.now();
@@ -56,8 +64,9 @@ class FallbackProvider {
 		while (currentAttempt < maxAttempts) {
 			// Get the appropriate provider, checking if it's disabled first
 			let currentProviderIndex = this.currentIndex % totalProviders;
-			let currentProvider = availableProviders[currentProviderIndex];
-			const providerName = this._getProviderName(currentProvider);
+			let providerData = availableProviders[currentProviderIndex];
+			const providerName = this._getProviderName(providerData);
+			const currentProvider = providerData.implementation;
 
 			// Update operation count
 			this.operationCount++;
@@ -75,24 +84,30 @@ class FallbackProvider {
 					});
 				}
 
-				// Attempt translation with retry helper
+				// Attempt translation with retry helper and rate limiting
 				const providerStartTime = Date.now();
-				const result = await RetryHelper.withRetry(
-					// The operation to perform
-					() => currentProvider.translate(text, sourceLang, targetLang, options),
-					{
-						// Only retry once at this level, since we have our own fallback logic
-						maxRetries: 0,
-						context: `Fallback:${providerName}`,
-						logContext: {
-							source: sourceLang,
-							target: targetLang,
-							providerIndex: currentProviderIndex,
-							attempt: currentAttempt + 1,
-							maxAttempts,
-						},
-					}
+				const result = await rateLimiter.enqueue(
+					providerName.toLowerCase(),
+					() =>
+						RetryHelper.withRetry(
+							// The operation to perform
+							() => currentProvider.translate(text, sourceLang, targetLang, options),
+							{
+								// Only retry once at this level, since we have our own fallback logic
+								maxRetries: 0,
+								context: `Fallback:${providerName}`,
+								logContext: {
+									source: sourceLang,
+									target: targetLang,
+									providerIndex: currentProviderIndex,
+									attempt: currentAttempt + 1,
+									maxAttempts,
+								},
+							}
+						),
+					this._calculatePriority(text)
 				);
+
 				const responseTime = Date.now() - providerStartTime;
 
 				// Update success stats and response time
@@ -124,7 +139,7 @@ class FallbackProvider {
 
 					// If a provider fails too many times in a row, temporarily disable it
 					if (stats.consecutiveFailures >= 3) {
-						this._disableProvider(currentProvider, 5 * 60 * 1000); // Disable for 5 minutes
+						this._disableProvider(providerData, 5 * 60 * 1000); // Disable for 5 minutes
 					}
 				}
 
@@ -139,7 +154,7 @@ class FallbackProvider {
 				});
 
 				// SECURITY FIX: Sanitize error logging to prevent information leakage
-				const safeProviderName = `Provider_${(this.currentIndex % totalProviders) + 1}`;
+				const safeProviderName = `Provider_${(currentProviderIndex % totalProviders) + 1}`;
 				const safeErrorMessage =
 					error.message.includes("API") || error.message.includes("key")
 						? "Authentication or API error"
@@ -152,10 +167,8 @@ class FallbackProvider {
 				// Move to next provider or retry current
 				currentAttempt++;
 
-				// If we've tried all retries for current provider, move to next
-				if (currentAttempt % (this.maxRetries + 1) === 0) {
-					this.currentIndex = (this.currentIndex + 1) % totalProviders;
-				}
+				// On any failure, move to the next provider. The while loop handles retries.
+				this.currentIndex++;
 			}
 		}
 
@@ -180,14 +193,15 @@ class FallbackProvider {
 		// Get available providers (not disabled)
 		const availableProviders = this.providers.filter(
 			(provider) =>
-				!this._isProviderDisabled(provider) && typeof provider.analyze === "function"
+				!this._isProviderDisabled(provider) &&
+				typeof provider.implementation.analyze === "function"
 		);
 
 		if (availableProviders.length === 0) {
 			// If all providers are disabled, reset and try those with analyze capability
 			this._resetDisabledProviders();
 			availableProviders.push(
-				...this.providers.filter((p) => typeof p.analyze === "function")
+				...this.providers.filter((p) => typeof p.implementation.analyze === "function")
 			);
 		}
 
@@ -201,8 +215,9 @@ class FallbackProvider {
 		while (currentAttempt < maxAttempts) {
 			// Get current provider (cycling through available ones)
 			let currentProviderIndex = currentAttempt % totalProviders;
-			let currentProvider = availableProviders[currentProviderIndex];
-			const providerName = this._getProviderName(currentProvider);
+			let providerData = availableProviders[currentProviderIndex];
+			const providerName = this._getProviderName(providerData);
+			const currentProvider = providerData.implementation;
 
 			// Update operation count
 			this.operationCount++;
@@ -220,20 +235,24 @@ class FallbackProvider {
 					});
 				}
 
-				// Attempt analysis with retry helper
+				// Attempt analysis with retry helper and rate limiting
 				const providerStartTime = Date.now();
-				const result = await RetryHelper.withRetry(
-					() => currentProvider.analyze(prompt, options),
-					{
-						maxRetries: 0,
-						context: `Fallback:${providerName}`,
-						logContext: {
-							providerIndex: currentProviderIndex,
-							attempt: currentAttempt + 1,
-							maxAttempts,
-						},
-					}
+
+				const result = await rateLimiter.enqueue(
+					providerName.toLowerCase(),
+					() =>
+						RetryHelper.withRetry(() => currentProvider.analyze(prompt, options), {
+							maxRetries: 0,
+							context: `Fallback:${providerName}`,
+							logContext: {
+								providerIndex: currentProviderIndex,
+								attempt: currentAttempt + 1,
+								maxAttempts,
+							},
+						}),
+					this._calculatePriority(prompt)
 				);
+
 				const responseTime = Date.now() - providerStartTime;
 
 				// Update success stats
@@ -266,7 +285,7 @@ class FallbackProvider {
 
 					// If a provider fails too many times in a row, temporarily disable it
 					if (stats.consecutiveFailures >= 3) {
-						this._disableProvider(currentProvider, 5 * 60 * 1000); // Disable for 5 minutes
+						this._disableProvider(providerData, 5 * 60 * 1000); // Disable for 5 minutes
 					}
 				}
 
@@ -281,7 +300,7 @@ class FallbackProvider {
 				});
 
 				// SECURITY FIX: Sanitize error logging to prevent information leakage
-				const safeProviderName = `Provider_${(this.currentIndex % totalProviders) + 1}`;
+				const safeProviderName = `Provider_${(currentProviderIndex % totalProviders) + 1}`;
 				const safeErrorMessage =
 					error.message.includes("API") || error.message.includes("key")
 						? "Authentication or API error"
@@ -293,6 +312,7 @@ class FallbackProvider {
 
 				// Move to next provider
 				currentAttempt++;
+				this.currentIndex++;
 			}
 		}
 
@@ -457,7 +477,7 @@ class FallbackProvider {
 
 	// Get provider name consistently
 	_getProviderName(provider) {
-		return provider?.constructor?.name || "Unknown";
+		return provider?.name || "Unknown";
 	}
 }
 

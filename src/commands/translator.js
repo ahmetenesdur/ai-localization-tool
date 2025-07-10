@@ -155,10 +155,8 @@ async function translateFile(file, options) {
 	const orchestrator = new Orchestrator(options);
 
 	try {
-		// Get CPU cores for concurrency limit
-		const cpuCount = os.cpus().length;
-		// Use half of CPU cores for parallel language processing, min 2, max 8
-		const languageConcurrency = Math.max(2, Math.min(8, Math.floor(cpuCount / 2)));
+		// Use concurrency limit from options, not from CPU cores
+		const languageConcurrency = options.concurrencyLimit || 3;
 
 		// Process target languages in batches based on available resources
 		const targetLanguages = [...options.targets]; // Create a copy to avoid modifying the original
@@ -172,7 +170,7 @@ async function translateFile(file, options) {
 			const currentBatch = targetLanguages.slice(i, i + languageConcurrency);
 
 			// Configure ProgressTracker for each language to prevent console overlap
-			const progressOptions = { logToConsole: false }; // Disable automatic console output
+			const progressOptions = { logToConsole: false }; // Disable automatic console logging
 
 			// Process batch of languages in parallel and collect results
 			const batchResults = await Promise.all(
@@ -182,8 +180,8 @@ async function translateFile(file, options) {
 						resolvedFile,
 						flattenedSource,
 						// Use a separate orchestrator instance for each language in the batch
-						// to avoid progress tracker state conflicts
-						new Orchestrator({ ...options, progressOptions }),
+						// with an internal concurrency of 1 to avoid overload
+						new Orchestrator({ ...options, concurrencyLimit: 1, progressOptions }),
 						{
 							...options,
 							progressOptions, // Pass options for progress tracker

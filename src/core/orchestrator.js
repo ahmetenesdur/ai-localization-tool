@@ -168,17 +168,11 @@ class Orchestrator {
 				}, this.advanced.timeoutMs);
 			});
 
-			// Create translation promise with priority based on key importance
-			const priority = this._calculatePriority(key, text);
-			const translationPromise = rateLimiter.enqueue(
-				this.options.apiProvider.toLowerCase(),
-				() =>
-					provider.translate(text, this.options.source, targetLang, {
-						...this.options,
-						detectedContext: translationContext,
-					}),
-				priority
-			);
+			// Create translation promise
+			const translationPromise = provider.translate(text, this.options.source, targetLang, {
+				...this.options,
+				detectedContext: translationContext,
+			});
 
 			let translated;
 			try {
@@ -289,14 +283,6 @@ class Orchestrator {
 		return chunks;
 	}
 
-	// Calculate priority for queue (higher = more important)
-	_calculatePriority(key, text) {
-		// Give higher priority to shorter texts (they complete faster)
-		if (text.length < 50) return 2;
-		if (text.length > 500) return 0;
-		return 1;
-	}
-
 	// Auto-optimize settings based on system capabilities
 	_applyAutoOptimizations() {
 		try {
@@ -393,13 +379,14 @@ class Orchestrator {
 				this.options // Pass full config for fallbackOrder support
 			);
 
-			const translated = await rateLimiter.enqueue(
-				this.options.apiProvider.toLowerCase(),
-				() =>
-					provider.translate(context.text, this.options.source, context.targetLang, {
-						...this.options,
-						detectedContext: context.contextData,
-					})
+			const translated = await provider.translate(
+				context.text,
+				this.options.source,
+				context.targetLang,
+				{
+					...this.options,
+					detectedContext: context.contextData,
+				}
 			);
 
 			// Get current entry to update only the translation
