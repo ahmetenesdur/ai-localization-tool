@@ -214,6 +214,14 @@ module.exports = {
 		retryableErrors: ["rate_limit", "timeout", "network"], // Error types to retry
 	},
 
+	// Synchronization Settings
+	syncOptions: {
+		enabled: true, // Enable synchronization features
+		removeDeletedKeys: true, // Remove deleted keys from target files
+		retranslateModified: true, // Re-translate modified keys
+		backupBeforeSync: false, // Create backup before sync operations
+	},
+
 	// Advanced Settings
 	advanced: {
 		timeoutMs: 60000, // Request timeout (60 seconds)
@@ -240,52 +248,120 @@ XAI_API_KEY=sk-cccc
 
 ## 🚀 Usage
 
-The tool has several commands to handle different operations powered by Commander.js:
+The tool automatically reads configuration from `localize.config.js` and supports command-line overrides:
 
 ```bash
 # Command Structure
 localize [global options] [command] [command options]
 ```
 
+### Configuration Priority
+
+Settings are applied in this order (highest to lowest priority):
+
+1. **Command line parameters** (highest priority)
+2. **Config file** (`localize.config.js`)
+3. **Default values** (lowest priority)
+
+### Basic Usage Examples
+
+```bash
+# Use all settings from config file (recommended)
+localize
+
+# Use config but override specific languages
+localize -t tr,es,de
+
+# Use config but different source language
+localize -s tr
+
+# Completely override config
+localize -s en -t tr,de,es --localesDir ./src/locales
+
+# With debug mode
+localize --debug
+
+# Verbose mode for detailed logging
+localize --verbose
+```
+
 ### Global Options
 
 Options that apply to all commands:
 
-```bash
-# Basic usage
-localize -s en -t tr,de,es --localesDir ./src/locales
-
-# With debug mode
-localize -s en -t tr,de --debug
-
-# Verbose mode for detailed logging
-localize -s en -t tr,de --verbose
-```
+| Option        | Description                        | Default (from config) |
+| ------------- | ---------------------------------- | --------------------- |
+| -s, --source  | Source language                    | config.source         |
+| -t, --targets | Target languages (comma separated) | config.targets        |
+| --localesDir  | Locales directory                  | config.localesDir     |
+| --debug       | Enable verbose logging             | false                 |
+| --verbose     | Enable detailed diagnostics        | false                 |
 
 ### Commands and Examples
+
+#### Synchronization Workflow
+
+The tool automatically detects and handles changes in your source locale file:
+
+```bash
+# First run - processes all keys using config settings
+localize
+# Output: 🆕 First run - will process all keys
+
+# Subsequent runs - only processes changes
+localize
+# Output: ✅ No changes detected in source file
+
+# After modifying source file (adding, changing, or deleting keys)
+localize
+# Output:
+# 🔄 Sync Analysis:
+#    📝 New keys: 3
+#    ✏️  Modified keys: 1
+#    🗑️  Deleted keys: 2
+#
+# 🗑️ Removing 2 deleted keys from target files...
+#    ✅ tr.json: Removed 2 keys
+#    ✅ de.json: Removed 2 keys
+#    ✅ es.json: Removed 2 keys
+#    # ... all target languages
+```
+
+**What happens during sync:**
+
+1. **Deleted Keys** → Automatically removed from all target files
+2. **Modified Keys** → Re-translated in all target languages
+3. **New Keys** → Translated normally
+4. **Unchanged Keys** → Skipped for performance
 
 #### Translate (Default Command)
 
 Translate missing strings or update translations:
 
 ```bash
-# Basic translation (default command)
-localize -s en -t tr,es
+# Basic translation using config settings (recommended)
+localize
 
-# With provider and performance settings
-localize -s en -t tr --provider openai --concurrency 8
+# With specific provider override
+localize --provider openai
 
-# Force update existing translations
-localize -s en -t tr,de translate --force
+# Force update existing translations (ignores sync)
+localize translate --force
 
-# Control translation length
-localize -s en -t ja,zh translate --length strict
+# Control translation length mode
+localize translate --length strict
 
 # Auto-optimize for your hardware
-localize -s en -t tr,es translate --auto-optimize
+localize translate --auto-optimize
 
-# Show detailed stats
-localize -s en -t tr,de translate --stats
+# Show detailed statistics
+localize translate --stats
+
+# Override specific languages while keeping other config
+localize -t tr,es,de
+
+# Complete manual override
+localize -s en -t tr,es --provider openai --concurrency 8
 ```
 
 #### Fix
@@ -293,11 +369,14 @@ localize -s en -t tr,de translate --stats
 Fix issues in existing translations:
 
 ```bash
-# Fix length issues in translations
-localize -s en -t tr,es fix
+# Fix length issues using config settings
+localize fix
 
 # Fix with debug output
-localize -s en -t tr,de fix --debug
+localize fix --debug
+
+# Fix specific languages only
+localize -t tr,es fix
 ```
 
 #### Analyze
@@ -305,14 +384,17 @@ localize -s en -t tr,de fix --debug
 Analyze context patterns in translations:
 
 ```bash
-# Analyze context using AI
-localize -s en -t tr analyze --use-ai
+# Analyze context using AI with config settings
+localize analyze --use-ai
 
 # Specify context provider
-localize -s en -t tr analyze --use-ai --context-provider deepseek
+localize analyze --use-ai --context-provider deepseek
 
 # Adjust threshold for matching
-localize -s en -t tr analyze --context-threshold 3
+localize analyze --context-threshold 3
+
+# Analyze specific language pair
+localize -s en -t tr analyze --use-ai
 ```
 
 #### Advanced
@@ -320,30 +402,51 @@ localize -s en -t tr analyze --context-threshold 3
 Access rarely used configuration options:
 
 ```bash
-# Fine-tune context detection
-localize -s en -t tr advanced --context-confidence 0.7 --min-text-length 60
+# Fine-tune context detection with config base
+localize advanced --context-confidence 0.7 --min-text-length 60
 
 # Allow new category suggestions
-localize -s en -t tr advanced --allow-new-categories
+localize advanced --allow-new-categories
 
 # Configure retries and timeouts
-localize -s en -t tr advanced --max-retries 3 --initial-delay 2000 --max-delay 20000
+localize advanced --max-retries 3 --initial-delay 2000 --max-delay 20000
 
 # Set advanced timeouts and batch sizes
-localize -s en -t tr advanced --timeout 120000 --max-batch-size 30
+localize advanced --timeout 120000 --max-batch-size 30
+
+# Override for specific language pair
+localize -s en -t tr advanced --context-confidence 0.7
 ```
 
 ### CLI Reference
 
+#### Configuration-Based Usage
+
+The tool now prioritizes configuration file settings, making commands much simpler:
+
+**Recommended Usage:**
+
+```bash
+localize                    # Use all config settings
+localize -t tr,es          # Override just target languages
+localize --provider openai # Override just the provider
+```
+
+**Legacy Manual Usage (still supported):**
+
+```bash
+localize -s en -t tr,de,es --localesDir ./locales
+```
+
 #### Global Options
 
-| Option        | Description                        | Default   |
-| ------------- | ---------------------------------- | --------- |
-| -s, --source  | Source language                    | en        |
-| -t, --targets | Target languages (comma separated) | []        |
-| --localesDir  | Locales directory                  | ./locales |
-| --debug       | Enable verbose logging             | false     |
-| --verbose     | Enable detailed diagnostics        | false     |
+| Option        | Description                        | Config Property | CLI Default       |
+| ------------- | ---------------------------------- | --------------- | ----------------- |
+| -s, --source  | Source language                    | source          | config.source     |
+| -t, --targets | Target languages (comma separated) | targets         | config.targets    |
+| --localesDir  | Locales directory                  | localesDir      | config.localesDir |
+| --debug       | Enable verbose logging             | advanced.debug  | false             |
+| --verbose     | Enable detailed diagnostics        | logging.verbose | false             |
 
 #### Translate Command Options
 
@@ -362,6 +465,77 @@ localize -s en -t tr advanced --timeout 120000 --max-batch-size 30
 | Option   | Description       | Default |
 | -------- | ----------------- | ------- |
 | --length | Fix length issues | true    |
+
+#### Sync Configuration Options
+
+Configure synchronization behavior in `localize.config.js`:
+
+```javascript
+syncOptions: {
+    enabled: true, // Enable/disable sync features entirely
+    removeDeletedKeys: true, // Remove deleted keys from target files
+    retranslateModified: true, // Re-translate modified keys
+    backupBeforeSync: false, // Create backups before sync operations
+}
+```
+
+**Sync Options:**
+
+| Option              | Description                                   | Default |
+| ------------------- | --------------------------------------------- | ------- |
+| enabled             | Enable synchronization features               | true    |
+| removeDeletedKeys   | Remove deleted keys from target files         | true    |
+| retranslateModified | Re-translate keys when source content changes | true    |
+| backupBeforeSync    | Create backup files before sync operations    | false   |
+
+**State File Management:**
+
+The tool creates a `.localize-cache/` directory to store translation state. This directory is automatically added to `.gitignore` and should not be committed to version control.
+
+**Real-World Example:**
+
+```json
+// Before: en.json
+{
+  "welcome": "Welcome!",
+  "goodbye": "Goodbye!",
+  "hello": "Hello World"
+}
+
+// You modify en.json:
+// - Delete "goodbye" key
+// - Change "hello" to "Hello Universe"
+// - Add "new_feature" key
+
+// After: en.json
+{
+  "welcome": "Welcome!",
+  "hello": "Hello Universe",
+  "new_feature": "Check out our new feature!"
+}
+
+// Running: localize
+// Result:
+// 🔄 Sync Analysis:
+//    📝 New keys: 1 (new_feature)
+//    ✏️  Modified keys: 1 (hello)
+//    🗑️  Deleted keys: 1 (goodbye)
+//
+// 🗑️ Removing 1 deleted keys from target files...
+//    ✅ tr.json: Removed 1 keys
+//    ✅ de.json: Removed 1 keys
+//    ✅ es.json: Removed 1 keys
+//    # ... all languages
+//
+// 📝 Processing 1 new keys + 1 modified keys = 2 total translations needed
+```
+
+**Performance Benefits:**
+
+- **Incremental Processing**: Only processes changed content (2 keys instead of all 3)
+- **Faster Runs**: Skips unchanged translations ("welcome" key skipped)
+- **Automatic Cleanup**: Removes orphaned translations ("goodbye" removed from all files)
+- **Consistent State**: Maintains synchronization across team members
 
 #### Analyze Command Options
 
@@ -386,6 +560,28 @@ localize -s en -t tr advanced --timeout 120000 --max-batch-size 30
 | --max-batch-size       | Max items per batch            | 50      |
 
 ## 🌟 Features
+
+### Smart Synchronization System
+
+- **Change Detection**: Automatically detects changes in source files using hash-based comparison
+- **Deleted Key Cleanup**: Removes deleted keys from all target language files
+- **Modified Key Re-translation**: Re-translates keys when source content changes
+- **State Management**: Maintains translation state between runs for optimal performance
+- **Backward Compatibility**: Works seamlessly with existing projects
+
+The tool now tracks changes in your source locale file and synchronizes them across all target languages:
+
+```bash
+# Example output showing sync detection
+🔄 Sync Analysis:
+   📝 New keys: 5
+   ✏️  Modified keys: 2
+   🗑️  Deleted keys: 1
+
+🗑️ Removing 1 deleted keys from target files...
+   ✅ tr.json: Removed 1 keys
+   ✅ es.json: Removed 1 keys
+```
 
 ### Provider Integration
 

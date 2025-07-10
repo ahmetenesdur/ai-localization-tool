@@ -298,6 +298,17 @@ module.exports = {
 	},
 
 	/**
+	 * Synchronization Settings
+	 * Controls how source file changes are synchronized to target files
+	 */
+	syncOptions: {
+		enabled: true, // Enable synchronization features
+		removeDeletedKeys: true, // Remove deleted keys from target files
+		retranslateModified: true, // Re-translate modified keys
+		backupBeforeSync: false, // Create backup before sync operations
+	},
+
+	/**
 	 * Advanced Settings
 	 * Generally you shouldn't need to modify these
 	 */

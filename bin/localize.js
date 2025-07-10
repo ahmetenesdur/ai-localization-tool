@@ -277,7 +277,22 @@ const configureCLI = async (defaultConfig) => {
 			}
 
 			// Merge configurations: Defaults < Global < Command
-			const mergedOpts = { ...sanitizedGlobalOpts, ...sanitizedCommandOptions };
+			// FIXED: Only override config if CLI parameters are explicitly provided
+			const mergedOpts = {
+				// Start with config defaults
+				source: defaultConfig.source,
+				targets: defaultConfig.targets,
+				localesDir: defaultConfig.localesDir,
+				apiProvider: defaultConfig.apiProvider,
+				// Override only if CLI parameters are provided
+				...(sanitizedGlobalOpts.source && { source: sanitizedGlobalOpts.source }),
+				...(sanitizedGlobalOpts.targets && { targets: sanitizedGlobalOpts.targets }),
+				...(sanitizedGlobalOpts.localesDir && {
+					localesDir: sanitizedGlobalOpts.localesDir,
+				}),
+				// Apply command-specific options
+				...sanitizedCommandOptions,
+			};
 
 			// Set up concurrency options
 			let concurrencyLimit =

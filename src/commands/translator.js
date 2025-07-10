@@ -3,6 +3,7 @@ const { FileManager } = require("../utils/file-manager");
 const ObjectTransformer = require("../utils/object-transformer");
 const Orchestrator = require("../core/orchestrator");
 const QualityChecker = require("../utils/quality");
+const StateManager = require("../utils/state-manager");
 const os = require("os");
 // SECURITY FIX: Add input validation
 const InputValidator = require("../utils/input-validator");
@@ -102,6 +103,42 @@ async function translateFile(file, options) {
 
 	await consoleLock.log(`📖 Source file contains ${totalKeys} translation keys`);
 
+	// Initialize StateManager for sync functionality
+	const stateManager = new StateManager();
+	const projectRoot = process.cwd();
+
+	// Load previous state and generate current state
+	const previousState = await stateManager.loadState(projectRoot);
+	const currentState = stateManager.generateStateFromSource(flattenedSource);
+
+	// Compare states to find changes
+	const comparison = stateManager.compareStates(previousState, currentState);
+	const stats = stateManager.getComparisonStats(comparison);
+
+	// Log sync information if there are changes
+	if (stats.hasChanges) {
+		await consoleLock.log(`\n🔄 Sync Analysis:`);
+		await consoleLock.log(`   📝 New keys: ${stats.newCount}`);
+		await consoleLock.log(`   ✏️  Modified keys: ${stats.modifiedCount}`);
+		await consoleLock.log(`   🗑️  Deleted keys: ${stats.deletedCount}`);
+
+		// Handle deleted keys - remove them from all target files
+		// Default to enabled if syncOptions is not defined (backward compatibility)
+		const syncEnabled = options.syncOptions?.enabled !== false;
+		const removeDeletedEnabled = options.syncOptions?.removeDeletedKeys !== false;
+
+		if (comparison.deletedKeys.length > 0 && syncEnabled && removeDeletedEnabled) {
+			await consoleLock.log(
+				`\n🗑️ Removing ${comparison.deletedKeys.length} deleted keys from target files...`
+			);
+			await removeDeletedKeysFromTargets(resolvedFile, comparison.deletedKeys, options);
+		}
+	} else if (Object.keys(previousState).length > 0) {
+		await consoleLock.log(`✅ No changes detected in source file`);
+	} else {
+		await consoleLock.log(`🆕 First run - will process all keys`);
+	}
+
 	// Global stats for all languages
 	const globalStats = {
 		total: 0,
@@ -151,7 +188,8 @@ async function translateFile(file, options) {
 							...options,
 							progressOptions, // Pass options for progress tracker
 						},
-						globalStats // Pass globalStats for aggregation
+						globalStats, // Pass globalStats for aggregation
+						comparison // Pass comparison results for sync functionality
 					)
 				)
 			);
@@ -210,6 +248,16 @@ async function translateFile(file, options) {
 		// Display final summary
 		await displayGlobalSummary(globalStats, options.targets.length);
 
+		// Save current state for future sync operations
+		try {
+			await stateManager.saveState(projectRoot, currentState);
+			if (options.debug) {
+				await consoleLock.log(`💾 State saved for future sync operations`);
+			}
+		} catch (error) {
+			await consoleLock.log(`⚠️ Warning: Could not save state: ${error.message}`);
+		}
+
 		return globalStats;
 	} catch (error) {
 		await consoleLock.log(`\n❌ Translation error: ${error.message}`);
@@ -244,14 +292,16 @@ async function processLanguage(
 	flattenedSource,
 	orchestrator, // Now gets a fresh instance per language
 	options,
-	globalStats // Used for aggregating final stats
+	globalStats, // Used for aggregating final stats
+	comparison // Comparison results for sync functionality
 ) {
+	const langStartTime = Date.now(); // Move this to the top to ensure it's always defined
+
 	try {
 		// SECURITY FIX: Validate target language before processing
 		const safeTargetLang = InputValidator.validateLanguageCode(targetLang, "target language");
 
 		await consoleLock.log(`\n🌐 Starting translations for ${safeTargetLang}`);
-		const langStartTime = Date.now();
 		let finalStatus = null;
 		let savedMessage = null;
 
@@ -298,19 +348,27 @@ async function processLanguage(
 			// Track what we're processing for this language in globalStats
 			globalStats.languages[safeTargetLang].processed++;
 
-			// Skip if key exists in target and we're not forcing update
-			if (key in flattenedTarget && !options.forceUpdate) {
+			// Determine if this key needs translation/re-translation
+			const isNewKey = comparison.newKeys.includes(key);
+			const isModifiedKey = comparison.modifiedKeys.includes(key);
+			const keyExistsInTarget = key in flattenedTarget;
+
+			// Skip if key exists in target and we're not forcing update,
+			// AND it's not a modified key that needs re-translation
+			if (keyExistsInTarget && !options.forceUpdate && !isModifiedKey) {
 				globalStats.languages[safeTargetLang].skipped++;
 				globalStats.skipped++;
 				continue;
 			}
 
-			// Add to processing list
+			// Add to processing list (includes new keys, modified keys, and force updates)
 			missingKeys.push({
 				key,
 				text: sourceText,
 				targetLang: safeTargetLang,
 				existingTranslation: flattenedTarget[key],
+				isModified: isModifiedKey,
+				isNew: isNewKey,
 			});
 		}
 
@@ -582,6 +640,66 @@ async function findLocaleFiles(localesDir, sourceLang) {
 		await consoleLock.log(`Error finding locale files: ${error.message}`);
 		return [];
 	}
+}
+
+/**
+ * Remove deleted keys from all target language files
+ * @param {string} sourceFile - Path to source file
+ * @param {string[]} deletedKeys - Array of keys to remove
+ * @param {Object} options - Configuration options
+ */
+async function removeDeletedKeysFromTargets(sourceFile, deletedKeys, options) {
+	const sourceDir = path.dirname(sourceFile);
+	let totalRemoved = 0;
+	let filesProcessed = 0;
+
+	for (const targetLang of options.targets) {
+		try {
+			// SECURITY FIX: Create safe target file path
+			const safeTargetFilename = `${targetLang}.json`;
+			const targetPath = InputValidator.createSafeFilePath(sourceDir, safeTargetFilename);
+
+			// Check if target file exists
+			const fileExists = await FileManager.exists(targetPath);
+			if (!fileExists) {
+				await consoleLock.log(`   ⏭️ Skipping ${targetLang}.json (file doesn't exist)`);
+				continue;
+			}
+
+			// Read target file
+			const targetContent = await FileManager.readJSON(targetPath);
+			const flattenedTarget = ObjectTransformer.flatten(targetContent);
+
+			// Remove deleted keys
+			let removedFromThisFile = 0;
+			for (const key of deletedKeys) {
+				if (key in flattenedTarget) {
+					delete flattenedTarget[key];
+					removedFromThisFile++;
+					totalRemoved++;
+				}
+			}
+
+			// Save updated file only if we removed something
+			if (removedFromThisFile > 0) {
+				const unflattened = ObjectTransformer.unflatten(flattenedTarget);
+				await FileManager.writeJSON(targetPath, unflattened);
+				await consoleLock.log(
+					`   ✅ ${targetLang}.json: Removed ${removedFromThisFile} keys`
+				);
+			} else {
+				await consoleLock.log(`   ➖ ${targetLang}.json: No keys to remove`);
+			}
+
+			filesProcessed++;
+		} catch (error) {
+			await consoleLock.log(`   ❌ Error processing ${targetLang}.json: ${error.message}`);
+		}
+	}
+
+	await consoleLock.log(
+		`🗑️ Cleanup Summary: Removed ${totalRemoved} keys from ${filesProcessed} files\n`
+	);
 }
 
 module.exports = {
