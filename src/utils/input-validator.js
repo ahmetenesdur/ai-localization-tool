@@ -15,17 +15,27 @@ class InputValidator {
 	/**
 	 * Valid provider names
 	 */
-	static VALID_PROVIDERS = ["dashscope", "xai", "openai", "azuredeepseek", "deepseek", "gemini"];
+	static VALID_PROVIDERS = ["dashscope", "xai", "openai", "deepseek", "gemini"];
 
 	/**
-	 * Maximum text length for translation (prevent DoS)
+	 * ENHANCED: Security limits to prevent DoS and resource exhaustion
 	 */
-	static MAX_TEXT_LENGTH = 50000; // 50KB
+	static MAX_TEXT_LENGTH = 10000; // Reduced from 50KB to 10KB for better performance
+	static MAX_KEY_LENGTH = 500; // Reduced from 1000 to 500 characters
+	static MAX_PATH_LENGTH = 1000; // Maximum file path length
+	static MAX_CONFIG_DEPTH = 10; // Maximum object nesting depth
 
 	/**
-	 * Maximum key length
+	 * ENHANCED: Dangerous patterns that should be blocked
 	 */
-	static MAX_KEY_LENGTH = 1000;
+	static DANGEROUS_PATTERNS = [
+		/\.\.\//g, // Path traversal
+		/\0/g, // Null bytes
+		/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, // Control characters
+		/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, // Script tags
+		/javascript:/gi, // JavaScript protocol
+		/data:.*base64/gi, // Base64 data URLs (potential XSS)
+	];
 
 	/**
 	 * Validate and sanitize language code
@@ -50,12 +60,10 @@ class InputValidator {
 			throw new Error(`${paramName} code too long: '${langCode}' (max 10 characters)`);
 		}
 
-		// Check for path traversal attempts
 		if (sanitized.includes("..") || sanitized.includes("/") || sanitized.includes("\\")) {
 			throw new Error(`${paramName} code contains forbidden characters: '${langCode}'`);
 		}
 
-		// Check pattern
 		if (!this.LANGUAGE_CODE_PATTERN.test(sanitized)) {
 			throw new Error(
 				`Invalid ${paramName} code: '${langCode}'. Must match pattern: ${this.LANGUAGE_CODE_PATTERN}`
@@ -274,6 +282,111 @@ class InputValidator {
 		}
 
 		return validated;
+	}
+
+	/**
+	 * ENHANCED: Sanitize translation text for security
+	 */
+	static sanitizeTranslationText(text) {
+		if (!text || typeof text !== "string") {
+			return text;
+		}
+
+		let sanitized = text;
+
+		// Remove dangerous patterns
+		for (const pattern of this.DANGEROUS_PATTERNS) {
+			sanitized = sanitized.replace(pattern, "");
+		}
+
+		// Normalize whitespace but preserve structure
+		sanitized = sanitized
+			.replace(/\r\n/g, "\n") // Normalize line endings
+			.replace(/\r/g, "\n") // Convert remaining \r to \n
+			.replace(/\n{3,}/g, "\n\n") // Limit consecutive newlines
+			.trim();
+
+		return sanitized;
+	}
+
+	/**
+	 * ENHANCED: Validate API key format (basic validation without exposing key)
+	 */
+	static validateApiKeyFormat(apiKey, providerName) {
+		if (!apiKey || typeof apiKey !== "string") {
+			throw new Error(`${providerName} API key must be a non-empty string`);
+		}
+
+		if (apiKey.length < 10) {
+			throw new Error(`${providerName} API key appears too short`);
+		}
+
+		if (apiKey.length > 200) {
+			throw new Error(`${providerName} API key appears too long`);
+		}
+
+		// Check for obvious test/placeholder values
+		const lowercaseKey = apiKey.toLowerCase();
+		const invalidPatterns = ["test", "placeholder", "example", "your-api-key", "sk-test"];
+
+		for (const pattern of invalidPatterns) {
+			if (lowercaseKey.includes(pattern)) {
+				throw new Error(`${providerName} API key appears to be a placeholder`);
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * ENHANCED: Validate configuration object depth to prevent DoS
+	 */
+	static validateObjectDepth(obj, maxDepth = this.MAX_CONFIG_DEPTH, currentDepth = 0) {
+		if (currentDepth > maxDepth) {
+			throw new Error(`Configuration object too deeply nested (max depth: ${maxDepth})`);
+		}
+
+		if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+			for (const value of Object.values(obj)) {
+				if (value && typeof value === "object") {
+					this.validateObjectDepth(value, maxDepth, currentDepth + 1);
+				}
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * ENHANCED: Rate limiting validation for user inputs
+	 */
+	static validateRequestRate(identifier, maxRequestsPerMinute = 60) {
+		const now = Date.now();
+		const minute = Math.floor(now / 60000);
+
+		if (!this._requestCounts) {
+			this._requestCounts = new Map();
+		}
+
+		const key = `${identifier}-${minute}`;
+		const currentCount = this._requestCounts.get(key) || 0;
+
+		if (currentCount >= maxRequestsPerMinute) {
+			throw new Error(`Too many requests from ${identifier}. Please try again later.`);
+		}
+
+		this._requestCounts.set(key, currentCount + 1);
+
+		// Cleanup old entries
+		for (const [k] of this._requestCounts) {
+			const [, keyMinute] = k.split("-");
+			if (parseInt(keyMinute) < minute - 5) {
+				// Keep last 5 minutes
+				this._requestCounts.delete(k);
+			}
+		}
+
+		return true;
 	}
 }
 

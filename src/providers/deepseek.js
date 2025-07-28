@@ -1,105 +1,115 @@
 const axios = require("axios");
+const BaseProvider = require("./base-provider");
 const { getPrompt, getAnalysisPrompt } = require("../utils/prompt-templates");
 const RetryHelper = require("../utils/retry-helper");
 
-// Create axios instance with default config
-const deepseekClient = axios.create({
-	baseURL: "https://api.deepseek.com/v1",
-	headers: {
-		"Content-Type": "application/json",
-	},
-	timeout: 30000, // 30 second timeout
-});
+/**
+ * REFACTORED: DeepSeek provider now extends BaseProvider for consistency
+ */
+class DeepSeekProvider extends BaseProvider {
+	constructor(config = {}) {
+		super("deepseek", config);
 
-async function translate(text, sourceLang, targetLang, options) {
-	const model = options.apiConfig?.deepseek?.model || "deepseek-chat";
-	const temperature = options.apiConfig?.deepseek?.temperature || 0.3;
-	const maxTokens = options.apiConfig?.deepseek?.maxTokens || 2000;
-
-	const promptData = getPrompt("deepseek", sourceLang, targetLang, text, options);
-
-	// Add API key to headers
-	const headers = {
-		Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
-	};
-
-	// Çeviri işlemini RetryHelper ile gerçekleştir
-	return RetryHelper.withRetry(
-		// API çağrısı işlemi
-		async () => {
-			const response = await deepseekClient.post(
-				"/chat/completions",
-				{
-					model,
-					...promptData,
-					temperature,
-					max_tokens: maxTokens,
-				},
-				{ headers }
-			);
-
-			// Validate response
-			if (!response.data?.choices?.[0]?.message?.content) {
-				throw new Error("Invalid response format from DeepSeek API");
-			}
-
-			return response.data.choices[0].message.content.trim();
-		},
-		// Yapılandırma seçenekleri
-		{
-			maxRetries: options.retryOptions?.maxRetries || 2,
-			initialDelay: options.retryOptions?.initialDelay || 1000,
-			context: "DeepSeek Provider",
-			logContext: {
-				source: sourceLang,
-				target: targetLang,
+		this.client = axios.create({
+			baseURL: "https://api.deepseek.com/v1",
+			headers: {
+				...this.commonHeaders,
+				Authorization: `Bearer ${this.getApiKey()}`,
 			},
-		}
-	);
+			timeout: 30000,
+			maxRedirects: 0,
+			validateStatus: (status) => status < 500,
+		});
+	}
+
+	getApiKey() {
+		return process.env.DEEPSEEK_API_KEY;
+	}
+
+	getEndpoint() {
+		return "/chat/completions";
+	}
+
+	async translate(text, sourceLang, targetLang, options = {}) {
+		this.validateRequest(text, sourceLang, targetLang);
+
+		const config = this.getConfig(options.apiConfig?.deepseek);
+		const promptData = getPrompt("deepseek", sourceLang, targetLang, text, options);
+
+		return RetryHelper.withRetry(
+			async () => {
+				try {
+					const response = await this.client.post(this.getEndpoint(), {
+						model: config.model || "deepseek-chat",
+						...promptData,
+						temperature: config.temperature || 0.3,
+						max_tokens: config.maxTokens || 2000,
+					});
+
+					this.validateResponse(response, this.name);
+					const translation = this.extractTranslation(response.data, this.name);
+					return this.sanitizeTranslation(translation);
+				} catch (error) {
+					this.handleApiError(error, this.name);
+				}
+			},
+			{
+				maxRetries: options.retryOptions?.maxRetries || 2,
+				initialDelay: options.retryOptions?.initialDelay || 1000,
+				context: "DeepSeek Provider",
+				logContext: {
+					source: sourceLang,
+					target: targetLang,
+				},
+			}
+		);
+	}
+
+	async analyze(prompt, options = {}) {
+		const config = this.getConfig({
+			model: options.model || "deepseek-chat",
+			temperature: options.temperature || 0.2,
+			maxTokens: options.maxTokens || 1000,
+		});
+
+		const promptData = getAnalysisPrompt("deepseek", prompt, options);
+
+		return RetryHelper.withRetry(
+			async () => {
+				try {
+					const response = await this.client.post(this.getEndpoint(), {
+						model: config.model,
+						...promptData,
+						temperature: config.temperature,
+						max_tokens: config.maxTokens,
+					});
+
+					this.validateResponse(response, this.name);
+					const result = this.extractTranslation(response.data, this.name);
+					return this.sanitizeTranslation(result);
+				} catch (error) {
+					this.handleApiError(error, this.name);
+				}
+			},
+			{
+				maxRetries: options.maxRetries || 2,
+				initialDelay: options.initialDelay || 1000,
+				context: "DeepSeek Provider Analysis",
+			}
+		);
+	}
+}
+
+// Create singleton instance for backward compatibility
+const deepseekProvider = new DeepSeekProvider();
+
+// Export both class and legacy functions
+async function translate(text, sourceLang, targetLang, options) {
+	return deepseekProvider.translate(text, sourceLang, targetLang, options);
 }
 
 async function analyze(prompt, options = {}) {
-	const model = options.model || "deepseek-chat";
-	const temperature = options.temperature || 0.2;
-	const maxTokens = options.maxTokens || 1000;
-
-	// Analiz şablonunu al
-	const promptData = getAnalysisPrompt("deepseek", prompt, options);
-
-	// Add API key to headers
-	const headers = {
-		Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
-	};
-
-	// Analiz işlemini RetryHelper ile gerçekleştir
-	return RetryHelper.withRetry(
-		// API çağrısı işlemi
-		async () => {
-			const response = await deepseekClient.post(
-				"/chat/completions",
-				{
-					model,
-					...promptData,
-					temperature,
-					max_tokens: maxTokens,
-				},
-				{ headers }
-			);
-
-			// Validate response
-			if (!response.data?.choices?.[0]?.message?.content) {
-				throw new Error("Invalid response format from DeepSeek API");
-			}
-
-			return response.data.choices[0].message.content.trim();
-		},
-		// Yapılandırma seçenekleri
-		{
-			maxRetries: options.maxRetries || 2,
-			initialDelay: options.initialDelay || 1000,
-			context: "DeepSeek Provider",
-		}
-	);
+	return deepseekProvider.analyze(prompt, options);
 }
 
-module.exports = { translate, analyze };
+module.exports = { translate, analyze, DeepSeekProvider };

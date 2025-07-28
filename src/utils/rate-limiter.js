@@ -2,7 +2,6 @@ const { performance } = require("perf_hooks");
 
 class RateLimiter {
 	constructor(config = {}) {
-		// Provider별 대기열 시스템
 		// Provider queue system - separate queue for each API provider
 		this.queues = {};
 		this.processing = {};
@@ -21,7 +20,6 @@ class RateLimiter {
 			lastMetricsReset: {},
 		};
 
-		// API 공급자별 제한 설정
 		// API provider rate limit settings - each provider has different limits
 		this.providers = {
 			openai: {
@@ -41,12 +39,6 @@ class RateLimiter {
 				currentRequests: 0,
 				lastReset: performance.now(),
 				maxConcurrent: 8,
-			},
-			azuredeepseek: {
-				requestsPerMinute: 80,
-				currentRequests: 0,
-				lastReset: performance.now(),
-				maxConcurrent: 5,
 			},
 			dashscope: {
 				requestsPerMinute: 50,
@@ -107,7 +99,6 @@ class RateLimiter {
 		}
 
 		return new Promise((resolve, reject) => {
-			// Add task to provider's queue with timestamp and optional priority
 			const queueItem = {
 				task,
 				resolve,
@@ -116,9 +107,7 @@ class RateLimiter {
 				priority,
 			};
 
-			// Add to queue based on strategy
 			if (this.config.queueStrategy === "priority") {
-				// Insert based on priority (higher priority first)
 				const index = this.queues[provider].findIndex((item) => item.priority < priority);
 				if (index === -1) {
 					this.queues[provider].push(queueItem);
@@ -126,110 +115,158 @@ class RateLimiter {
 					this.queues[provider].splice(index, 0, queueItem);
 				}
 			} else {
-				// Default to FIFO
 				this.queues[provider].push(queueItem);
 			}
 
-			// Start processing queue if not already doing so
 			this._processQueue(provider);
 		});
 	}
 
 	async _processQueue(provider) {
+		if (!provider || typeof provider !== "string") {
+			return;
+		}
+
 		const queue = this.queues[provider];
 		const limits = this.providers[provider];
 
-		// No tasks or already processing at max capacity
-		if (queue.length === 0 || this.processing[provider] >= limits.maxConcurrent) {
+		if (!queue || !Array.isArray(queue) || !limits || typeof limits !== "object") {
+			console.warn(`Invalid queue or limits for provider: ${provider}`);
 			return;
 		}
 
-		// Check for timed out items and remove them
-		const now = Date.now();
-		const timeoutIndex = queue.findIndex(
-			(item) => now - item.timestamp > this.config.queueTimeout
-		);
-
-		if (timeoutIndex >= 0) {
-			const timedOutItems = queue.splice(0, timeoutIndex + 1);
-			timedOutItems.forEach((item) => {
-				item.reject(
-					new Error(`Request timed out in queue after ${this.config.queueTimeout}ms`)
-				);
-			});
-
-			// If we've removed all items, nothing to process
-			if (queue.length === 0) return;
-		}
-
-		// Check rate limit
-		if (this._shouldThrottle(provider)) {
-			const waitTime = this._calculateWaitTime(provider);
-			setTimeout(() => this._processQueue(provider), waitTime);
+		const currentProcessing = this.processing[provider] || 0;
+		if (queue.length === 0 || currentProcessing >= limits.maxConcurrent) {
 			return;
 		}
 
-		// Get next task
-		const { task, resolve, reject, timestamp } = queue.shift();
-
-		// Track metrics for this task
-		const startTime = performance.now();
-		const queueTime = Date.now() - timestamp;
-
-		if (queueTime > 5000) {
-			console.warn(`Task for ${provider} waited ${queueTime}ms in queue`);
+		if (this._processingLocks && this._processingLocks[provider]) {
+			return; // Another process is already handling this provider
 		}
 
-		// Update counters
-		this.processing[provider]++;
-		this.providers[provider].currentRequests++;
+		if (!this._processingLocks) {
+			this._processingLocks = {};
+		}
+		this._processingLocks[provider] = true;
 
 		try {
-			// Execute task
-			const result = await task();
+			if (queue.length === 0 || this.processing[provider] >= limits.maxConcurrent) {
+				return;
+			}
 
-			// Track successful response
-			const responseTime = performance.now() - startTime;
-			this._trackResponseTime(provider, responseTime);
-			this._trackErrorRate(provider, false);
+			const now = Date.now();
+			const timedOutItems = [];
+			let i = 0;
 
-			resolve(result);
-		} catch (error) {
-			// Track error
-			this._trackErrorRate(provider, true);
-			reject(error);
+			while (
+				i < queue.length &&
+				queue[i] &&
+				typeof queue[i] === "object" &&
+				queue[i].timestamp &&
+				now - queue[i].timestamp > this.config.queueTimeout
+			) {
+				timedOutItems.push(queue[i]);
+				i++;
+			}
+
+			if (timedOutItems.length > 0) {
+				queue.splice(0, timedOutItems.length);
+
+				setImmediate(() => {
+					timedOutItems.forEach((item) => {
+						try {
+							item.reject(
+								new Error(
+									`Request timed out in queue after ${this.config.queueTimeout}ms`
+								)
+							);
+						} catch (error) {}
+					});
+				});
+			}
+
+			if (queue.length === 0) {
+				return;
+			}
+
+			if (this._shouldThrottle(provider)) {
+				const waitTime = this._calculateWaitTime(provider);
+				setTimeout(() => this._processQueue(provider), waitTime);
+				return;
+			}
+
+			const queueItem = queue.shift();
+			if (!queueItem || typeof queueItem !== "object") {
+				return; // Queue was emptied by another process or contains invalid item
+			}
+
+			const { task, resolve, reject, timestamp } = queueItem;
+
+			if (
+				typeof task !== "function" ||
+				typeof resolve !== "function" ||
+				typeof reject !== "function" ||
+				typeof timestamp !== "number"
+			) {
+				console.warn("Invalid queue item structure detected, skipping");
+				return;
+			}
+
+			const startTime = performance.now();
+			const queueTime = Date.now() - timestamp;
+
+			if (queueTime > 5000) {
+				console.warn(`Task for ${provider} waited ${queueTime}ms in queue`);
+			}
+
+			this.processing[provider]++;
+			this.providers[provider].currentRequests++;
+
+			try {
+				const result = await task();
+
+				const responseTime = performance.now() - startTime;
+				this._trackResponseTime(provider, responseTime);
+				this._trackErrorRate(provider, false);
+
+				resolve(result);
+			} catch (error) {
+				this._trackErrorRate(provider, true);
+				reject(error);
+			} finally {
+				this.processing[provider]--;
+
+				setImmediate(() => this._processQueue(provider));
+			}
 		} finally {
-			// Decrement processing counter
-			this.processing[provider]--;
-
-			// Process next item in queue
-			setImmediate(() => this._processQueue(provider));
+			if (this._processingLocks) {
+				this._processingLocks[provider] = false;
+			}
 		}
 	}
 
-	// Track response time for adaptive throttling
 	_trackResponseTime(provider, time) {
 		const times = this.metrics.responseTimes[provider];
+		const MAX_RESPONSE_TIMES = 50; // Reduced from 100 to save memory
+
 		times.push(time);
 
-		// Keep only the last 100 response times
-		if (times.length > 100) {
-			times.shift();
+		if (times.length > MAX_RESPONSE_TIMES) {
+			times.splice(0, times.length - MAX_RESPONSE_TIMES); // Remove excess entries
 		}
 	}
 
-	// Track error rate for adaptive throttling
 	_trackErrorRate(provider, isError) {
 		const errorRates = this.metrics.errorRates[provider];
+		const MAX_ERROR_RATES = 50; // Reduced from 100 to save memory
+
 		errorRates.push(isError ? 1 : 0);
 
-		// Keep only the last 100 error rates
-		if (errorRates.length > 100) {
-			errorRates.shift();
+		if (errorRates.length > MAX_ERROR_RATES) {
+			errorRates.splice(0, errorRates.length - MAX_ERROR_RATES); // Remove excess entries
 		}
 	}
 
-	// Adjust throttling settings based on metrics
 	_adjustThrottling() {
 		if (!this.config.adaptiveThrottling) return;
 
@@ -246,18 +283,14 @@ class RateLimiter {
 					? 0
 					: respTimes.reduce((a, b) => a + b, 0) / respTimes.length;
 
-			// Adjust concurrency based on error rate
 			let concurrencyAdjustment = 0;
 			let rpmAdjustment = 0;
 
-			// If error rate is high, reduce concurrency and RPM
 			if (errorRate > 0.1) {
 				// >10% errors
 				concurrencyAdjustment = -1;
 				rpmAdjustment = -5;
-			}
-			// If error rate is low and response time is good, increase limits
-			else if (
+			} else if (
 				errorRate < 0.02 &&
 				avgResponseTime < 2000 &&
 				this.queues[provider].length > 0
@@ -266,7 +299,6 @@ class RateLimiter {
 				rpmAdjustment = 5;
 			}
 
-			// Apply adjustments
 			if (concurrencyAdjustment !== 0) {
 				const newConcurrency = Math.max(
 					1,
@@ -295,7 +327,6 @@ class RateLimiter {
 			throw new Error(`Unknown provider: ${provider}`);
 		}
 
-		// Reset counter if a minute has passed
 		if (now - limits.lastReset >= 60000) {
 			limits.currentRequests = 0;
 			limits.lastReset = now;
@@ -318,20 +349,17 @@ class RateLimiter {
 	_resetCounters() {
 		const now = performance.now();
 
-		// Reset all providers' counters
 		Object.values(this.providers).forEach((provider) => {
 			provider.currentRequests = 0;
 			provider.lastReset = now;
 		});
 	}
 
-	// Get the current queue size for a provider
 	getQueueSize(provider) {
 		provider = provider.toLowerCase();
 		return this.queues[provider]?.length || 0;
 	}
 
-	// Get status of all providers
 	getStatus() {
 		const status = {};
 
@@ -360,7 +388,6 @@ class RateLimiter {
 		return status;
 	}
 
-	// Get configuration
 	getConfig() {
 		return { ...this.config };
 	}
@@ -368,17 +395,15 @@ class RateLimiter {
 	_cleanupMetrics() {
 		const now = Date.now();
 
-		// Reset all providers' metrics
-		Object.values(this.providers).forEach((provider) => {
-			this.metrics.responseTimes[provider] = [];
-			this.metrics.errorRates[provider] = [];
-			this.metrics.adjustments[provider] = { rpm: 0, concurrency: 0 };
-			this.metrics.lastMetricsReset[provider] = now;
+		Object.keys(this.providers).forEach((providerName) => {
+			this.metrics.responseTimes[providerName].length = 0;
+			this.metrics.errorRates[providerName].length = 0;
+			this.metrics.adjustments[providerName] = { rpm: 0, concurrency: 0 };
+			this.metrics.lastMetricsReset[providerName] = now;
 		});
 	}
 }
 
-// Configure from environment if available
 const config = {
 	queueStrategy: process.env.QUEUE_STRATEGY || "priority",
 	queueTimeout: parseInt(process.env.QUEUE_TIMEOUT || "30000"),

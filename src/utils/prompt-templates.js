@@ -1,61 +1,148 @@
+/**
+ * ENHANCED: Get length instructions with comprehensive input validation
+ * @param {Object} options - Configuration options
+ * @returns {string} - Length instructions for translation
+ */
 const getLengthInstructions = (options) => {
+	// FIXED: Enhanced input validation with null safety
+	if (!options || typeof options !== "object") {
+		console.warn("Invalid options provided to getLengthInstructions, using defaults");
+		options = {};
+	}
+
 	const { mode = "smart", lengthControl, targetLang, detectedContext } = options;
+
+	// FIXED: Validate targetLang parameter
+	if (!targetLang || typeof targetLang !== "string") {
+		console.warn("Invalid targetLang provided, using fallback");
+		return "TRANSLATION LENGTH: Keep translation concise and natural.";
+	}
+
 	const context = detectedContext?.category || "general";
 
-	if (mode === "smart") {
-		const langRules = lengthControl.rules.smart.byLanguage[targetLang] || {};
-		const contextRules = lengthControl.rules.smart.byContext[context] || {};
+	if (mode === "smart" && lengthControl?.rules?.smart) {
+		// FIXED: Enhanced null safety for nested properties
+		const langRules = lengthControl.rules.smart.byLanguage?.[targetLang] || {};
+		const contextRules = lengthControl.rules.smart.byContext?.[context] || {};
+
+		const langMax = typeof langRules.max === "number" ? langRules.max : 0.15;
+		const contextMax = typeof contextRules.max === "number" ? contextRules.max : 0.15;
 
 		return `TRANSLATION LENGTH REQUIREMENTS [${targetLang}]:
-1. Maximum allowed length: ${(langRules.max || 0.15) * 100}% longer than source
-2. Context-specific [${context}] limit: ${(contextRules.max || 0.15) * 100}% longer than source
+1. Maximum allowed length: ${Math.round(langMax * 100)}% longer than source
+2. Context-specific [${context}] limit: ${Math.round(contextMax * 100)}% longer than source
 3. Shorter translations are preferred when possible
 4. Maintain semantic completeness while being concise`;
 	}
 
+	// FIXED: Enhanced templates with null safety for length control rules
 	const templates = {
-		strict: () =>
-			`CRITICAL: Translation must not exceed ${
-				lengthControl.rules.strict * 100
-			}% of source length. Prefer shorter translations.`,
-		flexible: () =>
-			`IMPORTANT: Keep translation concise. Target length should not exceed source length by more than ${
-				lengthControl.rules.flexible * 100
-			}%.`,
-		exact: () =>
-			`STRICT: Translation must closely match source length (max ${
-				lengthControl.rules.exact * 100
-			}% deviation).`,
-		relaxed: () =>
-			`GUIDELINE: Translation should be concise but can be up to ${
-				lengthControl.rules.relaxed * 100
-			}% longer if needed.`,
+		strict: () => {
+			const strictLimit = lengthControl?.rules?.strict;
+			const limit = typeof strictLimit === "number" ? strictLimit : 1.0;
+			return `CRITICAL: Translation must not exceed ${Math.round(limit * 100)}% of source length. Prefer shorter translations.`;
+		},
+		flexible: () => {
+			const flexibleLimit = lengthControl?.rules?.flexible;
+			const limit = typeof flexibleLimit === "number" ? flexibleLimit : 1.2;
+			return `IMPORTANT: Keep translation concise. Target length should not exceed source length by more than ${Math.round(limit * 100)}%.`;
+		},
+		exact: () => {
+			const exactLimit = lengthControl?.rules?.exact;
+			const limit = typeof exactLimit === "number" ? exactLimit : 1.05;
+			return `STRICT: Translation must closely match source length (max ${Math.round(limit * 100)}% deviation).`;
+		},
+		relaxed: () => {
+			const relaxedLimit = lengthControl?.rules?.relaxed;
+			const limit = typeof relaxedLimit === "number" ? relaxedLimit : 1.5;
+			return `GUIDELINE: Translation should be concise but can be up to ${Math.round(limit * 100)}% longer if needed.`;
+		},
 	};
 
-	return (templates[mode] || templates.smart)();
+	// FIXED: Safe template access with fallback
+	const templateFn = templates[mode];
+	if (typeof templateFn === "function") {
+		try {
+			return templateFn();
+		} catch (error) {
+			console.warn(`Error generating length template for mode ${mode}:`, error.message);
+		}
+	}
+
+	// Fallback for invalid mode or errors
+	return "TRANSLATION LENGTH: Keep translation concise and natural.";
 };
 
-// Çeviri için temel şablon
+/**
+ * ENHANCED: Base translation prompt template with comprehensive input validation
+ * @param {string} sourceLang - Source language code
+ * @param {string} targetLang - Target language code
+ * @param {string} text - Text to translate
+ * @param {Object} options - Translation options
+ * @returns {string} - Generated prompt template
+ */
 const baseTranslationPromptTemplate = (sourceLang, targetLang, text, options) => {
-	const context = options.detectedContext || {
-		category: "general",
-		confidence: 1.0,
-		prompt: "Provide a natural translation",
+	// FIXED: Enhanced input validation for all parameters
+	if (!sourceLang || typeof sourceLang !== "string") {
+		console.warn("Invalid sourceLang provided to baseTranslationPromptTemplate");
+		sourceLang = "en";
+	}
+
+	if (!targetLang || typeof targetLang !== "string") {
+		console.warn("Invalid targetLang provided to baseTranslationPromptTemplate");
+		targetLang = "es";
+	}
+
+	if (typeof text !== "string") {
+		console.warn("Invalid text provided to baseTranslationPromptTemplate");
+		text = "";
+	}
+
+	if (!options || typeof options !== "object") {
+		console.warn("Invalid options provided to baseTranslationPromptTemplate, using defaults");
+		options = {};
+	}
+
+	// FIXED: Safe context extraction with defaults
+	const context =
+		options.detectedContext && typeof options.detectedContext === "object"
+			? options.detectedContext
+			: {
+					category: "general",
+					confidence: 1.0,
+					prompt: "Provide a natural translation",
+				};
+
+	// Ensure context properties are safe
+	const safeContext = {
+		category: context.category || "general",
+		confidence: typeof context.confidence === "number" ? context.confidence : 1.0,
+		prompt: context.prompt || "Provide a natural translation",
+		existingTranslation: context.existingTranslation,
 	};
 
 	const lengthInstructions = getLengthInstructions(options);
 
 	let additionalInstructions = "";
-	if (context.existingTranslation) {
-		additionalInstructions = `\nREVISION REQUEST: The existing translation "${context.existingTranslation}" has length issues. Please provide a corrected version that matches the source text length requirements.`;
+	if (safeContext.existingTranslation && typeof safeContext.existingTranslation === "string") {
+		// FIXED: Truncate long existing translations to prevent prompt bloat
+		const truncatedTranslation =
+			safeContext.existingTranslation.length > 200
+				? safeContext.existingTranslation.substring(0, 200) + "..."
+				: safeContext.existingTranslation;
+		additionalInstructions = `\nREVISION REQUEST: The existing translation "${truncatedTranslation}" has length issues. Please provide a corrected version that matches the source text length requirements.`;
 	}
+
+	// FIXED: Safe style guide access with defaults
+	const formality = options.styleGuide?.formality || "neutral";
+	const toneOfVoice = options.styleGuide?.toneOfVoice || "professional";
 
 	return `
 Translation Task: ${sourceLang} → ${targetLang}
 ${additionalInstructions}
 
-Category: ${context.category}
-Context Instructions: ${context.prompt}
+Category: ${safeContext.category}
+Context Instructions: ${safeContext.prompt}
 
 LENGTH CONTROL:
 ${lengthInstructions}
@@ -67,27 +154,59 @@ STRICT OUTPUT REQUIREMENTS:
 4. NO QUOTES OR FORMATTING
 5. PRESERVE TECHNICAL TERMS AND PLACEHOLDERS
 
-Style: ${options.styleGuide?.formality || "neutral"}, ${options.styleGuide?.toneOfVoice || "professional"}
+Style: ${formality}, ${toneOfVoice}
 
 Text to Translate:
 ${text}`;
 };
 
-// Analiz için temel şablon
+/**
+ * ENHANCED: Base analysis prompt template with comprehensive input validation
+ * @param {string} text - Text to analyze
+ * @param {Object} options - Analysis options
+ * @returns {string} - Generated analysis prompt
+ */
 const baseAnalysisPromptTemplate = (text, options = {}) => {
-	const categories = options.categories
-		? Object.keys(options.categories).join(", ")
-		: "technical, marketing, legal, defi, ui, general";
+	if (typeof text !== "string") {
+		console.warn("Invalid text provided to baseAnalysisPromptTemplate");
+		text = "";
+	}
+
+	if (!options || typeof options !== "object") {
+		console.warn("Invalid options provided to baseAnalysisPromptTemplate, using defaults");
+		options = {};
+	}
+
+	let categories = "technical, marketing, legal, defi, ui, general";
+	if (options.categories && typeof options.categories === "object") {
+		try {
+			const categoryKeys = Object.keys(options.categories);
+			if (Array.isArray(categoryKeys) && categoryKeys.length > 0) {
+				categories = categoryKeys.join(", ");
+			}
+		} catch (error) {
+			console.warn("Error processing categories:", error.message);
+		}
+	}
+
+	const maxTextLength = 1500;
+	const truncatedText =
+		text.length > maxTextLength ? text.substring(0, maxTextLength) + "..." : text;
+
+	const allowNewCategories = options.allowNewCategories === true;
+	const categoryNote = allowNewCategories
+		? ", or suggest a new category if none of these fit"
+		: "";
 
 	return `
 TASK: Analyze the following text and determine its context category.
 
 TEXT TO ANALYZE:
 """
-${text.length > 1500 ? text.substring(0, 1500) + "..." : text}
+${truncatedText}
 """
 
-AVAILABLE CATEGORIES: ${categories}${options.allowNewCategories ? ", or suggest a new category if none of these fit" : ""}
+AVAILABLE CATEGORIES: ${categories}${categoryNote}
 
 INSTRUCTIONS:
 1. Identify the primary context category of the text
@@ -105,7 +224,7 @@ FORMAT YOUR RESPONSE AS JSON:
 `;
 };
 
-// Çeviri için sağlayıcıya özel şablonlar
+// Provider-specific templates for translation
 const translationPrompts = {
 	gemini: (sourceLang, targetLang, text, options) => ({
 		contents: [
@@ -164,19 +283,6 @@ Original Text: "${text}"`,
 		],
 	}),
 
-	azuredeepseek: (sourceLang, targetLang, text, options) => ({
-		messages: [
-			{
-				role: "system",
-				content: baseTranslationPromptTemplate(sourceLang, targetLang, text, options),
-			},
-			{
-				role: "user",
-				content: text,
-			},
-		],
-	}),
-
 	xai: (sourceLang, targetLang, text, options) => ({
 		messages: [
 			{
@@ -204,7 +310,7 @@ Original Text: "${text}"`,
 	}),
 };
 
-// Analiz için sağlayıcıya özel şablonlar
+// Provider-specific templates for analysis
 const analysisPrompts = {
 	gemini: (text, options) => ({
 		contents: [
@@ -267,20 +373,6 @@ const analysisPrompts = {
 		],
 	}),
 
-	azuredeepseek: (text, options) => ({
-		messages: [
-			{
-				role: "system",
-				content:
-					"You are a context analysis assistant that helps identify the category and context of text.",
-			},
-			{
-				role: "user",
-				content: baseAnalysisPromptTemplate(text, options),
-			},
-		],
-	}),
-
 	xai: (text, options) => ({
 		messages: [
 			{
@@ -311,15 +403,90 @@ const analysisPrompts = {
 };
 
 module.exports = {
-	// Çeviri şablonları için fonksiyon
+	/**
+	 * ENHANCED: Get translation prompt with comprehensive input validation
+	 * @param {string} provider - Translation provider name
+	 * @param {string} sourceLang - Source language code
+	 * @param {string} targetLang - Target language code
+	 * @param {string} text - Text to translate
+	 * @param {Object} options - Translation options
+	 * @returns {Object} - Generated prompt for the specified provider
+	 */
 	getPrompt: (provider, sourceLang, targetLang, text, options) => {
+		// FIXED: Enhanced input validation for all parameters
+		if (!provider || typeof provider !== "string") {
+			console.warn("Invalid provider provided to getPrompt, using default");
+			provider = "default";
+		}
+
+		if (!sourceLang || typeof sourceLang !== "string") {
+			console.warn("Invalid sourceLang provided to getPrompt, using en");
+			sourceLang = "en";
+		}
+
+		if (!targetLang || typeof targetLang !== "string") {
+			console.warn("Invalid targetLang provided to getPrompt, using es");
+			targetLang = "es";
+		}
+
+		if (typeof text !== "string") {
+			console.warn("Invalid text provided to getPrompt, using empty string");
+			text = "";
+		}
+
+		if (!options || typeof options !== "object") {
+			console.warn("Invalid options provided to getPrompt, using defaults");
+			options = {};
+		}
+
+		// FIXED: Safe provider access with fallback
 		const promptGenerator = translationPrompts[provider] || translationPrompts.default;
-		return promptGenerator(sourceLang, targetLang, text, options);
+
+		try {
+			return promptGenerator(sourceLang, targetLang, text, options);
+		} catch (error) {
+			console.error(`Error generating prompt for provider ${provider}:`, error.message);
+			// Fallback to default provider
+			return translationPrompts.default(sourceLang, targetLang, text, options);
+		}
 	},
 
-	// Analiz şablonları için fonksiyon
+	/**
+	 * ENHANCED: Get analysis prompt with comprehensive input validation
+	 * @param {string} provider - Analysis provider name
+	 * @param {string} text - Text to analyze
+	 * @param {Object} options - Analysis options
+	 * @returns {Object} - Generated analysis prompt for the specified provider
+	 */
 	getAnalysisPrompt: (provider, text, options = {}) => {
+		// FIXED: Enhanced input validation
+		if (!provider || typeof provider !== "string") {
+			console.warn("Invalid provider provided to getAnalysisPrompt, using default");
+			provider = "default";
+		}
+
+		if (typeof text !== "string") {
+			console.warn("Invalid text provided to getAnalysisPrompt, using empty string");
+			text = "";
+		}
+
+		if (!options || typeof options !== "object") {
+			console.warn("Invalid options provided to getAnalysisPrompt, using defaults");
+			options = {};
+		}
+
+		// FIXED: Safe provider access with fallback
 		const promptGenerator = analysisPrompts[provider] || analysisPrompts.default;
-		return promptGenerator(text, options);
+
+		try {
+			return promptGenerator(text, options);
+		} catch (error) {
+			console.error(
+				`Error generating analysis prompt for provider ${provider}:`,
+				error.message
+			);
+			// Fallback to default provider
+			return analysisPrompts.default(text, options);
+		}
 	},
 };

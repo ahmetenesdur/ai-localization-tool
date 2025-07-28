@@ -1,129 +1,154 @@
 const axios = require("axios");
+const BaseProvider = require("./base-provider");
 const { getPrompt, getAnalysisPrompt } = require("../utils/prompt-templates");
 const RetryHelper = require("../utils/retry-helper");
 
-// Create axios instance with default config
-const geminiClient = axios.create({
-	baseURL: "https://generativelanguage.googleapis.com/v1beta",
-	headers: {
-		"Content-Type": "application/json",
-	},
-	timeout: 30000, // 30 second timeout
-});
+/**
+ * REFACTORED: Gemini provider now extends BaseProvider for consistency
+ */
+class GeminiProvider extends BaseProvider {
+	constructor(config = {}) {
+		super("gemini", config);
 
-async function translate(text, sourceLang, targetLang, options) {
-	const model = options.apiConfig?.gemini?.model || "gemini-1.5-flash";
-	const temperature = options.apiConfig?.gemini?.temperature || 0.3;
-	const maxOutputTokens = options.apiConfig?.gemini?.maxTokens || 2048;
-
-	// Check API key
-	const apiKey = process.env.GEMINI_API_KEY;
-	if (!apiKey) {
-		throw new Error("GEMINI_API_KEY environment variable not found");
+		this.client = axios.create({
+			baseURL: "https://generativelanguage.googleapis.com/v1beta",
+			headers: {
+				...this.commonHeaders,
+			},
+			timeout: 30000,
+			maxRedirects: 0,
+			validateStatus: (status) => status < 500,
+		});
 	}
 
-	const promptData = getPrompt("gemini", sourceLang, targetLang, text, options);
+	getApiKey() {
+		return process.env.GEMINI_API_KEY;
+	}
 
-	// Çeviri işlemini RetryHelper ile gerçekleştir
-	return RetryHelper.withRetry(
-		// API çağrısı işlemi
-		async () => {
-			// Sending request to Gemini API endpoint
-			const response = await geminiClient.post(
-				`/models/${model}:generateContent`,
-				{
-					...promptData,
-					generationConfig: {
-						temperature,
-						maxOutputTokens,
-					},
-				},
-				{
-					params: {
-						key: apiKey,
-					},
-				}
-			);
+	getEndpoint(model) {
+		return `/models/${model}:generateContent`;
+	}
 
-			// Validate response
-			if (!response.data?.candidates || response.data.candidates.length === 0) {
-				throw new Error("Failed to get translation candidate from Gemini API");
-			}
+	async translate(text, sourceLang, targetLang, options = {}) {
+		this.validateRequest(text, sourceLang, targetLang);
 
-			if (!response.data.candidates[0]?.content?.parts?.[0]?.text) {
-				throw new Error("Invalid response format from Gemini API");
-			}
+		const config = this.getConfig(options.apiConfig?.gemini);
+		const model = config.model || "gemini-1.5-flash";
+		const apiKey = this.getApiKey();
 
-			// Returning the first translation candidate
-			return response.data.candidates[0].content.parts[0].text.trim();
-		},
-		// Yapılandırma seçenekleri
-		{
-			maxRetries: options.retryOptions?.maxRetries || 2,
-			initialDelay: options.retryOptions?.initialDelay || 1000,
-			context: "Gemini Provider",
-			logContext: {
-				source: sourceLang,
-				target: targetLang,
-			},
+		if (!apiKey) {
+			throw new Error("GEMINI_API_KEY environment variable not found");
 		}
-	);
+
+		const promptData = getPrompt("gemini", sourceLang, targetLang, text, options);
+
+		return RetryHelper.withRetry(
+			async () => {
+				try {
+					const response = await this.client.post(
+						this.getEndpoint(model),
+						{
+							...promptData,
+							generationConfig: {
+								temperature: config.temperature || 0.3,
+								maxOutputTokens: config.maxTokens || 2048,
+							},
+						},
+						{
+							params: { key: apiKey },
+						}
+					);
+
+					if (!response.data?.candidates || response.data.candidates.length === 0) {
+						throw new Error("Failed to get translation candidate from Gemini API");
+					}
+
+					if (!response.data.candidates[0]?.content?.parts?.[0]?.text) {
+						throw new Error("Invalid response format from Gemini API");
+					}
+
+					const translation = response.data.candidates[0].content.parts[0].text.trim();
+					return this.sanitizeTranslation(translation);
+				} catch (error) {
+					this.handleApiError(error, this.name);
+				}
+			},
+			{
+				maxRetries: options.retryOptions?.maxRetries || 2,
+				initialDelay: options.retryOptions?.initialDelay || 1000,
+				context: "Gemini Provider",
+				logContext: {
+					source: sourceLang,
+					target: targetLang,
+				},
+			}
+		);
+	}
+
+	async analyze(prompt, options = {}) {
+		const config = this.getConfig({
+			model: options.model || "gemini-1.5-flash",
+			temperature: options.temperature || 0.2,
+			maxTokens: options.maxTokens || 1000,
+		});
+
+		const apiKey = this.getApiKey();
+		if (!apiKey) {
+			throw new Error("GEMINI_API_KEY environment variable not found");
+		}
+
+		const promptData = getAnalysisPrompt("gemini", prompt, options);
+
+		return RetryHelper.withRetry(
+			async () => {
+				try {
+					const response = await this.client.post(
+						this.getEndpoint(config.model),
+						{
+							...promptData,
+							generationConfig: {
+								temperature: config.temperature,
+								maxOutputTokens: config.maxTokens,
+							},
+						},
+						{
+							params: { key: apiKey },
+						}
+					);
+
+					if (!response.data?.candidates || response.data.candidates.length === 0) {
+						throw new Error("Failed to get analysis result from Gemini API");
+					}
+
+					if (!response.data.candidates[0]?.content?.parts?.[0]?.text) {
+						throw new Error("Invalid response format from Gemini API");
+					}
+
+					const result = response.data.candidates[0].content.parts[0].text.trim();
+					return this.sanitizeTranslation(result);
+				} catch (error) {
+					this.handleApiError(error, this.name);
+				}
+			},
+			{
+				maxRetries: options.maxRetries || 2,
+				initialDelay: options.initialDelay || 1000,
+				context: "Gemini Provider Analysis",
+			}
+		);
+	}
+}
+
+// Create singleton instance for backward compatibility
+const geminiProvider = new GeminiProvider();
+
+// Export both class and legacy functions
+async function translate(text, sourceLang, targetLang, options) {
+	return geminiProvider.translate(text, sourceLang, targetLang, options);
 }
 
 async function analyze(prompt, options = {}) {
-	const model = options.model || "gemini-1.5-flash";
-	const temperature = options.temperature || 0.2;
-	const maxOutputTokens = options.maxTokens || 1000;
-
-	// Check API key
-	const apiKey = process.env.GEMINI_API_KEY;
-	if (!apiKey) {
-		throw new Error("GEMINI_API_KEY environment variable not found");
-	}
-
-	// Analiz şablonunu al
-	const promptData = getAnalysisPrompt("gemini", prompt, options);
-
-	// Analiz işlemini RetryHelper ile gerçekleştir
-	return RetryHelper.withRetry(
-		// API çağrısı işlemi
-		async () => {
-			// Format the analysis prompt for Gemini
-			const response = await geminiClient.post(
-				`/models/${model}:generateContent`,
-				{
-					...promptData,
-					generationConfig: {
-						temperature,
-						maxOutputTokens,
-					},
-				},
-				{
-					params: {
-						key: apiKey,
-					},
-				}
-			);
-
-			// Validate response
-			if (!response.data?.candidates || response.data.candidates.length === 0) {
-				throw new Error("Failed to get analysis result from Gemini API");
-			}
-
-			if (!response.data.candidates[0]?.content?.parts?.[0]?.text) {
-				throw new Error("Invalid response format from Gemini API");
-			}
-
-			// Return the analysis result
-			return response.data.candidates[0].content.parts[0].text.trim();
-		},
-		// Yapılandırma seçenekleri
-		{
-			maxRetries: options.maxRetries || 2,
-			initialDelay: options.initialDelay || 1000,
-			context: "Gemini Provider",
-		}
-	);
+	return geminiProvider.analyze(prompt, options);
 }
 
-module.exports = { translate, analyze };
+module.exports = { translate, analyze, GeminiProvider };

@@ -46,7 +46,6 @@ class ProgressTracker {
 		this.language = language;
 		this.isCompleted = false;
 
-		// Immediately log start info
 		if (this.logToConsole && this.total > 0) {
 			this._logProgress();
 		}
@@ -57,36 +56,29 @@ class ProgressTracker {
 			throw new Error("Progress tracker not started");
 		}
 
-		// Early return if already completed (thread-safe check)
 		if (this.isCompleted) {
 			return;
 		}
 
-		// If currently updating, queue this update
 		if (this._isUpdating) {
 			this._pendingUpdates.push({ type, timestamp: Date.now() });
 			return;
 		}
 
-		// Process this update atomically
 		this._processUpdate(type);
 	}
 
 	_processUpdate(type) {
-		// Set lock
 		this._isUpdating = true;
 
 		try {
-			// Early return if completed during the wait
 			if (this.isCompleted) {
 				return;
 			}
 
-			// Atomic counter updates
 			const previousCompleted = this.completed;
 			this.completed = Math.min(this.total, this.completed + 1);
 
-			// Only update success/failed if we actually incremented
 			if (this.completed > previousCompleted) {
 				if (type === "success") {
 					this.success = Math.min(this.completed, this.success + 1);
@@ -95,29 +87,24 @@ class ProgressTracker {
 				}
 			}
 
-			// Ensure data consistency
 			this._ensureDataConsistency();
 
-			// Calculate time since last update
 			const now = Date.now();
 			const timeSinceLastUpdate = now - this.lastUpdateTime;
 			this.lastUpdateTime = now;
 
-			// Keep track of recent operation times (for more accurate ETA)
+			const MAX_OPERATION_TIMES = 10;
 			this.recentOperationTimes.push(timeSinceLastUpdate);
-			if (this.recentOperationTimes.length > 10) {
+			if (this.recentOperationTimes.length > MAX_OPERATION_TIMES) {
 				this.recentOperationTimes.shift(); // Keep only last 10
 			}
 
-			// Update statistics
 			this._updateStatistics();
 
-			// Log progress periodically or for first/last items
 			if (this.logToConsole && this._shouldLog()) {
 				this._logProgress();
 			}
 
-			// Check if completed
 			if (this.completed >= this.total && !this.isCompleted) {
 				this.endTime = Date.now();
 				this.isCompleted = true;
@@ -126,24 +113,19 @@ class ProgressTracker {
 				}
 			}
 		} finally {
-			// Release lock
 			this._isUpdating = false;
 
-			// Process any pending updates
 			this._processPendingUpdates();
 		}
 	}
 
 	_ensureDataConsistency() {
-		// Ensure counts don't exceed limits
 		this.completed = Math.min(this.total, Math.max(0, this.completed));
 		this.success = Math.min(this.completed, Math.max(0, this.success));
 		this.failed = Math.min(this.completed, Math.max(0, this.failed));
 
-		// Ensure success + failed = completed
 		const totalCounted = this.success + this.failed;
 		if (totalCounted > this.completed) {
-			// Adjust to maintain consistency (prioritize success)
 			if (this.success > this.completed) {
 				this.success = this.completed;
 				this.failed = 0;
@@ -154,15 +136,21 @@ class ProgressTracker {
 	}
 
 	_processPendingUpdates() {
-		if (this._pendingUpdates.length === 0) {
+		if (
+			!this._pendingUpdates ||
+			!Array.isArray(this._pendingUpdates) ||
+			this._pendingUpdates.length === 0
+		) {
 			return;
 		}
 
-		// Process all pending updates in batch
 		setImmediate(() => {
-			while (this._pendingUpdates.length > 0 && !this._isUpdating) {
-				const { type } = this._pendingUpdates.shift();
-				this._processUpdate(type);
+			while (this._pendingUpdates && this._pendingUpdates.length > 0 && !this._isUpdating) {
+				const updateItem = this._pendingUpdates.shift();
+
+				if (updateItem && typeof updateItem === "object" && updateItem.type) {
+					this._processUpdate(updateItem.type);
+				}
 			}
 		});
 	}
@@ -179,7 +167,6 @@ class ProgressTracker {
 		const elapsed = Date.now() - this.startTime;
 		const averageTime = this.completed > 0 ? elapsed / this.completed : 0;
 
-		// Use recent operations for ETA if we have enough data
 		let recentAverage = 0;
 		if (this.recentOperationTimes.length >= 3) {
 			recentAverage =
@@ -189,17 +176,14 @@ class ProgressTracker {
 			recentAverage = averageTime;
 		}
 
-		// Calculate remaining time using the more accurate of the two averages
 		const remaining = Math.max(0, this.total - this.completed);
 		const estimatedTimeRemaining = remaining * Math.min(averageTime, recentAverage);
 
-		// Make sure percentComplete is between 0-100
 		const percentComplete = Math.min(
 			100,
 			Math.max(0, (this.completed / this.total) * 100 || 0)
 		);
 
-		// Make sure success rate is between 0-100
 		const successRate =
 			this.completed > 0
 				? Math.min(100, Math.max(0, (this.success / this.completed) * 100))
@@ -241,7 +225,6 @@ class ProgressTracker {
 			}
 		}
 
-		// Format current status with consistent field widths to prevent jumping text
 		const langInfo = this.language ? `[${this.language}] ` : "";
 		const percentText = `${percent.toFixed(1)}%`.padStart(6);
 		const itemsText = `${this.completed}/${this.total}`.padEnd(10);

@@ -1,105 +1,116 @@
 const axios = require("axios");
+const BaseProvider = require("./base-provider");
 const { getPrompt, getAnalysisPrompt } = require("../utils/prompt-templates");
 const RetryHelper = require("../utils/retry-helper");
 
-// Create axios instance with default config
-const openaiClient = axios.create({
-	baseURL: "https://api.openai.com/v1",
-	headers: {
-		"Content-Type": "application/json",
-	},
-	timeout: 30000, // 30 second timeout
-});
+/**
+ * REFACTORED: OpenAI provider now extends BaseProvider for consistency
+ */
+class OpenAIProvider extends BaseProvider {
+	constructor(config = {}) {
+		super("openai", config);
 
-async function translate(text, sourceLang, targetLang, options) {
-	const model = options.apiConfig?.openai?.model || "gpt-4o";
-	const temperature = options.apiConfig?.openai?.temperature || 0.3;
-	const maxTokens = options.apiConfig?.openai?.maxTokens || 2000;
-
-	const promptData = getPrompt("openai", sourceLang, targetLang, text, options);
-
-	// Add API key to headers
-	const headers = {
-		Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-	};
-
-	// Çeviri işlemini RetryHelper ile gerçekleştir
-	return RetryHelper.withRetry(
-		// API çağrısı işlemi
-		async () => {
-			const response = await openaiClient.post(
-				"/chat/completions",
-				{
-					model,
-					...promptData,
-					temperature,
-					max_tokens: maxTokens,
-				},
-				{ headers }
-			);
-
-			// Validate response
-			if (!response.data?.choices?.[0]?.message?.content) {
-				throw new Error("Invalid response format from OpenAI API");
-			}
-
-			return response.data.choices[0].message.content.trim();
-		},
-		// Yapılandırma seçenekleri
-		{
-			maxRetries: options.retryOptions?.maxRetries || 2,
-			initialDelay: options.retryOptions?.initialDelay || 1000,
-			context: "OpenAI Provider",
-			logContext: {
-				source: sourceLang,
-				target: targetLang,
+		this.client = axios.create({
+			baseURL: "https://api.openai.com/v1",
+			headers: {
+				...this.commonHeaders,
+				Authorization: `Bearer ${this.getApiKey()}`,
 			},
-		}
-	);
+			timeout: 30000,
+			maxRedirects: 0,
+			validateStatus: (status) => status < 500, // Don't throw on 4xx errors
+		});
+	}
+
+	getApiKey() {
+		return process.env.OPENAI_API_KEY;
+	}
+
+	getEndpoint() {
+		return "/chat/completions";
+	}
+
+	async translate(text, sourceLang, targetLang, options = {}) {
+		this.validateRequest(text, sourceLang, targetLang);
+
+		const config = this.getConfig(options.apiConfig?.openai);
+		const promptData = getPrompt("openai", sourceLang, targetLang, text, options);
+
+		return RetryHelper.withRetry(
+			async () => {
+				try {
+					const response = await this.client.post(this.getEndpoint(), {
+						model: config.model,
+						...promptData,
+						temperature: config.temperature,
+						max_tokens: config.max_tokens,
+					});
+
+					this.validateResponse(response, this.name);
+					const translation = this.extractTranslation(response.data, this.name);
+					return this.sanitizeTranslation(translation);
+				} catch (error) {
+					this.handleApiError(error, this.name);
+				}
+			},
+			{
+				maxRetries: options.retryOptions?.maxRetries || 2,
+				initialDelay: options.retryOptions?.initialDelay || 1000,
+				context: "OpenAI Provider",
+				logContext: {
+					source: sourceLang,
+					target: targetLang,
+				},
+			}
+		);
+	}
+}
+
+// Create singleton instance for backward compatibility
+const openaiProvider = new OpenAIProvider();
+
+// Export both class and legacy functions
+async function translate(text, sourceLang, targetLang, options) {
+	return openaiProvider.translate(text, sourceLang, targetLang, options);
 }
 
 async function analyze(prompt, options = {}) {
-	const model = options.model || "gpt-4o";
-	const temperature = options.temperature || 0.2;
-	const maxTokens = options.maxTokens || 1000;
+	return openaiProvider.analyze(prompt, options);
+}
 
-	// Analiz şablonunu al
+// Add analyze method to the class
+OpenAIProvider.prototype.analyze = async function (prompt, options = {}) {
+	const config = this.getConfig({
+		model: options.model || "gpt-4o",
+		temperature: options.temperature || 0.2,
+		maxTokens: options.maxTokens || 1000,
+	});
+
 	const promptData = getAnalysisPrompt("openai", prompt, options);
 
-	// Add API key to headers
-	const headers = {
-		Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-	};
-
-	// Analiz işlemini RetryHelper ile gerçekleştir
 	return RetryHelper.withRetry(
-		// API çağrısı işlemi
 		async () => {
-			const response = await openaiClient.post(
-				"/chat/completions",
-				{
-					model,
+			try {
+				const response = await this.client.post(this.getEndpoint(), {
+					model: config.model,
 					...promptData,
-					temperature,
-					max_tokens: maxTokens,
-				},
-				{ headers }
-			);
+					temperature: config.temperature,
+					max_tokens: config.max_tokens,
+				});
 
-			// Validate response
-			if (!response.data?.choices?.[0]?.message?.content) {
-				throw new Error("Invalid response format from OpenAI API");
+				this.validateResponse(response, this.name);
+				const result = this.extractTranslation(response.data, this.name);
+				return this.sanitizeTranslation(result);
+			} catch (error) {
+				this.handleApiError(error, this.name);
 			}
-
-			return response.data.choices[0].message.content.trim();
 		},
-		// Yapılandırma seçenekleri
 		{
 			maxRetries: options.maxRetries || 2,
 			initialDelay: options.initialDelay || 1000,
-			context: "OpenAI Provider",
+			context: "OpenAI Provider Analysis",
 		}
 	);
-}
+};
 
-module.exports = { translate, analyze };
+module.exports = { translate, analyze, OpenAIProvider };

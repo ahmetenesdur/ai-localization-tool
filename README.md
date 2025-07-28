@@ -28,7 +28,7 @@ module.exports = {
 	// API Provider Settings
 	apiProvider: "dashscope", // Primary provider
 	useFallback: true, // Enable fallback system
-	fallbackOrder: ["dashscope", "xai", "openai", "azuredeepseek", "deepseek", "gemini"], // Provider fallback order
+	fallbackOrder: ["dashscope", "xai", "openai", "deepseek", "gemini"], // Provider fallback order
 
 	// API Configuration
 	apiConfig: {
@@ -49,12 +49,6 @@ module.exports = {
 			temperature: 0.3,
 			maxTokens: 2000,
 			contextWindow: 16000,
-		},
-		azuredeepseek: {
-			model: "DeepSeek-R1",
-			temperature: 0.1,
-			maxTokens: 2000,
-			contextWindow: 8000,
 		},
 		deepseek: {
 			model: "deepseek-chat",
@@ -77,7 +71,6 @@ module.exports = {
 			dashscope: { rpm: 50, concurrency: 4 }, // Requests per minute & concurrency
 			xai: { rpm: 60, concurrency: 5 },
 			openai: { rpm: 60, concurrency: 5 },
-			azuredeepseek: { rpm: 80, concurrency: 5 },
 			deepseek: { rpm: 45, concurrency: 3 },
 			gemini: { rpm: 100, concurrency: 8 },
 		},
@@ -593,19 +586,17 @@ The tool now tracks changes in your source locale file and synchronizes them acr
 
 ### Provider Integration
 
-| Provider       | Base Model       | RPM Limit | Concurrent | Fallback Order |
-| -------------- | ---------------- | --------- | ---------- | -------------- |
-| Dashscope      | qwen-plus        | 50        | 4          | 1              |
-| XAI            | grok-2-1212      | 60        | 5          | 2              |
-| OpenAI         | gpt-4o           | 60        | 5          | 3              |
-| Azure DeepSeek | DeepSeek-R1      | 80        | 5          | 4              |
-| DeepSeek       | deepseek-chat    | 60        | 5          | 5              |
-| Gemini         | gemini-1.5-flash | 100       | 8          | 6              |
+| Provider  | Base Model       | RPM Limit | Concurrent | Fallback Order |
+| --------- | ---------------- | --------- | ---------- | -------------- |
+| Dashscope | qwen-plus        | 50        | 4          | 1              |
+| XAI       | grok-2-1212      | 60        | 5          | 2              |
+| OpenAI    | gpt-4o           | 60        | 5          | 3              |
+| DeepSeek  | deepseek-chat    | 60        | 5          | 4              |
+| Gemini    | gemini-1.5-flash | 100       | 8          | 5              |
 
 ### Performance Optimizations
 
 - **Enhanced Rate Limiter**:
-
     - Provider-specific dedicated queues with improved timeouts (2 minutes default)
     - Per-provider concurrency limits with optimized DeepSeek settings (RPM: 60, Concurrency: 5)
     - Automatic rate limiting based on API specifications
@@ -614,7 +605,6 @@ The tool now tracks changes in your source locale file and synchronizes them acr
     - Adaptive throttling with auto-adjustment based on response times and error rates
 
 - **Advanced Caching**:
-
     - Stale-while-revalidate cache strategy
     - Background cache entry refresh
     - Hash-based caching for large texts
@@ -622,7 +612,6 @@ The tool now tracks changes in your source locale file and synchronizes them acr
     - Optimized TTL management
 
 - **Parallel Processing**:
-
     - Multi-threaded language processing
     - Provider-specific concurrent operation limits
     - Hardware-aware auto-optimization
@@ -630,7 +619,6 @@ The tool now tracks changes in your source locale file and synchronizes them acr
     - Request prioritization (shorter texts prioritized)
 
 - **Asynchronous File Operations**:
-
     - Modernized file operations with promises
     - Atomic file write operations with temp files
     - Error-resilient directory creation
@@ -700,6 +688,7 @@ The tool now tracks changes in your source locale file and synchronizes them acr
 - Improved diagnostics with verbose mode
 - Detailed error logging and reporting
 - Request timeouts with configurable duration
+- Graceful shutdown with resource cleanup
 
 ### System Settings and Diagnostics
 
@@ -744,6 +733,7 @@ technical: 526 items (85.5% avg confidence)
 defi: 364 items (78.2% avg confidence)
 marketing: 218 items (81.7% avg confidence)
 general: 232 items
+
 ```
 
 ## 📜 License

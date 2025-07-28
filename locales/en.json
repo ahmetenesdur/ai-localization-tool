@@ -1,0 +1,21 @@
+{
+	"app": {
+		"title": "Welcome to our application",
+		"navigation": {
+			"home": "Home",
+			"about": "About Us",
+			"contact": "Contact",
+			"services": "Our Services"
+		},
+		"buttons": {
+			"submit": "Submit",
+			"cancel": "Cancel",
+			"save": "Save Changes"
+		},
+		"messages": {
+			"success": "Operation completed successfully!",
+			"error": "An error occurred. Please try again.",
+			"loading": "Please wait..."
+		}
+	}
+}

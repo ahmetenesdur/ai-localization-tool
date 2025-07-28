@@ -1,6 +1,5 @@
 const deepseekProvider = require("../providers/deepseek");
 const geminiProvider = require("../providers/gemini");
-const azureDeepseekProvider = require("../providers/azure-deepseek");
 const openaiProvider = require("../providers/openai");
 const dashscopeProvider = require("../providers/dashscope");
 const xaiProvider = require("../providers/xai");
@@ -17,7 +16,6 @@ class ProviderFactory {
 			dashscope: dashscopeProvider,
 			xai: xaiProvider,
 			openai: openaiProvider,
-			azuredeepseek: azureDeepseekProvider,
 			deepseek: deepseekProvider,
 			gemini: geminiProvider,
 		};
@@ -131,7 +129,6 @@ class ProviderFactory {
 			dashscope: process.env.DASHSCOPE_API_KEY,
 			xai: process.env.XAI_API_KEY,
 			openai: process.env.OPENAI_API_KEY,
-			azuredeepseek: process.env.AZURE_DEEPSEEK_API_KEY,
 			deepseek: process.env.DEEPSEEK_API_KEY,
 			gemini: process.env.GEMINI_API_KEY,
 		};
@@ -146,6 +143,7 @@ class ProviderFactory {
 		if (available.length === 0) {
 			throw new Error("No API providers configured. Please set at least one API key.");
 		}
+
 		return available;
 	}
 
@@ -155,7 +153,6 @@ class ProviderFactory {
 			dashscope: "DASHSCOPE_API_KEY",
 			xai: "XAI_API_KEY",
 			openai: "OPENAI_API_KEY",
-			azuredeepseek: "AZURE_DEEPSEEK_API_KEY",
 			deepseek: "DEEPSEEK_API_KEY",
 			gemini: "GEMINI_API_KEY",
 		};

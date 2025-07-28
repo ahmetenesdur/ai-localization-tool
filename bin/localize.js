@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-require("dotenv").config();
+// Load environment variables with support for .env.local
+require("dotenv").config(); // Load .env first
+require("dotenv").config({ path: ".env.local" }); // Then .env.local (overrides .env)
 const fs = require("fs").promises;
 const fsSync = require("fs");
 const path = require("path");
@@ -15,6 +17,7 @@ const { FileManager } = require("../src/utils/file-manager");
 const rateLimiter = require("../src/utils/rate-limiter");
 const Orchestrator = require("../src/core/orchestrator");
 const InputValidator = require("../src/utils/input-validator");
+const gracefulShutdown = require("../src/utils/graceful-shutdown");
 
 // FIXED: Load environment variables asynchronously to prevent blocking
 const loadEnvironmentVariables = async () => {
@@ -772,9 +775,6 @@ const displayPerformanceTips = async (options) => {
 		await loadEnvironmentVariables();
 		const defaultConfig = await loadConfig();
 		await configureCLI(defaultConfig);
-
-		// The command execution now happens in the commander.js action handlers
-		// Nothing to do here!
 	} catch (error) {
 		console.error(`\n❌ Error: ${error.message}`);
 		if (error.stack && process.env.DEBUG) {
