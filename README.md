@@ -5,7 +5,10 @@ Advanced AI-powered translation CLI tool for Next.js projects. Offers multi-lang
 ## 📦 Installation
 
 ```bash
-# Global installation
+# Global installation with pnpm (recommended)
+pnpm install -g localization-tool
+
+# or with npm
 npm install -g localization-tool
 
 # or direct usage with npx
@@ -23,12 +26,12 @@ module.exports = {
 	// Basic Settings
 	localesDir: "./locales", // Directory for translation files
 	source: "en", // Source language
-	targets: ["tr", "de", "es"], // Expanded target languages
+	targets: ["tr", "de", "es", "fr", "hi", "ja", "pl", "ru", "th", "uk", "vi", "yo", "zh"], // Target languages
 
 	// API Provider Settings
-	apiProvider: "dashscope", // Primary provider
+	apiProvider: "deepseek", // Primary provider
 	useFallback: true, // Enable fallback system
-	fallbackOrder: ["dashscope", "xai", "openai", "deepseek", "gemini"], // Provider fallback order
+	fallbackOrder: ["deepseek", "openai", "dashscope", "xai", "gemini"], // Provider fallback order
 
 	// API Configuration
 	apiConfig: {
@@ -68,15 +71,15 @@ module.exports = {
 	rateLimiter: {
 		enabled: true, // Enable rate limiting
 		providerLimits: {
-			dashscope: { rpm: 50, concurrency: 4 }, // Requests per minute & concurrency
-			xai: { rpm: 60, concurrency: 5 },
-			openai: { rpm: 60, concurrency: 5 },
-			deepseek: { rpm: 45, concurrency: 3 },
-			gemini: { rpm: 100, concurrency: 8 },
+			dashscope: { rpm: 50, concurrency: 3 }, // Requests per minute & concurrency
+			xai: { rpm: 60, concurrency: 3 },
+			openai: { rpm: 60, concurrency: 3 },
+			deepseek: { rpm: 60, concurrency: 3 },
+			gemini: { rpm: 100, concurrency: 3 },
 		},
 		queueStrategy: "priority", // priority, fifo
 		adaptiveThrottling: true, // Auto-adjust based on API responses
-		queueTimeout: 30000, // Maximum time in queue before timing out (ms)
+		queueTimeout: 10000, // Maximum time in queue before timing out (ms)
 	},
 
 	// Translation Context
@@ -193,7 +196,7 @@ module.exports = {
 	},
 
 	// Performance Settings
-	concurrencyLimit: 5, // Number of concurrent translations
+	concurrencyLimit: 3, // Number of concurrent translations
 	cacheEnabled: true, // Enable translation caching
 	cacheSize: 1000, // Maximum number of cached items
 	cacheTTL: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
@@ -231,12 +234,17 @@ module.exports = {
 Add your API keys to the `.env` file:
 
 ```env
-DASHSCOPE_API_KEY=sk-xxxx
-OPENAI_API_KEY=sk-yyyy
+OPENAI_API_KEY=sk-xxxx
+DASHSCOPE_API_KEY=sk-yyyy
 DEEPSEEK_API_KEY=sk-zzzz
-AZURE_DEEPSEEK_API_KEY=sk-aaaa
-GEMINI_API_KEY=sk-bbbb
-XAI_API_KEY=sk-cccc
+GEMINI_API_KEY=sk-aaaa
+XAI_API_KEY=sk-bbbb
+```
+
+You can copy the example file and fill in your keys:
+
+```bash
+cp .env.example .env
 ```
 
 ## 🚀 Usage
@@ -381,7 +389,7 @@ Analyze context patterns in translations:
 localize analyze --use-ai
 
 # Specify different context provider
-localize analyze --use-ai --context-provider deepseek
+localize analyze --use-ai --context-provider openai
 
 # Adjust threshold for matching
 localize analyze --context-threshold 3
@@ -394,7 +402,7 @@ localize -s en -t tr analyze --use-ai
 
 Access rarely used configuration options:
 
-```bash
+````bash
 # Fine-tune context detection with config base
 localize advanced --context-confidence 0.7 --min-text-length 60
 
@@ -409,6 +417,42 @@ localize advanced --timeout 120000 --max-batch-size 30
 
 # Override for specific language pair
 localize -s en -t tr advanced --context-confidence 0.7
+
+## 🛠️ Development
+
+### Package Manager
+
+This project uses **pnpm** as the package manager. After cloning the repository:
+
+```bash
+# Install dependencies
+pnpm install
+
+# Run the tool locally
+pnpm start
+
+# Format code
+pnpm format
+
+# Check formatting
+pnpm format:check
+````
+
+### Project Structure
+
+```
+localization-tool/
+├── bin/
+│   └── localize.js          # CLI entry point
+├── src/
+│   ├── commands/            # Command implementations
+│   ├── core/                # Core orchestration logic
+│   ├── providers/           # AI provider integrations
+│   ├── utils/               # Utility functions
+│   └── types/               # Type definitions
+├── locales/                 # Example locale files
+├── localize.config.js       # Configuration file
+└── package.json             # Project metadata
 ```
 
 ### CLI Reference
@@ -443,15 +487,15 @@ localize -s en -t tr,de,es --localesDir ./locales
 
 #### Translate Command Options
 
-| Option          | Description                  | Default   |
-| --------------- | ---------------------------- | --------- |
-| --provider      | Translation provider         | dashscope |
-| --concurrency   | Concurrent translations      | 5         |
-| --no-cache      | Disable translation caching  | false     |
-| --force         | Update existing translations | false     |
-| --length        | Length control mode          | smart     |
-| --auto-optimize | Optimize for your hardware   | false     |
-| --stats         | Show detailed statistics     | false     |
+| Option          | Description                  | Default  |
+| --------------- | ---------------------------- | -------- |
+| --provider      | Translation provider         | deepseek |
+| --concurrency   | Concurrent translations      | 3        |
+| --no-cache      | Disable translation caching  | false    |
+| --force         | Update existing translations | false    |
+| --length        | Length control mode          | smart    |
+| --auto-optimize | Optimize for your hardware   | false    |
+| --stats         | Show detailed statistics     | false    |
 
 #### Fix Command Options
 
@@ -588,17 +632,17 @@ The tool now tracks changes in your source locale file and synchronizes them acr
 
 | Provider  | Base Model       | RPM Limit | Concurrent | Fallback Order |
 | --------- | ---------------- | --------- | ---------- | -------------- |
-| Dashscope | qwen-plus        | 50        | 4          | 1              |
-| XAI       | grok-2-1212      | 60        | 5          | 2              |
-| OpenAI    | gpt-4o           | 60        | 5          | 3              |
-| DeepSeek  | deepseek-chat    | 60        | 5          | 4              |
-| Gemini    | gemini-1.5-flash | 100       | 8          | 5              |
+| DeepSeek  | deepseek-chat    | 60        | 3          | 1              |
+| OpenAI    | gpt-4o           | 60        | 3          | 2              |
+| Dashscope | qwen-plus        | 50        | 3          | 3              |
+| XAI       | grok-2-1212      | 60        | 3          | 4              |
+| Gemini    | gemini-1.5-flash | 100       | 3          | 5              |
 
 ### Performance Optimizations
 
 - **Enhanced Rate Limiter**:
-    - Provider-specific dedicated queues with improved timeouts (2 minutes default)
-    - Per-provider concurrency limits with optimized DeepSeek settings (RPM: 60, Concurrency: 5)
+    - Provider-specific dedicated queues with improved timeouts (10 seconds default)
+    - Per-provider concurrency limits with optimized settings (RPM: 60, Concurrency: 3)
     - Automatic rate limiting based on API specifications
     - Intelligent queue prioritization (priority vs. FIFO)
     - Extended queue timeout protection to prevent request failures
@@ -738,4 +782,12 @@ general: 232 items
 
 ## 📜 License
 
-ISC License - Developed by [Schwifty](https://github.com/ahmetenesdur)
+ISC License - Developed by [Ahmet Enes Dur](https://github.com/ahmetenesdur)
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📞 Support
+
+If you encounter any issues or have questions, please [open an issue](https://github.com/ahmetenesdur/localization-tool/issues) on GitHub.
