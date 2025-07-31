@@ -6,13 +6,13 @@ Advanced AI-powered translation CLI tool for Next.js projects. Offers multi-lang
 
 ```bash
 # Global installation with pnpm (recommended)
-pnpm install -g localization-tool
+pnpm install -g ai-localization-tool
 
 # or with npm
-npm install -g localization-tool
+npm install -g ai-localization-tool
 
 # or direct usage with npx
-npx localization-tool
+npx ai-localization-tool
 ```
 
 ## ⚙️ Configuration
@@ -441,7 +441,7 @@ pnpm format:check
 ### Project Structure
 
 ```
-localization-tool/
+ai-localization-tool/
 ├── bin/
 │   └── localize.js          # CLI entry point
 ├── src/
@@ -790,4 +790,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📞 Support
 
-If you encounter any issues or have questions, please [open an issue](https://github.com/ahmetenesdur/localization-tool/issues) on GitHub.
+If you encounter any issues or have questions, please [open an issue](https://github.com/ahmetenesdur/ai-localization-tool/issues) on GitHub.

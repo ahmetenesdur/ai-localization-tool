@@ -1,5 +1,5 @@
 {
-	"name": "localization-tool",
+	"name": "ai-localization-tool",
 	"version": "1.2.0",
 	"main": "src/core/orchestrator.js",
 	"directories": {
