@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Load environment variables with support for .env.local
-require("dotenv").config(); // Load .env first
-require("dotenv").config({ path: ".env.local" }); // Then .env.local (overrides .env)
+// FIXED: Use dotenv v17+ compatible loading with multiple paths
+require("dotenv").config({ path: [".env.local", ".env"] });
 const fs = require("fs").promises;
 const fsSync = require("fs");
 const path = require("path");
@@ -20,14 +20,11 @@ const InputValidator = require("../src/utils/input-validator");
 const gracefulShutdown = require("../src/utils/graceful-shutdown");
 
 // FIXED: Load environment variables asynchronously to prevent blocking
+// Note: Main dotenv loading is now handled at the top of the file with v17+ syntax
 const loadEnvironmentVariables = async () => {
-	try {
-		const envLocalPath = path.resolve(process.cwd(), ".env.local");
-		await fs.access(envLocalPath);
-		require("dotenv").config({ path: envLocalPath });
-	} catch (error) {
-		// .env.local doesn't exist, which is fine
-	}
+	// Environment variables are now loaded at startup with dotenv v17+ syntax
+	// This function is kept for compatibility but no longer needed
+	return Promise.resolve();
 };
 
 /**
@@ -39,8 +36,11 @@ const loadConfig = async () => {
 		// Look for config file in current directory and parent directories
 		const configPaths = [
 			path.resolve(process.cwd(), "localize.config.js"),
+			path.resolve(process.cwd(), "localize.config.cjs"),
 			path.resolve(process.cwd(), "../localize.config.js"),
+			path.resolve(process.cwd(), "../localize.config.cjs"),
 			path.resolve(process.cwd(), "../../localize.config.js"),
+			path.resolve(process.cwd(), "../../localize.config.cjs"),
 		];
 
 		let configFile = null;
@@ -60,30 +60,46 @@ const loadConfig = async () => {
 
 		console.log(`🔍 Loading config from: ${path.relative(process.cwd(), configFile)}`);
 
-		// FIXED: Enhanced dynamic import with CommonJS/ES module compatibility
+		// FIXED: Enhanced config loading with better ES module support
 		try {
-			// Convert to file:// URL for cross-platform compatibility
-			const configUrl = `file://${configFile.replace(/\\/g, "/")}`;
-			const configModule = await import(configUrl);
+			// First try CommonJS require (most compatible)
+			try {
+				// Clear require cache to ensure fresh load
+				delete require.cache[require.resolve(configFile)];
+				const config = require(configFile);
 
-			// Handle both CommonJS (module.exports) and ES module (export default/named) formats
-			const config = configModule.default || configModule;
+				// Validate that we got a valid config object
+				if (!config || typeof config !== "object") {
+					throw new Error("Config file does not export a valid configuration object");
+				}
 
-			// Validate that we got a valid config object
-			if (!config || typeof config !== "object") {
-				throw new Error("Config file does not export a valid configuration object");
+				return config;
+			} catch (requireError) {
+				// If CommonJS fails, try dynamic import for ES modules
+				console.warn(
+					`⚠️ CommonJS require failed, trying ES module import: ${requireError.message}`
+				);
+
+				// Convert to file:// URL for cross-platform compatibility
+				const configUrl = `file://${configFile.replace(/\\/g, "/")}`;
+
+				// Add timestamp to avoid module caching issues
+				const configUrlWithCache = `${configUrl}?t=${Date.now()}`;
+				const configModule = await import(configUrlWithCache);
+
+				// Handle both CommonJS (module.exports) and ES module (export default/named) formats
+				const config = configModule.default || configModule;
+
+				// Validate that we got a valid config object
+				if (!config || typeof config !== "object") {
+					throw new Error("Config file does not export a valid configuration object");
+				}
+
+				return config;
 			}
-
-			return config;
 		} catch (importError) {
-			// Fallback to synchronous require for older Node.js versions or CommonJS issues
-			console.warn(
-				`⚠️ Dynamic import failed, falling back to synchronous loading: ${importError.message}`
-			);
-
-			// Clear require cache to ensure fresh load
-			delete require.cache[require.resolve(configFile)];
-			return require(configFile);
+			console.warn(`⚠️ Both CommonJS and ES module loading failed: ${importError.message}`);
+			throw importError;
 		}
 	} catch (error) {
 		console.warn(`⚠️ Could not load config file: ${error.message}`);
