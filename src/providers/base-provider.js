@@ -149,6 +149,11 @@ class BaseProvider {
 	 * OPTIMIZED: Extract translation from various response formats
 	 */
 	extractTranslation(response, providerName) {
+		// Debug logging for DeepSeek issues
+		if (providerName === "deepseek") {
+			console.log(`DeepSeek response structure:`, JSON.stringify(response, null, 2));
+		}
+
 		// Try common response formats
 		if (response.choices && response.choices[0]?.message?.content) {
 			return response.choices[0].message.content.trim();
@@ -156,6 +161,11 @@ class BaseProvider {
 
 		if (response.choices && response.choices[0]?.text) {
 			return response.choices[0].text.trim();
+		}
+
+		// DeepSeek specific response format
+		if (response.choices && response.choices[0]?.delta?.content) {
+			return response.choices[0].delta.content.trim();
 		}
 
 		if (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {
@@ -174,7 +184,27 @@ class BaseProvider {
 			return response.content.trim();
 		}
 
-		throw new Error(`Unable to extract translation from ${providerName} response`);
+		// Additional DeepSeek response formats
+		if (response.data && response.data.choices && response.data.choices[0]?.message?.content) {
+			return response.data.choices[0].message.content.trim();
+		}
+
+		// Log the full response structure for debugging
+		console.error(
+			`Unable to extract translation from ${providerName} response. Response structure:`,
+			{
+				keys: Object.keys(response),
+				choices: response.choices ? `Array(${response.choices.length})` : "undefined",
+				choicesStructure:
+					response.choices && response.choices[0]
+						? Object.keys(response.choices[0])
+						: "undefined",
+			}
+		);
+
+		throw new Error(
+			`Unable to extract translation from ${providerName} response (after 3 attempts over ${Date.now()}ms)`
+		);
 	}
 
 	/**

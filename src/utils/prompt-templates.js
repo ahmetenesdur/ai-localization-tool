@@ -12,9 +12,9 @@ const getLengthInstructions = (options) => {
 
 	const { mode = "smart", lengthControl, targetLang, detectedContext } = options;
 
-	// FIXED: Validate targetLang parameter
+	// FIXED: More lenient targetLang validation - don't fail if missing
 	if (!targetLang || typeof targetLang !== "string") {
-		console.warn("Invalid targetLang provided, using fallback");
+		// Just return basic length instructions without failing
 		return "TRANSLATION LENGTH: Keep translation concise and natural.";
 	}
 
@@ -121,7 +121,11 @@ const baseTranslationPromptTemplate = (sourceLang, targetLang, text, options) =>
 		existingTranslation: context.existingTranslation,
 	};
 
-	const lengthInstructions = getLengthInstructions(options);
+	const lengthInstructions = getLengthInstructions({
+		...options,
+		targetLang: targetLang, // Pass targetLang explicitly
+		detectedContext: safeContext, // Also pass context
+	});
 
 	let additionalInstructions = "";
 	if (safeContext.existingTranslation && typeof safeContext.existingTranslation === "string") {

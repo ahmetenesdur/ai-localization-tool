@@ -23,7 +23,7 @@ class Orchestrator {
 
 		// Advanced options
 		this.advanced = {
-			timeoutMs: options.advanced?.timeoutMs || 60000, // Default 60 seconds
+			timeoutMs: options.advanced?.timeoutMs || 30000, // Default 30 seconds (reduced from 60)
 			maxKeyLength: options.advanced?.maxKeyLength || 10000, // Max length for a translation key
 			maxBatchSize: options.advanced?.maxBatchSize || 50, // Max items per batch
 			autoOptimize: options.advanced?.autoOptimize !== false, // Auto-optimize settings
@@ -36,6 +36,7 @@ class Orchestrator {
 				queueStrategy: options.rateLimiter.queueStrategy,
 				queueTimeout: options.rateLimiter.queueTimeout,
 				adaptiveThrottling: options.rateLimiter.adaptiveThrottling,
+				providerLimits: options.rateLimiter.providerLimits, // Add provider limits
 			});
 		}
 
@@ -161,33 +162,11 @@ class Orchestrator {
 				existingTranslation: existingTranslation || null,
 			};
 
-			let timeoutId = null;
-			const timeoutPromise = new Promise((_, reject) => {
-				timeoutId = setTimeout(() => {
-					reject(new Error(`Translation timed out after ${this.advanced.timeoutMs}ms`));
-				}, this.advanced.timeoutMs);
-			});
-
-			const translationPromise = provider.translate(text, this.options.source, targetLang, {
+			// FIXED: Much simpler timeout approach without Promise.race issues
+			let translated = await provider.translate(text, this.options.source, targetLang, {
 				...this.options,
 				detectedContext: translationContext,
 			});
-
-			let translated;
-			try {
-				translated = await Promise.race([translationPromise, timeoutPromise]);
-
-				if (timeoutId) {
-					clearTimeout(timeoutId);
-					timeoutId = null;
-				}
-			} catch (error) {
-				if (timeoutId) {
-					clearTimeout(timeoutId);
-					timeoutId = null;
-				}
-				throw error; // Re-throw the original error
-			}
 
 			// Apply quality checks and fixes
 			const qualityResult = this.qualityChecker.validateAndFix(text, translated);
@@ -233,13 +212,20 @@ class Orchestrator {
 		const results = [];
 		const chunks = this._chunkArray(items, batchSize);
 
+		console.log(
+			`🔄 Processing ${items.length} items in ${chunks.length} batches of max ${batchSize} items each`
+		);
+
 		if (this.advanced.debug) {
 			console.log(
 				`Processing ${items.length} items in ${chunks.length} chunks of size ${batchSize}`
 			);
 		}
 
-		for (const chunk of chunks) {
+		for (let i = 0; i < chunks.length; i++) {
+			const chunk = chunks[i];
+			console.log(`📦 Processing batch ${i + 1}/${chunks.length} (${chunk.length} items)`);
+
 			const chunkPromises = chunk.map(async (item) => {
 				try {
 					const contextData = await this.contextProcessor.analyze(item.text);
@@ -268,6 +254,11 @@ class Orchestrator {
 
 			const chunkResults = await Promise.all(chunkPromises);
 			results.push(...chunkResults);
+
+			// Minimal delay between batches - reduced for speed
+			if (i < chunks.length - 1) {
+				await new Promise((resolve) => setTimeout(resolve, 50)); // Just 50ms for maximum speed
+			}
 		}
 
 		return results;

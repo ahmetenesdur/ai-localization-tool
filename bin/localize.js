@@ -140,6 +140,7 @@ const configureComponents = (config) => {
 			queueStrategy: config.rateLimiter.queueStrategy || "priority",
 			queueTimeout: config.rateLimiter.queueTimeout || 30000,
 			adaptiveThrottling: config.rateLimiter.adaptiveThrottling !== false,
+			providerLimits: config.rateLimiter.providerLimits, // Add provider limits
 		});
 	}
 

@@ -8,8 +8,8 @@ class RateLimiter {
 
 		// Configuration
 		this.config = {
-			queueStrategy: config.queueStrategy || "priority", // priority, fifo
-			queueTimeout: config.queueTimeout || 30000, // 30 seconds default
+			queueStrategy: config.queueStrategy || "fifo", // Changed default to fifo for speed
+			queueTimeout: config.queueTimeout || 15000, // Reduced to 15 seconds for faster processing
 			adaptiveThrottling: config.adaptiveThrottling !== false, // Enabled by default
 		};
 
@@ -23,34 +23,34 @@ class RateLimiter {
 		// API provider rate limit settings - each provider has different limits
 		this.providers = {
 			openai: {
-				requestsPerMinute: 60,
+				requestsPerMinute: 300, // Much higher for small jobs
 				currentRequests: 0,
 				lastReset: performance.now(),
-				maxConcurrent: 5,
+				maxConcurrent: 5, // Multiple concurrent
 			},
 			deepseek: {
-				requestsPerMinute: 45,
+				requestsPerMinute: 30, // Reduced for better stability
 				currentRequests: 0,
 				lastReset: performance.now(),
-				maxConcurrent: 3,
+				maxConcurrent: 2, // Reduced for better stability
 			},
 			gemini: {
-				requestsPerMinute: 100,
+				requestsPerMinute: 300, // Much higher for speed
 				currentRequests: 0,
 				lastReset: performance.now(),
-				maxConcurrent: 8,
+				maxConcurrent: 5, // Good balance
 			},
 			dashscope: {
-				requestsPerMinute: 50,
+				requestsPerMinute: 80, // Increased from 50
 				currentRequests: 0,
 				lastReset: performance.now(),
-				maxConcurrent: 4,
+				maxConcurrent: 6, // Increased from 4
 			},
 			xai: {
-				requestsPerMinute: 60,
+				requestsPerMinute: 80, // Increased from 60
 				currentRequests: 0,
 				lastReset: performance.now(),
-				maxConcurrent: 5,
+				maxConcurrent: 8, // Increased from 5
 			},
 		};
 
@@ -88,6 +88,23 @@ class RateLimiter {
 
 		if (config.adaptiveThrottling !== undefined) {
 			this.config.adaptiveThrottling = config.adaptiveThrottling;
+		}
+
+		// Update provider limits from config
+		if (config.providerLimits && typeof config.providerLimits === "object") {
+			Object.keys(config.providerLimits).forEach((providerName) => {
+				if (this.providers[providerName]) {
+					const limits = config.providerLimits[providerName];
+
+					if (limits.rpm && typeof limits.rpm === "number") {
+						this.providers[providerName].requestsPerMinute = limits.rpm;
+					}
+					if (limits.concurrency && typeof limits.concurrency === "number") {
+						this.providers[providerName].maxConcurrent = limits.concurrency;
+					}
+				}
+			});
+			console.log("🔧 Provider limits updated from config");
 		}
 	}
 
@@ -215,7 +232,8 @@ class RateLimiter {
 			const startTime = performance.now();
 			const queueTime = Date.now() - timestamp;
 
-			if (queueTime > 5000) {
+			if (queueTime > 2000) {
+				// Reduced warning threshold to 2000ms for better monitoring
 				console.warn(`Task for ${provider} waited ${queueTime}ms in queue`);
 			}
 
@@ -232,6 +250,13 @@ class RateLimiter {
 				resolve(result);
 			} catch (error) {
 				this._trackErrorRate(provider, true);
+				// Enhanced error logging for debugging
+				console.error(`Provider ${provider} task failed:`, {
+					error: error.message,
+					queueTime: queueTime,
+					processingTime: performance.now() - startTime,
+					queueSize: queue.length,
+				});
 				reject(error);
 			} finally {
 				this.processing[provider]--;
@@ -286,13 +311,14 @@ class RateLimiter {
 			let concurrencyAdjustment = 0;
 			let rpmAdjustment = 0;
 
-			if (errorRate > 0.1) {
-				// >10% errors
+			if (errorRate > 0.15) {
+				// Increased threshold from 0.1 to 0.15 (15% errors)
+				// >15% errors
 				concurrencyAdjustment = -1;
 				rpmAdjustment = -5;
 			} else if (
-				errorRate < 0.02 &&
-				avgResponseTime < 2000 &&
+				errorRate < 0.05 && // Increased from 0.02 to 0.05 (5% errors)
+				avgResponseTime < 3000 && // Increased from 2000 to 3000ms
 				this.queues[provider].length > 0
 			) {
 				concurrencyAdjustment = 1;
@@ -406,7 +432,7 @@ class RateLimiter {
 
 const config = {
 	queueStrategy: process.env.QUEUE_STRATEGY || "priority",
-	queueTimeout: parseInt(process.env.QUEUE_TIMEOUT || "30000"),
+	queueTimeout: parseInt(process.env.QUEUE_TIMEOUT || "30000"), // Increased back to 30000 for stability
 	adaptiveThrottling: process.env.ADAPTIVE_THROTTLING !== "false",
 };
 

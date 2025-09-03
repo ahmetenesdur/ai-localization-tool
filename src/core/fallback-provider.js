@@ -138,8 +138,9 @@ class FallbackProvider {
 					};
 
 					// If a provider fails too many times in a row, temporarily disable it
-					if (stats.consecutiveFailures >= 3) {
-						this._disableProvider(providerData, 5 * 60 * 1000); // Disable for 5 minutes
+					if (stats.consecutiveFailures >= 5) {
+						// Increased threshold from 3 to 5
+						this._disableProvider(providerData, 2 * 60 * 1000); // Disable for 2 minutes (reduced from 5)
 					}
 				}
 
@@ -284,8 +285,9 @@ class FallbackProvider {
 					};
 
 					// If a provider fails too many times in a row, temporarily disable it
-					if (stats.consecutiveFailures >= 3) {
-						this._disableProvider(providerData, 5 * 60 * 1000); // Disable for 5 minutes
+					if (stats.consecutiveFailures >= 5) {
+						// Increased threshold from 3 to 5
+						this._disableProvider(providerData, 2 * 60 * 1000); // Disable for 2 minutes (reduced from 5)
 					}
 				}
 
@@ -428,7 +430,8 @@ class FallbackProvider {
 	}
 
 	// Temporarily disable a provider
-	_disableProvider(provider, timeoutMs = 5 * 60 * 1000) {
+	_disableProvider(provider, timeoutMs = 2 * 60 * 1000) {
+		// Reduced default from 5 to 2 minutes
 		const providerName = this._getProviderName(provider);
 		const stats = this.providerStats.get(providerName);
 		if (stats) {

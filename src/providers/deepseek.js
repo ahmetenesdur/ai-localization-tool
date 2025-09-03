@@ -16,7 +16,7 @@ class DeepSeekProvider extends BaseProvider {
 				...this.commonHeaders,
 				Authorization: `Bearer ${this.getApiKey()}`,
 			},
-			timeout: 30000,
+			timeout: 45000, // Increased timeout for DeepSeek
 			maxRedirects: 0,
 			validateStatus: (status) => status < 500,
 		});
@@ -54,8 +54,8 @@ class DeepSeekProvider extends BaseProvider {
 				}
 			},
 			{
-				maxRetries: options.retryOptions?.maxRetries || 2,
-				initialDelay: options.retryOptions?.initialDelay || 1000,
+				maxRetries: options.retryOptions?.maxRetries || 3, // Increased retries for DeepSeek
+				initialDelay: options.retryOptions?.initialDelay || 2000, // Increased initial delay
 				context: "DeepSeek Provider",
 				logContext: {
 					source: sourceLang,

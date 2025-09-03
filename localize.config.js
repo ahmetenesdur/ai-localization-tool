@@ -13,14 +13,14 @@ module.exports = {
 	version: "1.0.0", // Configuration version
 	localesDir: "./locales", // Directory where locale JSON files are stored
 	source: "en", // Source language
-	targets: ["tr", "de", "es", "fr", "hi", "ja", "pl", "ru", "th", "uk", "vi", "yo", "zh"], // Target languages
+	targets: ["tr"], // Just Turkish for now
 
 	/**
 	 * API Provider Configuration
 	 */
 	apiProvider: "deepseek", // Default/primary provider
 	useFallback: true, // Enable automatic fallback to other providers if primary fails
-	fallbackOrder: ["deepseek", "openai", "dashscope", "xai", "gemini"], // Fallback order
+	fallbackOrder: ["deepseek", "openai", "gemini"], // Fallback order
 	apiConfig: {
 		dashscope: {
 			model: "qwen-plus",
@@ -35,7 +35,7 @@ module.exports = {
 			contextWindow: 8000,
 		},
 		openai: {
-			model: "gpt-4o",
+			model: "gpt-4o-mini",
 			temperature: 0.3,
 			maxTokens: 2000,
 			contextWindow: 16000,
@@ -47,7 +47,7 @@ module.exports = {
 			contextWindow: 8000,
 		},
 		gemini: {
-			model: "gemini-1.5-flash",
+			model: "gemini-2.5-flash-lite",
 			temperature: 0.3,
 			maxTokens: 2000,
 			contextWindow: 16000,
@@ -55,27 +55,27 @@ module.exports = {
 	},
 
 	/**
-	 * Performance Optimization
+	 * Performance Optimization - OPTIMIZED FOR SPEED
 	 */
 	// Concurrency and Cache Settings
-	concurrencyLimit: 3, // Global limit for concurrent translations
+	concurrencyLimit: 15, // MAXIMUM parallelism for speed
 	cacheEnabled: true, // Enable translation caching
 	cacheTTL: 24 * 60 * 60 * 1000, // Cache TTL in milliseconds (24 hours)
-	cacheSize: 1000, // Maximum number of cached items
+	cacheSize: 2000, // Increased cache size
 
-	// Rate Limiter Configuration
+	// Rate Limiter Configuration - MAXIMUM SPEED MODE
 	rateLimiter: {
 		enabled: true, // Enable rate limiting
 		providerLimits: {
-			dashscope: { rpm: 50, concurrency: 3 }, // Requests per minute & concurrency
-			xai: { rpm: 60, concurrency: 3 },
-			openai: { rpm: 60, concurrency: 3 },
-			deepseek: { rpm: 60, concurrency: 3 }, // Increased limits
-			gemini: { rpm: 100, concurrency: 3 },
+			dashscope: { rpm: 200, concurrency: 8 },
+			xai: { rpm: 250, concurrency: 8 },
+			openai: { rpm: 1200, concurrency: 20 }, // MAXIMUM aggressive for OpenAI
+			deepseek: { rpm: 150, concurrency: 8 },
+			gemini: { rpm: 1000, concurrency: 20 },
 		},
-		queueStrategy: "priority", // priority, fifo
-		adaptiveThrottling: true, // Auto-adjust based on API responses
-		queueTimeout: 10000, // Maximum time in queue before timing out (ms)
+		queueStrategy: "fifo", // FIFO for speed
+		adaptiveThrottling: false, // NO throttling down
+		queueTimeout: 8000, // Much faster timeout - 8 seconds
 	},
 
 	/**
@@ -111,7 +111,7 @@ module.exports = {
 		allowNewCategories: true, // Allow AI to suggest new categories
 		debug: false, // Show detailed analysis information
 		analysisOptions: {
-			model: "gpt-4o", // OpenAI model for analysis
+			model: "gpt-4o-mini", // OpenAI model for analysis
 			temperature: 0.2, // Slightly higher temperature for more creative context analysis
 			maxTokens: 1000, // Maximum tokens for analysis
 		},
@@ -302,13 +302,13 @@ module.exports = {
 	},
 
 	/**
-	 * Advanced Settings
+	 * Advanced Settings - OPTIMIZED FOR SPEED
 	 * Generally you shouldn't need to modify these
 	 */
 	advanced: {
-		timeoutMs: 60000, // Global request timeout (ms)
+		timeoutMs: 30000, // Even faster timeout
 		maxKeyLength: 10000, // Maximum key length for translation
-		maxBatchSize: 50, // Maximum batch size for operations
+		maxBatchSize: 30, // MAXIMUM batch size for extreme speed!
 		autoOptimize: true, // Automatically optimize settings for hardware
 		debug: false, // Enable debug mode with additional information
 	},
