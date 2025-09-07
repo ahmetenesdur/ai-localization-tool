@@ -5,7 +5,7 @@
 ## Key Features
 
 - **AI-Powered Translation** - 5 providers with intelligent fallback (OpenAI, DeepSeek, Gemini, etc.)
-- **Smart Synchronization** - SHA-256 change detection, incremental updates
+- **Smart Synchronization** - SHA-256 change detection, incremental updates, cache management
 - **Context-Aware** - Automatically detects technical, marketing, legal content
 - **High Performance** - Concurrent processing, caching, rate limiting
 - **Quality Assured** - Built-in validation, auto-fixing, length control
@@ -25,7 +25,7 @@ npx ai-localization-tool
 
 ### 1. Create Configuration File
 
-Create `localize.config.js` in your project root:
+Create `localize.config.js` in your project root (JavaScript version - simpler for most users):
 
 ```javascript
 module.exports = {
@@ -60,6 +60,41 @@ module.exports = {
 };
 ```
 
+Or use `localize.config.ts` if you prefer TypeScript with full type safety:
+
+```typescript
+export default {
+	// Basic Settings
+	localesDir: "./locales",
+	source: "en",
+	targets: ["tr", "de", "es", "fr", "ja", "zh"],
+
+	// AI Provider
+	apiProvider: "deepseek",
+	useFallback: true,
+
+	// Performance
+	concurrencyLimit: 5,
+	cacheEnabled: true,
+
+	// Context Detection
+	context: {
+		enabled: true,
+		useAI: true,
+		categories: {
+			technical: {
+				keywords: ["API", "backend", "database"],
+				prompt: "Preserve technical terms",
+			},
+			marketing: {
+				keywords: ["brand", "campaign", "customer"],
+				prompt: "Use engaging language",
+			},
+		},
+	},
+} satisfies import("./src/types").LocalizationConfig;
+```
+
 ### 2. Set API Keys
 
 Create `.env` file:
@@ -72,6 +107,8 @@ cp .env.example .env
 OPENAI_API_KEY=your_key_here
 DEEPSEEK_API_KEY=your_key_here
 GEMINI_API_KEY=your_key_here
+DASHSCOPE_API_KEY=your_key_here
+XAI_API_KEY=your_key_here
 ```
 
 ## Usage
@@ -80,32 +117,32 @@ GEMINI_API_KEY=your_key_here
 
 ```bash
 # Translate with config settings
-localize
+npx ts-node -r tsconfig-paths/register bin/localize.ts
 
 # Override target languages
-localize -t tr,es,de
+npx ts-node -r tsconfig-paths/register bin/localize.ts -t tr,es,de
 
 # Force update existing translations
-localize translate --force
+npx ts-node -r tsconfig-paths/register bin/localize.ts translate --force
 
 # Fix translation issues
-localize fix
+npx ts-node -r tsconfig-paths/register bin/localize.ts fix
 
 # Debug mode
-localize --debug
+npx ts-node -r tsconfig-paths/register bin/localize.ts --debug
 ```
 
 ### Intelligent Synchronization
 
-The tool automatically detects changes in your source files:
+The tool automatically detects changes in your source files using SHA-256 hash-based state management:
 
 ```bash
 # First run - processes all keys
-localize
+npx ts-node -r tsconfig-paths/register bin/localize.ts
 # → First run - will process all keys
 
 # After modifying source file
-localize
+npx ts-node -r tsconfig-paths/register bin/localize.ts
 # 🔄 Sync Analysis:
 #    📝 New keys: 3
 #    ✏️  Modified keys: 1
@@ -118,6 +155,13 @@ localize
 - **Modified keys** → Re-translated with context
 - **Deleted keys** → Removed from all target files
 - **Unchanged keys** → Skipped for performance
+
+**Cache Management:**
+
+- State is tracked in `.localize-cache/localization.state.json`
+- SHA-256 hashes detect content changes
+- Metadata includes timestamps and version info
+- Automatic cleanup of stale cache entries
 
 ### Advanced Features
 
@@ -150,13 +194,13 @@ localize
 
 ### Supported Providers
 
-| Provider      | Model            | RPM | Concurrency | Context Window |
-| ------------- | ---------------- | --- | ----------- | -------------- |
-| **DeepSeek**  | deepseek-chat    | 60  | 3           | 8K tokens      |
-| **OpenAI**    | gpt-4o           | 60  | 3           | 16K tokens     |
-| **Gemini**    | gemini-1.5-flash | 100 | 3           | 16K tokens     |
-| **Dashscope** | qwen-plus        | 50  | 3           | 8K tokens      |
-| **XAI**       | grok-2-1212      | 60  | 3           | 8K tokens      |
+| Provider      | Model                 | RPM | Concurrency | Context Window |
+| ------------- | --------------------- | --- | ----------- | -------------- |
+| **DeepSeek**  | deepseek-chat         | 60  | 3           | 8K tokens      |
+| **OpenAI**    | gpt-4o-mini           | 60  | 3           | 16K tokens     |
+| **Gemini**    | gemini-2.5-flash-lite | 100 | 3           | 16K tokens     |
+| **Dashscope** | qwen-plus             | 50  | 3           | 8K tokens      |
+| **XAI**       | grok-2-1212           | 60  | 3           | 8K tokens      |
 
 ### Quality Features
 
@@ -190,6 +234,9 @@ pnpm start
 
 # Format code
 pnpm format
+
+# Build TypeScript
+npm run build
 ```
 
 ## Advanced Configuration
@@ -490,6 +537,8 @@ module.exports = {
 		removeDeletedKeys: true, // Remove deleted keys from target files
 		retranslateModified: true, // Re-translate modified keys
 		backupBeforeSync: false, // Create backup before sync operations
+		stateDir: ".localize-cache", // Directory for state cache
+		stateFileName: "localization.state.json", // State file name
 	},
 
 	// ===== ADVANCED SETTINGS =====
@@ -530,6 +579,30 @@ module.exports = {
 - **syncOptions**: Control how changes are synchronized
 - **removeDeletedKeys**: Auto-cleanup of deleted translations
 - **retranslateModified**: Re-translate changed content
+- **State Management**: Hash-based change detection in `.localize-cache`
+
+#### Cache Management
+
+The tool implements an intelligent caching system to optimize performance:
+
+- **State Tracking**: Changes are tracked using SHA-256 hashes in `.localize-cache/`
+- **Incremental Processing**: Only processes new or modified keys
+- **Metadata Storage**: Timestamps and version information for audit trails
+- **Automatic Cleanup**: Stale cache entries are automatically managed
+
+```
+.localize-cache/
+└── localization.state.json    # State file with hashes and metadata
+```
+
+The cache system works by:
+
+1. **Hash Generation**: SHA-256 hashes are generated for each translation key's content
+2. **State Comparison**: Previous and current states are compared to detect changes
+3. **Selective Processing**: Only new or modified keys are sent for translation
+4. **Cache Updates**: State file is updated with current hashes after processing
+
+This approach significantly reduces API costs and processing time by avoiding redundant translations.
 
 #### Provider Configuration
 
@@ -538,6 +611,31 @@ module.exports = {
 - **retryOptions**: Configure retry behavior and error handling
 
 </details>
+
+## Recent Updates
+
+### User-Friendly Configuration Options
+
+✅ **JavaScript Configuration Support** - Users can now use `localize.config.js` for simpler setup without TypeScript  
+✅ **TypeScript Configuration Support** - Advanced users can still use `localize.config.ts` with full type safety  
+✅ **Automatic Config Detection** - Tool automatically detects and loads `.js`, `.ts`, or `.cjs` configuration files
+
+### TypeScript Migration Complete
+
+✅ All JavaScript files have been successfully migrated to TypeScript  
+✅ Full type safety and improved code quality  
+✅ Better developer experience with enhanced IntelliSense
+
+### Verified Functionality
+
+✅ Environment variables loading correctly from `.env.local`  
+✅ Translation from English to multiple languages working  
+✅ Proper JSON structure preservation  
+✅ API provider integration (DeepSeek, OpenAI, Gemini, DashScope, XAI)
+
+### Working Example
+
+The tool has been successfully tested with the `en.json` file, generating accurate translations for Turkish and Spanish locales while maintaining the original JSON structure.
 
 ---
 

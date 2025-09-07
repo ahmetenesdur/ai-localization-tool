@@ -1,21 +1,4 @@
 {
-	"app": {
-		"buttons": {
-			"cancel": "İptal",
-			"save": "Değişiklikleri Kaydet",
-			"submit": "Gönder"
-		},
-		"messages": {
-			"error": "Bir hata oluştu. Lütfen tekrar deneyin.",
-			"loading": "Lütfen bekleyin...",
-			"success": "İşlem başarıyla tamamlandı!"
-		},
-		"navigation": {
-			"about": "Hakkımızda",
-			"contact": "İletişim",
-			"home": "Ana Sayfa",
-			"services": "Hizmetlerimiz"
-		},
-		"title": "Uygulamamıza hoş geldiniz"
-	}
+	"newKey": "Yeni çeviri anahtarı",
+	"test": "Test çevirisi"
 }

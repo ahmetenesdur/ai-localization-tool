@@ -40,3 +40,6 @@ localization.state.json
 # Claude
 .claude
 CLAUDE.md
+
+# Dist
+/dist
