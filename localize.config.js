@@ -13,7 +13,7 @@ module.exports = {
 	version: "1.0.0", // Configuration version
 	localesDir: "./locales", // Directory where locale JSON files are stored
 	source: "en", // Source language
-	targets: ["tr"], // Just Turkish for now
+	targets: ["tr", "de", "es", "fr", "hi", "ja", "pl", "ru", "th", "uk", "vi", "yo", "zh"], // Target languages
 
 	/**
 	 * API Provider Configuration
