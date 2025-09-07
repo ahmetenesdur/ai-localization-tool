@@ -1,45 +1,252 @@
-# Localization Tool
+# AI Localization Tool
 
-Advanced AI-powered translation CLI tool for Next.js projects. Offers multi-language support, quality controls, and integration with different AI providers.
+**Enterprise-grade AI-powered translation CLI for Next.js projects** with intelligent synchronization, multi-provider support, and context-aware translations.
 
-## 📦 Installation
+## Key Features
+
+- **AI-Powered Translation** - 5 providers with intelligent fallback (OpenAI, DeepSeek, Gemini, etc.)
+- **Smart Synchronization** - SHA-256 change detection, incremental updates
+- **Context-Aware** - Automatically detects technical, marketing, legal content
+- **High Performance** - Concurrent processing, caching, rate limiting
+- **Quality Assured** - Built-in validation, auto-fixing, length control
+- **Real-time Progress** - Detailed statistics and progress tracking
+
+## Quick Start
 
 ```bash
-# Global installation with pnpm (recommended)
-pnpm install -g ai-localization-tool
-
-# or with npm
+# Install globally
 npm install -g ai-localization-tool
 
-# or direct usage with npx
+# Or use directly
 npx ai-localization-tool
 ```
 
-## ⚙️ Configuration
+## Configuration
 
-### Basic Configuration
+### 1. Create Configuration File
 
-Create `localize.config.js` file in your project root directory:
+Create `localize.config.js` in your project root:
 
 ```javascript
 module.exports = {
 	// Basic Settings
-	localesDir: "./locales", // Directory for translation files
-	source: "en", // Source language
-	targets: ["tr", "de", "es", "fr", "hi", "ja", "pl", "ru", "th", "uk", "vi", "yo", "zh"], // Target languages
+	localesDir: "./locales",
+	source: "en",
+	targets: ["tr", "de", "es", "fr", "ja", "zh"],
 
-	// API Provider Settings
-	apiProvider: "deepseek", // Primary provider
-	useFallback: true, // Enable fallback system
-	fallbackOrder: ["deepseek", "openai", "dashscope", "xai", "gemini"], // Provider fallback order
+	// AI Provider
+	apiProvider: "deepseek",
+	useFallback: true,
 
-	// API Configuration
+	// Performance
+	concurrencyLimit: 5,
+	cacheEnabled: true,
+
+	// Context Detection
+	context: {
+		enabled: true,
+		useAI: true,
+		categories: {
+			technical: {
+				keywords: ["API", "backend", "database"],
+				prompt: "Preserve technical terms",
+			},
+			marketing: {
+				keywords: ["brand", "campaign", "customer"],
+				prompt: "Use engaging language",
+			},
+		},
+	},
+};
+```
+
+### 2. Set API Keys
+
+Create `.env` file:
+
+```bash
+cp .env.example .env
+```
+
+```env
+OPENAI_API_KEY=your_key_here
+DEEPSEEK_API_KEY=your_key_here
+GEMINI_API_KEY=your_key_here
+```
+
+## Usage
+
+### Basic Commands
+
+```bash
+# Translate with config settings
+localize
+
+# Override target languages
+localize -t tr,es,de
+
+# Force update existing translations
+localize translate --force
+
+# Fix translation issues
+localize fix
+
+# Debug mode
+localize --debug
+```
+
+### Intelligent Synchronization
+
+The tool automatically detects changes in your source files:
+
+```bash
+# First run - processes all keys
+localize
+# → First run - will process all keys
+
+# After modifying source file
+localize
+# 🔄 Sync Analysis:
+#    📝 New keys: 3
+#    ✏️  Modified keys: 1
+#    🗑️ Deleted keys: 2
+```
+
+**What happens:**
+
+- **New keys** → Translated automatically
+- **Modified keys** → Re-translated with context
+- **Deleted keys** → Removed from all target files
+- **Unchanged keys** → Skipped for performance
+
+### Advanced Features
+
+<details>
+<summary>Command Options</summary>
+
+#### Global Options
+
+| Option          | Description          | Default             |
+| --------------- | -------------------- | ------------------- |
+| `-s, --source`  | Source language      | `config.source`     |
+| `-t, --targets` | Target languages     | `config.targets`    |
+| `--localesDir`  | Locales directory    | `config.localesDir` |
+| `--debug`       | Enable debug mode    | `false`             |
+| `--verbose`     | Detailed diagnostics | `false`             |
+
+#### Translation Options
+
+| Option          | Description             | Default    |
+| --------------- | ----------------------- | ---------- |
+| `--provider`    | AI provider             | `deepseek` |
+| `--concurrency` | Concurrent translations | `5`        |
+| `--force`       | Update existing         | `false`    |
+| `--length`      | Length control mode     | `smart`    |
+| `--stats`       | Show detailed stats     | `false`    |
+
+</details>
+
+## Performance & Quality
+
+### Supported Providers
+
+| Provider      | Model            | RPM | Concurrency | Context Window |
+| ------------- | ---------------- | --- | ----------- | -------------- |
+| **DeepSeek**  | deepseek-chat    | 60  | 3           | 8K tokens      |
+| **OpenAI**    | gpt-4o           | 60  | 3           | 16K tokens     |
+| **Gemini**    | gemini-1.5-flash | 100 | 3           | 16K tokens     |
+| **Dashscope** | qwen-plus        | 50  | 3           | 8K tokens      |
+| **XAI**       | grok-2-1212      | 60  | 3           | 8K tokens      |
+
+### Quality Features
+
+- **Placeholder validation** - Ensures `{{variables}}` consistency
+- **HTML preservation** - Maintains `<tags>` structure
+- **Length control** - 5 modes (strict, flexible, smart, etc.)
+- **Context detection** - Technical, marketing, legal content
+- **Auto-fixing** - Corrects common translation issues
+
+### Real-time Progress
+
+```
+[tr] [█████=====     ] 50.0% | 250/500 | ✅ 240 | ❌ 10 | ⏱️ 25.3s
+
+📊 Translation Summary:
+🔤 Language: tr
+✅ Successful: 450 (90.0%)
+❌ Failed: 50
+⏱️ Total Time: 52.4s
+⚡ Speed: 9.54 items/second
+```
+
+## Development
+
+```bash
+# Install dependencies
+pnpm install
+
+# Run locally
+pnpm start
+
+# Format code
+pnpm format
+```
+
+## Advanced Configuration
+
+<details>
+<summary>Complete Configuration Reference</summary>
+
+### Full Configuration Options
+
+Here's the complete configuration file with all available options and their explanations:
+
+```javascript
+/**
+ * Localization Tool Configuration
+ * Version: 1.0.0
+ *
+ * This configuration file controls all aspects of the localization tool
+ * including API providers, performance settings, and quality controls.
+ */
+
+module.exports = {
+	// ===== BASIC CONFIGURATION =====
+	version: "1.0.0", // Configuration version
+	localesDir: "./locales", // Directory where locale JSON files are stored
+	source: "en", // Source language code (ISO 639-1)
+	targets: ["tr", "de", "es", "fr", "hi", "ja", "pl", "ru", "th", "uk", "vi", "yo", "zh"],
+
+	// ===== API PROVIDER CONFIGURATION =====
+	apiProvider: "deepseek", // Primary provider: deepseek, openai, gemini, dashscope, xai
+	useFallback: true, // Enable automatic fallback to other providers
+	fallbackOrder: ["deepseek", "openai", "gemini"], // Provider fallback chain
+
+	// Individual provider configurations
 	apiConfig: {
+		deepseek: {
+			model: "deepseek-chat", // Model name
+			temperature: 0.1, // Creativity level (0.0-1.0)
+			maxTokens: 2000, // Maximum tokens per request
+			contextWindow: 8000, // Maximum context window size
+		},
+		openai: {
+			model: "gpt-4o-mini", // Latest optimized model
+			temperature: 0.3,
+			maxTokens: 2000,
+			contextWindow: 16000, // Larger context window
+		},
+		gemini: {
+			model: "gemini-2.5-flash-lite", // Latest Gemini model
+			temperature: 0.3,
+			maxTokens: 2000,
+			contextWindow: 16000,
+		},
 		dashscope: {
 			model: "qwen-plus",
 			temperature: 0.3,
 			maxTokens: 2000,
-			contextWindow: 8000, // Maximum context window size
+			contextWindow: 8000,
 		},
 		xai: {
 			model: "grok-2-1212",
@@ -47,747 +254,291 @@ module.exports = {
 			maxTokens: 2000,
 			contextWindow: 8000,
 		},
-		openai: {
-			model: "gpt-4o",
-			temperature: 0.3,
-			maxTokens: 2000,
-			contextWindow: 16000,
-		},
-		deepseek: {
-			model: "deepseek-chat",
-			temperature: 0.1,
-			maxTokens: 2000,
-			contextWindow: 8000,
-		},
-		gemini: {
-			model: "gemini-1.5-flash",
-			temperature: 0.3,
-			maxTokens: 2000,
-			contextWindow: 16000,
-		},
 	},
 
-	// Rate Limiter Configuration
+	// ===== PERFORMANCE OPTIMIZATION =====
+	concurrencyLimit: 15, // Maximum parallel translations (optimized for speed)
+	cacheEnabled: true, // Enable translation caching
+	cacheTTL: 24 * 60 * 60 * 1000, // Cache time-to-live (24 hours)
+	cacheSize: 2000, // Maximum cached items
+
+	// Rate Limiter Configuration (Speed Optimized)
 	rateLimiter: {
-		enabled: true, // Enable rate limiting
+		enabled: true,
 		providerLimits: {
-			dashscope: { rpm: 50, concurrency: 3 }, // Requests per minute & concurrency
-			xai: { rpm: 60, concurrency: 3 },
-			openai: { rpm: 60, concurrency: 3 },
-			deepseek: { rpm: 60, concurrency: 3 },
-			gemini: { rpm: 100, concurrency: 3 },
+			openai: { rpm: 1200, concurrency: 20 }, // Aggressive limits for OpenAI
+			deepseek: { rpm: 150, concurrency: 8 },
+			gemini: { rpm: 1000, concurrency: 20 }, // High-performance settings
+			dashscope: { rpm: 200, concurrency: 8 },
+			xai: { rpm: 250, concurrency: 8 },
 		},
-		queueStrategy: "priority", // priority, fifo
-		adaptiveThrottling: true, // Auto-adjust based on API responses
-		queueTimeout: 10000, // Maximum time in queue before timing out (ms)
+		queueStrategy: "fifo", // First-in-first-out for maximum speed
+		adaptiveThrottling: false, // Disabled for consistent high performance
+		queueTimeout: 8000, // Fast timeout (8 seconds)
 	},
 
-	// Translation Context
-	context: {
-		enabled: true,
-		detection: {
-			threshold: 2, // Minimum keyword matches
-			minConfidence: 0.6, // Minimum confidence score
+	// ===== ERROR HANDLING & RELIABILITY =====
+	retryOptions: {
+		maxRetries: 2, // Global retry attempts
+		initialDelay: 1000, // Initial delay before retry (ms)
+		maxDelay: 10000, // Maximum delay cap (ms)
+		jitter: true, // Add randomization to retry delays
+		retryableErrors: ["rate_limit", "timeout", "network", "server", "unknown"],
+		perProviderRetry: {
+			dashscope: { maxRetries: 3 }, // Provider-specific retry settings
+			openai: { maxRetries: 2 },
 		},
-		aiProvider: "deepseek", // AI provider for context analysis
+	},
+
+	// ===== CONTEXT-AWARE TRANSLATION =====
+	context: {
+		enabled: true, // Enable context detection
+		useAI: true, // Use AI for context analysis
+		aiProvider: "openai", // AI provider for context analysis
 		minTextLength: 50, // Minimum text length for AI analysis
 		allowNewCategories: true, // Allow AI to suggest new categories
+		debug: false, // Enable detailed context analysis logs
+
+		// AI Analysis Configuration
+		analysisOptions: {
+			model: "gpt-4o-mini", // OpenAI model for context analysis
+			temperature: 0.2, // Lower temperature for consistent analysis
+			maxTokens: 1000, // Tokens for analysis
+		},
+
+		// Detection Thresholds
+		detection: {
+			threshold: 2, // Minimum keyword matches for category
+			minConfidence: 0.6, // Minimum confidence score (0.0-1.0)
+		},
+
+		// Content Categories with Keywords and Prompts
 		categories: {
 			technical: {
-				keywords: ["API", "backend", "database"],
+				keywords: [
+					"API",
+					"backend",
+					"database",
+					"server",
+					"endpoint",
+					"function",
+					"method",
+					"class",
+					"object",
+					"variable",
+				],
 				prompt: "Preserve technical terms and variable names",
 				weight: 1.3,
 			},
 			defi: {
-				keywords: ["DeFi", "staking", "yield"],
+				keywords: [
+					"DeFi",
+					"staking",
+					"yield",
+					"liquidity",
+					"token",
+					"blockchain",
+					"crypto",
+					"wallet",
+					"smart contract",
+				],
 				prompt: "Keep DeFi terms in English",
 				weight: 1.2,
 			},
+			marketing: {
+				keywords: [
+					"brand",
+					"campaign",
+					"customer",
+					"audience",
+					"promotion",
+					"value",
+					"benefit",
+					"feature",
+				],
+				prompt: "Use persuasive and engaging language appropriate for marketing content",
+				weight: 1.1,
+			},
+			legal: {
+				keywords: [
+					"terms",
+					"conditions",
+					"privacy",
+					"policy",
+					"agreement",
+					"compliance",
+					"regulation",
+					"law",
+				],
+				prompt: "Maintain formal tone and precise legal terminology",
+				weight: 1.4,
+			},
+			ui: {
+				keywords: [
+					"button",
+					"click",
+					"menu",
+					"screen",
+					"page",
+					"view",
+					"interface",
+					"select",
+					"tap",
+				],
+				prompt: "Keep UI terms consistent and clear, maintain proper formatting for UI elements",
+				weight: 1.2,
+			},
 		},
+
+		// Fallback for unmatched content
 		fallback: {
 			category: "general",
 			prompt: "Provide a natural translation",
 		},
 	},
 
-	// Quality Settings
+	// ===== QUALITY ASSURANCE =====
 	qualityChecks: {
-		enabled: true,
+		enabled: true, // Enable quality validation
 		rules: {
-			placeholderConsistency: true,
-			htmlTagsConsistency: true,
-			punctuationCheck: true,
-			lengthValidation: true,
-			sanitizeOutput: true,
+			placeholderConsistency: true, // Validate {{placeholders}}
+			htmlTagsConsistency: true, // Preserve <HTML> tags
+			punctuationCheck: true, // Check punctuation consistency
+			lengthValidation: true, // Validate translation length
+			sanitizeOutput: true, // Clean AI artifacts
 			markdownPreservation: true, // Preserve markdown formatting
 			specialCharacters: true, // Maintain special characters
 			codeBlockPreservation: true, // Preserve code blocks
 		},
-		autoFix: true, // Auto-fix common issues
+		autoFix: true, // Automatically fix detected issues
 	},
 
-	// Style Settings
+	// ===== STYLE GUIDE =====
 	styleGuide: {
-		formality: "neutral", // formal, neutral, informal
-		toneOfVoice: "professional", // friendly, professional, technical
+		formality: "neutral", // Options: formal, neutral, informal
+		toneOfVoice: "professional", // Options: professional, friendly, casual, technical
 		conventions: {
-			useOxfordComma: true,
-			useSentenceCase: true,
+			useOxfordComma: true, // Use Oxford comma in lists
+			useSentenceCase: true, // Use sentence case for headings
 		},
 	},
 
-	// Length Control
+	// ===== LENGTH CONTROL =====
 	lengthControl: {
-		mode: "smart",
+		mode: "smart", // Options: strict, flexible, exact, relaxed, smart
 		rules: {
-			strict: 0.1, // 10% deviation
-			flexible: 0.3, // 30% deviation
-			exact: 0.05, // 5% deviation (near exact)
-			relaxed: 0.5, // 50% deviation
+			strict: 0.1, // 10% deviation allowed
+			flexible: 0.3, // 30% deviation allowed
+			exact: 0.05, // 5% deviation allowed
+			relaxed: 0.5, // 50% deviation allowed
 			smart: {
-				default: 0.15,
+				default: 0.15, // Default tolerance
+				// Language-specific rules
 				byLanguage: {
-					ja: { max: 0.35, min: -0.2 },
-					zh: { max: 0.35, min: -0.2 },
-					th: { max: 0.3, min: -0.15 },
-					vi: { max: 0.25, min: -0.15 },
-					hi: { max: 0.2, min: -0.1 },
-					ru: { max: 0.25, min: -0.15 },
-					uk: { max: 0.25, min: -0.15 },
-					pl: { max: 0.2, min: -0.1 },
-					de: { max: 0.15, min: -0.1 },
-					fr: { max: 0.15, min: -0.1 },
-					es: { max: 0.15, min: -0.1 },
-					tr: { max: 0.15, min: -0.1 },
+					ja: { max: 0.35, min: -0.2 }, // Japanese: +35% / -20%
+					zh: { max: 0.35, min: -0.2 }, // Chinese: +35% / -20%
+					th: { max: 0.3, min: -0.15 }, // Thai: +30% / -15%
+					vi: { max: 0.25, min: -0.15 }, // Vietnamese: +25% / -15%
+					hi: { max: 0.2, min: -0.1 }, // Hindi: +20% / -10%
+					ru: { max: 0.25, min: -0.15 }, // Russian: +25% / -15%
+					uk: { max: 0.25, min: -0.15 }, // Ukrainian: +25% / -15%
+					pl: { max: 0.2, min: -0.1 }, // Polish: +20% / -10%
+					de: { max: 0.15, min: -0.1 }, // German: +15% / -10%
+					fr: { max: 0.15, min: -0.1 }, // French: +15% / -10%
+					es: { max: 0.15, min: -0.1 }, // Spanish: +15% / -10%
+					tr: { max: 0.15, min: -0.1 }, // Turkish: +15% / -10%
 				},
+				// Context-specific rules
 				byContext: {
-					technical: { max: 0.2, min: -0.1 },
-					marketing: { max: 0.3, min: -0.15 },
-					legal: { max: 0.1, min: -0.05 },
-					general: { max: 0.15, min: -0.1 },
+					technical: { max: 0.2, min: -0.1 }, // Technical: +20% / -10%
+					marketing: { max: 0.3, min: -0.15 }, // Marketing: +30% / -15%
+					legal: { max: 0.1, min: -0.05 }, // Legal: +10% / -5%
+					general: { max: 0.15, min: -0.1 }, // General: +15% / -10%
 				},
 			},
 		},
 	},
 
-	// File Operations
+	// ===== FILE OPERATIONS =====
 	fileOperations: {
-		atomic: true, // Use atomic file operations
-		createMissingDirs: true, // Create missing directories
-		backupFiles: true, // Create backups before modifying
+		atomic: true, // Use atomic file operations (safer)
+		createMissingDirs: true, // Auto-create missing directories
+		backupFiles: false, // Create backups before modifying
 		backupDir: "./backups", // Backup directory
 		encoding: "utf8", // File encoding
 		jsonIndent: 2, // JSON indentation spaces
 	},
 
-	// Logging and Diagnostics
+	// ===== LOGGING & DIAGNOSTICS =====
 	logging: {
 		verbose: false, // Enable verbose logging
-		diagnosticsLevel: "normal", // minimal, normal, detailed
-		outputFormat: "pretty", // pretty, json, minimal
+		diagnosticsLevel: "normal", // Options: minimal, normal, detailed
+		outputFormat: "pretty", // Options: pretty, json, minimal
 		saveErrorLogs: true, // Save error logs to file
 		logDirectory: "./logs", // Directory for log files
 		includeTimestamps: true, // Include timestamps in logs
 		logRotation: {
-			enabled: true,
-			maxFiles: 5,
-			maxSize: "10MB",
+			enabled: true, // Enable log rotation
+			maxFiles: 5, // Maximum log files to keep
+			maxSize: "10MB", // Maximum log file size
 		},
 	},
 
-	// Performance Settings
-	concurrencyLimit: 3, // Number of concurrent translations
-	cacheEnabled: true, // Enable translation caching
-	cacheSize: 1000, // Maximum number of cached items
-	cacheTTL: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
-
-	// Retry Options
-	retryOptions: {
-		maxRetries: 2, // Maximum number of retries for API calls
-		initialDelay: 1000, // Initial delay in ms before retry
-		maxDelay: 10000, // Maximum delay cap for backoff
-		jitter: true, // Enable jitter for exponential backoff
-		retryableErrors: ["rate_limit", "timeout", "network"], // Error types to retry
-	},
-
-	// Synchronization Settings
+	// ===== SYNCHRONIZATION =====
 	syncOptions: {
-		enabled: true, // Enable synchronization features
+		enabled: true, // Enable sync features
 		removeDeletedKeys: true, // Remove deleted keys from target files
 		retranslateModified: true, // Re-translate modified keys
 		backupBeforeSync: false, // Create backup before sync operations
 	},
 
-	// Advanced Settings
+	// ===== ADVANCED SETTINGS =====
 	advanced: {
-		timeoutMs: 60000, // Request timeout (60 seconds)
-		maxKeyLength: 10000, // Maximum key length
-		maxBatchSize: 50, // Maximum batch size for operations
-		autoOptimize: true, // Automatically optimize settings
+		timeoutMs: 30000, // Request timeout (30 seconds)
+		maxKeyLength: 10000, // Maximum key length for translation
+		maxBatchSize: 30, // Maximum batch size for operations
+		autoOptimize: true, // Auto-optimize settings for hardware
 		debug: false, // Enable debug mode
 	},
 };
 ```
 
-### Required API Keys
+### Configuration Categories Explained
 
-Add your API keys to the `.env` file:
+#### Performance Settings
 
-```env
-OPENAI_API_KEY=sk-xxxx
-DASHSCOPE_API_KEY=sk-yyyy
-DEEPSEEK_API_KEY=sk-zzzz
-GEMINI_API_KEY=sk-aaaa
-XAI_API_KEY=sk-bbbb
-```
+- **concurrencyLimit**: Number of parallel translations (15 = high performance)
+- **rateLimiter.providerLimits**: Provider-specific RPM and concurrency limits
+- **queueStrategy**: "fifo" for speed, "priority" for importance-based processing
+- **adaptiveThrottling**: Disabled for consistent maximum performance
 
-You can copy the example file and fill in your keys:
+#### AI Context Detection
 
-```bash
-cp .env.example .env
-```
+- **context.useAI**: Enable AI-powered context analysis
+- **context.categories**: Define content types with keywords and prompts
+- **context.analysisOptions**: Configure AI model for context detection
+- **context.detection**: Set thresholds for category matching
 
-## 🚀 Usage
+#### Quality Control
 
-The tool automatically reads configuration from `localize.config.js` and supports command-line overrides:
+- **qualityChecks.rules**: Enable specific validation rules
+- **autoFix**: Automatically correct detected issues
+- **lengthControl**: Smart length management with language-specific rules
 
-```bash
-# Command Structure
-localize [global options] [command] [command options]
-```
+#### Smart Synchronization
 
-### Configuration Priority
+- **syncOptions**: Control how changes are synchronized
+- **removeDeletedKeys**: Auto-cleanup of deleted translations
+- **retranslateModified**: Re-translate changed content
 
-Settings are applied in this order (highest to lowest priority):
+#### Provider Configuration
 
-1. **Command line parameters** (highest priority)
-2. **Config file** (`localize.config.js`)
-3. **Default values** (lowest priority)
+- **apiConfig**: Model-specific settings for each provider
+- **fallbackOrder**: Define provider chain for reliability
+- **retryOptions**: Configure retry behavior and error handling
 
-### Basic Usage Examples
+</details>
 
-```bash
-# Use all settings from config file (recommended)
-localize
+---
 
-# Use config but override specific languages
-localize -t tr,es,de
-
-# Use config but different source language
-localize -s tr
-
-# Completely override config
-localize -s en -t tr,de,es --localesDir ./src/locales
-
-# With debug mode
-localize --debug
-
-# Verbose mode for detailed logging
-localize --verbose
-```
-
-### Global Options
-
-Options that apply to all commands:
-
-| Option        | Description                        | Default (from config) |
-| ------------- | ---------------------------------- | --------------------- |
-| -s, --source  | Source language                    | config.source         |
-| -t, --targets | Target languages (comma separated) | config.targets        |
-| --localesDir  | Locales directory                  | config.localesDir     |
-| --debug       | Enable verbose logging             | false                 |
-| --verbose     | Enable detailed diagnostics        | false                 |
-
-### Commands and Examples
-
-#### Synchronization Workflow
-
-The tool automatically detects and handles changes in your source locale file:
-
-```bash
-# First run - processes all keys using config settings
-localize
-# Output: 🆕 First run - will process all keys
-
-# Subsequent runs - only processes changes
-localize
-# Output: ✅ No changes detected in source file
-
-# After modifying source file (adding, changing, or deleting keys)
-localize
-# Output:
-# 🔄 Sync Analysis:
-#    📝 New keys: 3
-#    ✏️  Modified keys: 1
-#    🗑️  Deleted keys: 2
-#
-# 🗑️ Removing 2 deleted keys from target files...
-#    ✅ tr.json: Removed 2 keys
-#    ✅ de.json: Removed 2 keys
-#    ✅ es.json: Removed 2 keys
-#    # ... all target languages
-```
-
-**What happens during sync:**
-
-1. **Deleted Keys** → Automatically removed from all target files
-2. **Modified Keys** → Re-translated in all target languages
-3. **New Keys** → Translated normally
-4. **Unchanged Keys** → Skipped for performance
-
-#### Translate (Default Command)
-
-Translate missing strings or update translations:
-
-```bash
-# Basic translation using config settings (recommended)
-localize
-
-# With specific provider override
-localize --provider openai
-
-# Force update existing translations (ignores sync)
-localize translate --force
-
-# Control translation length mode
-localize translate --length strict
-
-# Auto-optimize for your hardware
-localize translate --auto-optimize
-
-# Show detailed statistics
-localize translate --stats
-
-# Override specific languages while keeping other config
-localize -t tr,es,de
-
-# Complete manual override
-localize -s en -t tr,es --provider openai --concurrency 8
-```
-
-#### Fix
-
-Fix issues in existing translations:
-
-```bash
-# Fix length issues using config settings
-localize fix
-
-# Fix with debug output
-localize fix --debug
-
-# Fix specific languages only
-localize -t tr,es fix
-```
-
-#### Analyze
-
-Analyze context patterns in translations:
-
-```bash
-# Analyze context using AI with config settings (OpenAI by default)
-localize analyze --use-ai
-
-# Specify different context provider
-localize analyze --use-ai --context-provider openai
-
-# Adjust threshold for matching
-localize analyze --context-threshold 3
-
-# Analyze specific language pair
-localize -s en -t tr analyze --use-ai
-```
-
-#### Advanced
-
-Access rarely used configuration options:
-
-````bash
-# Fine-tune context detection with config base
-localize advanced --context-confidence 0.7 --min-text-length 60
-
-# Allow new category suggestions
-localize advanced --allow-new-categories
-
-# Configure retries and timeouts
-localize advanced --max-retries 3 --initial-delay 2000 --max-delay 20000
-
-# Set advanced timeouts and batch sizes
-localize advanced --timeout 120000 --max-batch-size 30
-
-# Override for specific language pair
-localize -s en -t tr advanced --context-confidence 0.7
-
-## 🛠️ Development
-
-### Package Manager
-
-This project uses **pnpm** as the package manager. After cloning the repository:
-
-```bash
-# Install dependencies
-pnpm install
-
-# Run the tool locally
-pnpm start
-
-# Format code
-pnpm format
-
-# Check formatting
-pnpm format:check
-````
-
-### Project Structure
-
-```
-ai-localization-tool/
-├── bin/
-│   └── localize.js          # CLI entry point
-├── src/
-│   ├── commands/            # Command implementations
-│   ├── core/                # Core orchestration logic
-│   ├── providers/           # AI provider integrations
-│   ├── utils/               # Utility functions
-│   └── types/               # Type definitions
-├── locales/                 # Example locale files
-├── localize.config.js       # Configuration file
-└── package.json             # Project metadata
-```
-
-### CLI Reference
-
-#### Configuration-Based Usage
-
-The tool now prioritizes configuration file settings, making commands much simpler:
-
-**Recommended Usage:**
-
-```bash
-localize                    # Use all config settings
-localize -t tr,es          # Override just target languages
-localize --provider openai # Override just the provider
-```
-
-**Legacy Manual Usage (still supported):**
-
-```bash
-localize -s en -t tr,de,es --localesDir ./locales
-```
-
-#### Global Options
-
-| Option        | Description                        | Config Property | CLI Default       |
-| ------------- | ---------------------------------- | --------------- | ----------------- |
-| -s, --source  | Source language                    | source          | config.source     |
-| -t, --targets | Target languages (comma separated) | targets         | config.targets    |
-| --localesDir  | Locales directory                  | localesDir      | config.localesDir |
-| --debug       | Enable verbose logging             | advanced.debug  | false             |
-| --verbose     | Enable detailed diagnostics        | logging.verbose | false             |
-
-#### Translate Command Options
-
-| Option          | Description                  | Default  |
-| --------------- | ---------------------------- | -------- |
-| --provider      | Translation provider         | deepseek |
-| --concurrency   | Concurrent translations      | 3        |
-| --no-cache      | Disable translation caching  | false    |
-| --force         | Update existing translations | false    |
-| --length        | Length control mode          | smart    |
-| --auto-optimize | Optimize for your hardware   | false    |
-| --stats         | Show detailed statistics     | false    |
-
-#### Fix Command Options
-
-| Option   | Description       | Default |
-| -------- | ----------------- | ------- |
-| --length | Fix length issues | true    |
-
-#### Sync Configuration Options
-
-Configure synchronization behavior in `localize.config.js`:
-
-```javascript
-syncOptions: {
-    enabled: true, // Enable/disable sync features entirely
-    removeDeletedKeys: true, // Remove deleted keys from target files
-    retranslateModified: true, // Re-translate modified keys
-    backupBeforeSync: false, // Create backups before sync operations
-}
-```
-
-**Sync Options:**
-
-| Option              | Description                                   | Default |
-| ------------------- | --------------------------------------------- | ------- |
-| enabled             | Enable synchronization features               | true    |
-| removeDeletedKeys   | Remove deleted keys from target files         | true    |
-| retranslateModified | Re-translate keys when source content changes | true    |
-| backupBeforeSync    | Create backup files before sync operations    | false   |
-
-**State File Management:**
-
-The tool creates a `.localize-cache/` directory to store translation state. This directory is automatically added to `.gitignore` and should not be committed to version control.
-
-**Real-World Example:**
-
-```json
-// Before: en.json
-{
-  "welcome": "Welcome!",
-  "goodbye": "Goodbye!",
-  "hello": "Hello World"
-}
-
-// You modify en.json:
-// - Delete "goodbye" key
-// - Change "hello" to "Hello Universe"
-// - Add "new_feature" key
-
-// After: en.json
-{
-  "welcome": "Welcome!",
-  "hello": "Hello Universe",
-  "new_feature": "Check out our new feature!"
-}
-
-// Running: localize
-// Result:
-// 🔄 Sync Analysis:
-//    📝 New keys: 1 (new_feature)
-//    ✏️  Modified keys: 1 (hello)
-//    🗑️  Deleted keys: 1 (goodbye)
-//
-// 🗑️ Removing 1 deleted keys from target files...
-//    ✅ tr.json: Removed 1 keys
-//    ✅ de.json: Removed 1 keys
-//    ✅ es.json: Removed 1 keys
-//    # ... all languages
-//
-// 📝 Processing 1 new keys + 1 modified keys = 2 total translations needed
-```
-
-**Performance Benefits:**
-
-- **Incremental Processing**: Only processes changed content (2 keys instead of all 3)
-- **Faster Runs**: Skips unchanged translations ("welcome" key skipped)
-- **Automatic Cleanup**: Removes orphaned translations ("goodbye" removed from all files)
-- **Consistent State**: Maintains synchronization across team members
-
-#### Analyze Command Options
-
-| Option              | Description                | Default |
-| ------------------- | -------------------------- | ------- |
-| --use-ai            | Enable AI context analysis | true    |
-| --context-provider  | AI provider for analysis   | openai  |
-| --context-threshold | Keyword match threshold    | 2       |
-
-#### Advanced Command Options
-
-| Option                 | Description                    | Default |
-| ---------------------- | ------------------------------ | ------- |
-| --context-confidence   | Minimum confidence score       | 0.6     |
-| --context-debug        | Show detailed context analysis | false   |
-| --min-text-length      | Minimum text for AI analysis   | 40      |
-| --allow-new-categories | Allow AI to suggest categories | false   |
-| --max-retries          | Maximum retry attempts         | 2       |
-| --initial-delay        | Initial delay before retry     | 1000    |
-| --max-delay            | Maximum delay for backoff      | 10000   |
-| --timeout              | Request timeout in ms          | 60000   |
-| --max-batch-size       | Max items per batch            | 50      |
-
-## 🌟 Features
-
-### Smart Synchronization System
-
-- **Intelligent Change Detection**: SHA-256 hash-based comparison for precise change tracking
-- **Automatic Key Cleanup**: Removes deleted keys from all target language files
-- **Smart Re-translation**: Re-translates only modified keys with AI context analysis
-- **State Management**: Persistent state tracking in `.localize-cache/` directory
-- **Performance Optimized**: Processes only changed content for faster runs
-- **AI Context Integration**: Uses OpenAI for intelligent context-aware translations
-- **Backward Compatibility**: Works seamlessly with existing projects
-
-The tool now tracks changes in your source locale file and synchronizes them across all target languages with AI-powered context analysis:
-
-```bash
-# Example output showing sync detection with AI context analysis
-🧠 AI Context Analysis: ENABLED (Provider: openai)
-🔄 New category suggestions: ENABLED
-
-🔄 Sync Analysis:
-   📝 New keys: 5
-   ✏️  Modified keys: 2
-   🗑️  Deleted keys: 1
-
-🗑️ Removing 1 deleted keys from target files...
-   ✅ tr.json: Removed 1 keys
-   ✅ es.json: Removed 1 keys
-
-🧠 AI Context Analysis: defi (85.2%)
-📝 Processing 7 keys with intelligent context detection...
-```
-
-### Provider Integration
-
-| Provider  | Base Model       | RPM Limit | Concurrent | Fallback Order |
-| --------- | ---------------- | --------- | ---------- | -------------- |
-| DeepSeek  | deepseek-chat    | 60        | 3          | 1              |
-| OpenAI    | gpt-4o           | 60        | 3          | 2              |
-| Dashscope | qwen-plus        | 50        | 3          | 3              |
-| XAI       | grok-2-1212      | 60        | 3          | 4              |
-| Gemini    | gemini-1.5-flash | 100       | 3          | 5              |
-
-### Performance Optimizations
-
-- **Enhanced Rate Limiter**:
-    - Provider-specific dedicated queues with improved timeouts (10 seconds default)
-    - Per-provider concurrency limits with optimized settings (RPM: 60, Concurrency: 3)
-    - Automatic rate limiting based on API specifications
-    - Intelligent queue prioritization (priority vs. FIFO)
-    - Extended queue timeout protection to prevent request failures
-    - Adaptive throttling with auto-adjustment based on response times and error rates
-
-- **Advanced Caching**:
-    - Stale-while-revalidate cache strategy
-    - Background cache entry refresh
-    - Hash-based caching for large texts
-    - Performance metrics tracking
-    - Optimized TTL management
-
-- **Parallel Processing**:
-    - Multi-threaded language processing
-    - Provider-specific concurrent operation limits
-    - Hardware-aware auto-optimization
-    - Dynamic batching for optimal throughput
-    - Request prioritization (shorter texts prioritized)
-
-- **Asynchronous File Operations**:
-    - Modernized file operations with promises
-    - Atomic file write operations with temp files
-    - Error-resilient directory creation
-    - Parallel language batch processing
-    - Automatic file backups
-    - Configurable JSON formatting
-
-- **Adaptive Provider Management**:
-    - Intelligent provider selection based on success rates
-    - Automatic provider disabling after multiple failures
-    - Self-healing system with timed re-enabling
-    - Success-rate ordered provider chain
-    - Enhanced API key validation and error handling
-
-### Context Detection System
-
-- **AI-Powered Analysis**: Uses OpenAI (gpt-4o) for intelligent context detection
-- **Weighted Category Matching**: Keyword-based fast matching with confidence scoring
-- **Confidence-based Selection**: Automatic fallback to keyword matching for low-confidence results
-- **Debug Mode**: Detailed analysis information for troubleshooting
-- **Category-specific Prompts**: Customized translation instructions per context
-- **Dynamic Category Suggestion**: AI can suggest new categories (allowNewCategories option)
-- **Minimum Text Length Threshold**: Efficient processing with configurable text length limits
-- **Hybrid Approach**: Fast keyword matching + AI analysis for optimal performance
-
-### Quality Control
-
-- Placeholder validation
-- HTML tag preservation
-- Punctuation checking
-- Length control
-- Output sanitization
-- Markdown formatting preservation
-- AI artifacts cleanup
-- Special character normalization
-- Consistent whitespace handling
-- Code block preservation
-- Automatic issue fixing
-
-### Length Control Modes
-
-| Mode     | Tolerance | Description                                     |
-| -------- | --------- | ----------------------------------------------- |
-| strict   | 0.1       | Max 10% longer than source                      |
-| flexible | 0.3       | Max 30% longer than source                      |
-| exact    | 0.05      | Near exact length match (±5%)                   |
-| relaxed  | 0.5       | Max 50% longer for special cases                |
-| smart    | -         | Combines language and context rules dynamically |
-
-**Smart Mode Features:**
-
-- Language-specific length rules (e.g. Japanese: 35% max)
-- Context-aware adjustments (technical: 20% vs marketing: 30%)
-- Automatic brevity optimization
-- Priority to semantic accuracy over strict length
-
-### Error Handling and Reliability
-
-- Provider-specific error messages
-- Automatic fallback system
-- Progress preservation
-- Enhanced retry mechanism:
-    - Exponential backoff with jitter
-    - Error-type based retry decisions
-    - Customizable retry parameters
-    - Smart error categorization
-- Improved diagnostics with verbose mode
-- Detailed error logging and reporting
-- Request timeouts with configurable duration
-- Graceful shutdown with resource cleanup
-
-### System Settings and Diagnostics
-
-- Verbose mode for detailed logging
-- Configurable log rotation
-- Performance monitoring
-- Hardware utilization stats
-- File backups
-- Automatic system capacity detection
-- Request and response tracking
-
-### Real-time Progress
-
-```plaintext
-[tr] [==========          ] 50.0% | 250/500 items | ✅ 240 | ❌ 10 | ⏱️ 25.3s ETA: 1m 15s
-
-📊 Translation Summary:
-🔤 Language: tr
-🔢 Total Items: 500
-✅ Successful: 450 (90.0%)
-❌ Failed: 50
-⏱️ Total Time: 52.40s
-⚡ Average Speed: 9.54 items/second
-📏 Average Time per Item: 104ms
-
-🌍 Global Translation Summary:
-Languages Processed: 3
-Total Translations: 1340
-✅ Success: 1256
-❌ Failed: 84
-⏭️ Skipped: 160
-⏳ Total Time: 168.5s
-⚡ Average per language: 56.2s
-
-📊 Per-language Performance:
-tr: 450 added, 110 skipped, 50 failed (53.4s)
-es: 435 added, 50 skipped, 15 failed (47.2s)
-de: 371 added, 0 skipped, 19 failed (68.1s)
-
-📊 Context Analysis by Category:
-technical: 526 items (85.5% avg confidence)
-defi: 364 items (78.2% avg confidence)
-marketing: 218 items (81.7% avg confidence)
-general: 232 items
-
-```
-
-## 📜 License
-
-ISC License - Developed by [Ahmet Enes Dur](https://github.com/ahmetenesdur)
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📞 Support
-
-If you encounter any issues or have questions, please [open an issue](https://github.com/ahmetenesdur/ai-localization-tool/issues) on GitHub.
+[![GitHub](https://img.shields.io/badge/GitHub-ahmetenesdur-blue?logo=github)](https://github.com/ahmetenesdur)
