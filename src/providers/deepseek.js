@@ -1,0 +1,115 @@
+const axios = require("axios");
+const BaseProvider = require("./base-provider");
+const { getPrompt, getAnalysisPrompt } = require("../utils/prompt-templates");
+const RetryHelper = require("../utils/retry-helper");
+
+/**
+ * REFACTORED: DeepSeek provider now extends BaseProvider for consistency
+ */
+class DeepSeekProvider extends BaseProvider {
+	constructor(config = {}) {
+		super("deepseek", config);
+
+		this.client = axios.create({
+			baseURL: "https://api.deepseek.com/v1",
+			headers: {
+				...this.commonHeaders,
+				Authorization: `Bearer ${this.getApiKey()}`,
+			},
+			timeout: 45000, // Increased timeout for DeepSeek
+			maxRedirects: 0,
+			validateStatus: (status) => status < 500,
+		});
+	}
+
+	getApiKey() {
+		return process.env.DEEPSEEK_API_KEY;
+	}
+
+	getEndpoint() {
+		return "/chat/completions";
+	}
+
+	async translate(text, sourceLang, targetLang, options = {}) {
+		this.validateRequest(text, sourceLang, targetLang);
+
+		const config = this.getConfig(options.apiConfig?.deepseek);
+		const promptData = getPrompt("deepseek", sourceLang, targetLang, text, options);
+
+		return RetryHelper.withRetry(
+			async () => {
+				try {
+					const response = await this.client.post(this.getEndpoint(), {
+						model: config.model || "deepseek-chat",
+						...promptData,
+						temperature: config.temperature || 0.3,
+						max_tokens: config.maxTokens || 2000,
+					});
+
+					this.validateResponse(response, this.name);
+					const translation = this.extractTranslation(response.data, this.name);
+					return this.sanitizeTranslation(translation);
+				} catch (error) {
+					this.handleApiError(error, this.name);
+				}
+			},
+			{
+				maxRetries: options.retryOptions?.maxRetries || 3, // Increased retries for DeepSeek
+				initialDelay: options.retryOptions?.initialDelay || 2000, // Increased initial delay
+				context: "DeepSeek Provider",
+				logContext: {
+					source: sourceLang,
+					target: targetLang,
+				},
+			}
+		);
+	}
+
+	async analyze(prompt, options = {}) {
+		const config = this.getConfig({
+			model: options.model || "deepseek-chat",
+			temperature: options.temperature || 0.2,
+			maxTokens: options.maxTokens || 1000,
+		});
+
+		const promptData = getAnalysisPrompt("deepseek", prompt, options);
+
+		return RetryHelper.withRetry(
+			async () => {
+				try {
+					const response = await this.client.post(this.getEndpoint(), {
+						model: config.model,
+						...promptData,
+						temperature: config.temperature,
+						max_tokens: config.maxTokens,
+					});
+
+					this.validateResponse(response, this.name);
+					const result = this.extractTranslation(response.data, this.name);
+					return this.sanitizeTranslation(result);
+				} catch (error) {
+					this.handleApiError(error, this.name);
+				}
+			},
+			{
+				maxRetries: options.maxRetries || 2,
+				initialDelay: options.initialDelay || 1000,
+				context: "DeepSeek Provider Analysis",
+			}
+		);
+	}
+}
+
+// Create singleton instance for backward compatibility
+const deepseekProvider = new DeepSeekProvider();
+
+// Export both class and legacy functions
+async function translate(text, sourceLang, targetLang, options) {
+	return deepseekProvider.translate(text, sourceLang, targetLang, options);
+}
+
+async function analyze(prompt, options = {}) {
+	return deepseekProvider.analyze(prompt, options);
+}
+
+module.exports = { translate, analyze, DeepSeekProvider };

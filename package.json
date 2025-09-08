@@ -1,27 +1,17 @@
 {
 	"name": "ai-localization-tool",
-	"version": "1.5.0",
-	"main": "dist/core/orchestrator.js",
-	"types": "dist/types/index.d.ts",
+	"version": "1.2.0",
+	"main": "src/core/orchestrator.js",
 	"directories": {
-		"src": "src",
-		"dist": "dist"
+		"src": "src"
 	},
 	"bin": {
-		"localize": "./dist/bin/localize.js"
+		"localize": "./bin/localize.js"
 	},
 	"scripts": {
-		"build": "tsc && tsc-alias",
-		"build:watch": "tsc --watch",
-		"dev": "ts-node -r tsconfig-paths/register src/core/orchestrator.ts",
-		"start": "ts-node -r tsconfig-paths/register bin/localize.ts",
-		"start:ts": "ts-node -r tsconfig-paths/register bin/localize.ts",
-		"clean": "rm -rf dist",
-		"typecheck": "tsc --noEmit",
+		"start": "node bin/localize.js",
 		"format": "prettier --write \"**/*.{js,json,md,jsx,ts,tsx,css}\"",
-		"format:check": "prettier --check \"**/*.{js,json,md,jsx,ts,tsx,css}\"",
-		"lint": "tsc --noEmit && prettier --check \"**/*.{js,json,md,jsx,ts,tsx,css}\"",
-		"prepublishOnly": "npm run clean && npm run build"
+		"format:check": "prettier --check \"**/*.{js,json,md,jsx,ts,tsx,css}\""
 	},
 	"keywords": [
 		"translation",
@@ -36,10 +26,6 @@
 		"url": "https://github.com/ahmetenesdur"
 	},
 	"license": "ISC",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/ahmetenesdur/ai-localization-tool.git"
-	},
 	"description": "CLI tool for translating Next.js locale files with advanced settings and multiple AI providers",
 	"dependencies": {
 		"@azure-rest/ai-inference": "^1.0.0-beta.5",
@@ -50,23 +36,10 @@
 		"lru-cache": "^11.0.2"
 	},
 	"devDependencies": {
-		"@types/lru-cache": "^7.10.10",
-		"@types/node": "^24.3.1",
-		"nodemon": "^3.1.10",
-		"prettier": "^3.1.0",
-		"ts-node": "^10.9.2",
-		"tsconfig-paths": "^4.2.0",
-		"tsc-alias": "^1.8.16",
-		"typescript": "^5.9.2"
+		"prettier": "^3.1.0"
 	},
 	"files": [
 		"bin/",
-		"src/",
-		"dist/",
-		"README.md",
-		"LICENSE"
-	],
-	"engines": {
-		"node": ">=18.0.0"
-	}
+		"src/"
+	]
 }
