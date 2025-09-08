@@ -139,7 +139,8 @@ class BaseProvider {
 		return {
 			model: options.model || this.defaultModel,
 			temperature: options.temperature ?? this.defaultTemperature,
-			max_tokens: options.maxTokens || this.defaultMaxTokens,
+			maxTokens: options.maxTokens || this.defaultMaxTokens,
+			max_tokens: options.maxTokens || this.defaultMaxTokens, // Backward compatibility
 			apiKey: apiKey,
 			endpoint: this.getEndpoint(),
 		};

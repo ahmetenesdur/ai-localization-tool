@@ -18,9 +18,9 @@ module.exports = {
 	/**
 	 * API Provider Configuration
 	 */
-	apiProvider: "deepseek", // Default/primary provider
+	apiProvider: "dashscope", // Default/primary provider
 	useFallback: true, // Enable automatic fallback to other providers if primary fails
-	fallbackOrder: ["deepseek", "openai", "gemini"], // Fallback order
+	fallbackOrder: ["dashscope", "deepseek", "openai", "gemini"], // Fallback order
 	apiConfig: {
 		dashscope: {
 			model: "qwen-plus",
@@ -29,13 +29,13 @@ module.exports = {
 			contextWindow: 8000, // Maximum context window size
 		},
 		xai: {
-			model: "grok-2-1212",
+			model: "grok-4",
 			temperature: 0.3,
 			maxTokens: 2000,
 			contextWindow: 8000,
 		},
 		openai: {
-			model: "gpt-4o-mini",
+			model: "gpt-4o",
 			temperature: 0.3,
 			maxTokens: 2000,
 			contextWindow: 16000,
@@ -47,7 +47,7 @@ module.exports = {
 			contextWindow: 8000,
 		},
 		gemini: {
-			model: "gemini-2.5-flash-lite",
+			model: "gemini-2.0-flash-exp",
 			temperature: 0.3,
 			maxTokens: 2000,
 			contextWindow: 16000,
@@ -111,7 +111,7 @@ module.exports = {
 		allowNewCategories: true, // Allow AI to suggest new categories
 		debug: false, // Show detailed analysis information
 		analysisOptions: {
-			model: "gpt-4o-mini", // OpenAI model for analysis
+			model: "gpt-4o", // OpenAI model for analysis
 			temperature: 0.2, // Slightly higher temperature for more creative context analysis
 			maxTokens: 1000, // Maximum tokens for analysis
 		},

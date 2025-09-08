@@ -33,7 +33,7 @@ class GeminiProvider extends BaseProvider {
 		this.validateRequest(text, sourceLang, targetLang);
 
 		const config = this.getConfig(options.apiConfig?.gemini);
-		const model = config.model || "gemini-1.5-flash";
+		const model = config.model || "gemini-2.0-flash-exp";
 		const apiKey = this.getApiKey();
 
 		if (!apiKey) {
@@ -87,7 +87,7 @@ class GeminiProvider extends BaseProvider {
 
 	async analyze(prompt, options = {}) {
 		const config = this.getConfig({
-			model: options.model || "gemini-1.5-flash",
+			model: options.model || "gemini-2.0-flash-exp",
 			temperature: options.temperature || 0.2,
 			maxTokens: options.maxTokens || 1000,
 		});

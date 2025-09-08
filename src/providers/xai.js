@@ -40,7 +40,7 @@ class XAIProvider extends BaseProvider {
 			async () => {
 				try {
 					const response = await this.client.post(this.getEndpoint(), {
-						model: config.model || "grok-2-1212",
+						model: config.model || "grok-4",
 						...promptData,
 						temperature: config.temperature || 0.3,
 						max_tokens: config.maxTokens || 2000,
@@ -67,7 +67,7 @@ class XAIProvider extends BaseProvider {
 
 	async analyze(prompt, options = {}) {
 		const config = this.getConfig({
-			model: options.model || "grok-2-1212",
+			model: options.model || "grok-4",
 			temperature: options.temperature || 0.2,
 			maxTokens: options.maxTokens || 1000,
 		});

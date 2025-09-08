@@ -40,10 +40,10 @@ class OpenAIProvider extends BaseProvider {
 			async () => {
 				try {
 					const response = await this.client.post(this.getEndpoint(), {
-						model: config.model,
+						model: config.model || "gpt-4o",
 						...promptData,
 						temperature: config.temperature,
-						max_tokens: config.max_tokens,
+						max_completion_tokens: config.maxTokens || config.max_tokens,
 					});
 
 					this.validateResponse(response, this.name);
@@ -95,7 +95,7 @@ OpenAIProvider.prototype.analyze = async function (prompt, options = {}) {
 					model: config.model,
 					...promptData,
 					temperature: config.temperature,
-					max_tokens: config.max_tokens,
+					max_completion_tokens: config.maxTokens || config.max_tokens,
 				});
 
 				this.validateResponse(response, this.name);
