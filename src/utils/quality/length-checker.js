@@ -126,4 +126,10 @@ class LengthChecker {
 	}
 }
 
+<<<<<<< Updated upstream:src/utils/quality/length-checker.js
 module.exports = LengthChecker;
+=======
+export default LengthChecker;
+export type { LengthControlConfig, TranslationOptions, LengthConfig, AllowedRange, LengthIssue };
+export { LengthChecker };
+>>>>>>> Stashed changes:src/utils/quality/length-checker.ts

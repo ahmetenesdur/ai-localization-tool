@@ -121,7 +121,11 @@ class BaseProvider {
 			prompt += " Keep the translation length similar to the original.";
 		}
 
+<<<<<<< Updated upstream:src/providers/base-provider.js
 		prompt += `\n\nText to translate: "${text}"`;
+=======
+		prompt += `.\n\nText to translate: "${text}"`;
+>>>>>>> Stashed changes:src/providers/base-provider.ts
 		prompt += "\n\nProvide only the translation without explanations or quotes.";
 
 		return prompt;
@@ -148,11 +152,16 @@ class BaseProvider {
 	/**
 	 * OPTIMIZED: Extract translation from various response formats
 	 */
+<<<<<<< Updated upstream:src/providers/base-provider.js
 	extractTranslation(response, providerName) {
 		// Debug logging for DeepSeek issues
 		if (providerName === "deepseek") {
 			console.log(`DeepSeek response structure:`, JSON.stringify(response, null, 2));
 		}
+=======
+	protected extractTranslation(response: ProviderResponse, providerName: string): string {
+		// Remove debug logging for DeepSeek issues in production
+>>>>>>> Stashed changes:src/providers/base-provider.ts
 
 		// Try common response formats
 		if (response.choices && response.choices[0]?.message?.content) {
@@ -215,11 +224,33 @@ class BaseProvider {
 			throw new Error("Invalid translation format");
 		}
 
+<<<<<<< Updated upstream:src/providers/base-provider.js
 		return translation
 			.replace(/^["']|["']$/g, "") // Remove surrounding quotes
 			.replace(/^\s*Translation:\s*/i, "") // Remove "Translation:" prefix
 			.replace(/^\s*Result:\s*/i, "") // Remove "Result:" prefix
 			.trim();
+=======
+		// Check for placeholder consistency
+		const originalPlaceholders = original.match(/\{\{[^}]+\}\}/g) || [];
+		const translatedPlaceholders = translated.match(/\{\{[^}]+\}\}/g) || [];
+
+		return originalPlaceholders.length === translatedPlaceholders.length;
+	}
+
+	/**
+	 * Get provider name
+	 */
+	getName(): string {
+		return this.name;
+	}
+
+	/**
+	 * Get provider configuration
+	 */
+	getProviderConfig(): ApiConfig {
+		return { ...this.config };
+>>>>>>> Stashed changes:src/providers/base-provider.ts
 	}
 }
 

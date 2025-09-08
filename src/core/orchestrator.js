@@ -7,8 +7,40 @@ const { LRUCache } = require("lru-cache");
 const crypto = require("crypto");
 const gracefulShutdown = require("../utils/graceful-shutdown");
 
+<<<<<<< Updated upstream:src/core/orchestrator.js
 class Orchestrator {
 	constructor(options) {
+=======
+interface TranslationItem {
+	key: string;
+	text: string;
+	targetLang: string;
+	existingTranslation?: string;
+}
+
+interface CachedTranslationResult extends TranslationResult {
+	refreshed?: string;
+}
+
+interface CacheContext {
+	text: string;
+	targetLang: string;
+	contextData?: ContextData;
+}
+
+export class Orchestrator {
+	private options: LocalizationConfig;
+	private contextProcessor: ContextProcessor | undefined;
+	private progress: any | undefined; // TODO: Type this when migrating progress-tracker
+	private qualityChecker: any | undefined; // TODO: Type this when migrating quality checker
+	private advanced: Required<AdvancedConfig>;
+	private translationCache: LRUCache<string, CachedTranslationResult, CacheContext> | undefined;
+	private cacheStats: CacheStats;
+	private concurrencyLimit: number;
+	private _shutdownCallback: (() => Promise<void>) | null = null;
+
+	constructor(options: LocalizationConfig) {
+>>>>>>> Stashed changes:src/core/orchestrator.ts
 		this.options = options;
 		this.contextProcessor = new ContextProcessor(options.context);
 
@@ -112,18 +144,23 @@ class Orchestrator {
 
 		const cacheKey = this._generateCacheKey(text, targetLang, contextData?.category);
 
-		if (this.options.cacheEnabled !== false && this.translationCache?.has?.(cacheKey)) {
+		if (
+			this.options.cacheEnabled !== false &&
+			this.translationCache &&
+			this.translationCache.has(cacheKey)
+		) {
 			const cachedResult = this.translationCache.get(cacheKey);
 
 			if (!cachedResult || typeof cachedResult !== "object") {
 				this.cacheStats.misses++;
-				this.translationCache.delete(cacheKey); // Clean up invalid cache entry
+				this.translationCache && this.translationCache.delete(cacheKey); // Clean up invalid cache entry
 			} else {
 				this.cacheStats.hits++;
 
 				// Enhanced stale check with proper null safety
 				try {
-					const ttl = this.translationCache.getRemainingTTL?.(cacheKey);
+					const ttl =
+						this.translationCache && this.translationCache.getRemainingTTL(cacheKey);
 					if (typeof ttl === "number" && ttl <= 0) {
 						this.cacheStats.staleHits++;
 					}
@@ -144,16 +181,16 @@ class Orchestrator {
 
 		try {
 			// FIXED: Enhanced null safety for provider factory
-			const provider = ProviderFactory.getProvider(
-				this.options?.apiProvider,
-				this.options?.useFallback !== false,
+			const provider = await ProviderFactory.getProvider(
+				this.options.apiProvider,
+				this.options.useFallback !== false,
 				this.options // Pass full config for fallbackOrder support
 			);
 
 			// FIXED: More robust provider validation
 			if (!provider || typeof provider.translate !== "function") {
 				throw new Error(
-					`Translation provider not available or invalid: ${this.options?.apiProvider || "unknown"}`
+					`Translation provider not available or invalid: ${this.options.apiProvider || "unknown"}`
 				);
 			}
 
@@ -181,6 +218,7 @@ class Orchestrator {
 			};
 
 			// Add result to cache if enabled
+<<<<<<< Updated upstream:src/core/orchestrator.js
 			if (this.options.cacheEnabled !== false) {
 				this.translationCache.set(cacheKey, result, {
 					context: {
@@ -190,6 +228,10 @@ class Orchestrator {
 						contextData,
 					},
 				});
+=======
+			if (this.options.cacheEnabled !== false && this.translationCache) {
+				this.translationCache.set(cacheKey, result);
+>>>>>>> Stashed changes:src/core/orchestrator.ts
 				this.cacheStats.stored++;
 			}
 
@@ -228,7 +270,9 @@ class Orchestrator {
 
 			const chunkPromises = chunk.map(async (item) => {
 				try {
-					const contextData = await this.contextProcessor.analyze(item.text);
+					const contextData = this.contextProcessor
+						? await this.contextProcessor.analyze(item.text)
+						: undefined;
 
 					const result = await this.processTranslation(
 						item.key,
@@ -303,8 +347,15 @@ class Orchestrator {
 		}
 	}
 
+<<<<<<< Updated upstream:src/core/orchestrator.js
 	clearCache() {
 		this.translationCache.clear();
+=======
+	clearCache(): void {
+		if (this.translationCache) {
+			this.translationCache.clear();
+		}
+>>>>>>> Stashed changes:src/core/orchestrator.ts
 		this.resetCacheStats();
 	}
 
@@ -323,8 +374,8 @@ class Orchestrator {
 	getCacheStats() {
 		return {
 			...this.cacheStats,
-			size: this.translationCache.size,
-			capacity: this.translationCache.max,
+			size: this.translationCache ? this.translationCache.size : 0,
+			capacity: this.translationCache ? this.translationCache.max : 0,
 			hitRate: this.cacheStats.hits / (this.cacheStats.hits + this.cacheStats.misses) || 0,
 		};
 	}
@@ -352,7 +403,7 @@ class Orchestrator {
 		}
 
 		try {
-			const provider = ProviderFactory.getProvider(
+			const provider = await ProviderFactory.getProvider(
 				this.options.apiProvider,
 				this.options.useFallback !== false,
 				this.options // Pass full config for fallbackOrder support
@@ -369,6 +420,7 @@ class Orchestrator {
 			);
 
 			// Get current entry to update only the translation
+<<<<<<< Updated upstream:src/core/orchestrator.js
 			const currentEntry = this.translationCache.get(key);
 			if (currentEntry) {
 				// Apply quality checks
@@ -385,8 +437,24 @@ class Orchestrator {
 					},
 					{ context }
 				);
+=======
+			if (this.translationCache) {
+				const currentEntry = this.translationCache.get(key);
+				if (currentEntry) {
+					// TODO: Apply quality checks when migrated
+					// const qualityResult = this.qualityChecker.validateAndFix(context.text, translated);
 
-				this.cacheStats.refreshes++;
+					// Update cache with fresh data
+					this.translationCache.set(key, {
+						...currentEntry,
+						translated: translated, // qualityResult.fixedText when quality checker is migrated
+						// qualityChecks: qualityResult,
+						refreshed: new Date().toISOString(),
+					});
+>>>>>>> Stashed changes:src/core/orchestrator.ts
+
+					this.cacheStats.refreshes++;
+				}
 			}
 		} catch (error) {
 			console.warn(`Failed to refresh cache entry: ${error.message}`);
@@ -421,11 +489,19 @@ class Orchestrator {
 			this._shutdownCallback = null;
 		}
 
+<<<<<<< Updated upstream:src/core/orchestrator.js
 		// Clear references
 		this.translationCache = null;
 		this.contextProcessor = null;
 		this.progress = null;
 		this.qualityChecker = null;
+=======
+		// Clear references using undefined instead of null as any
+		this.translationCache = undefined;
+		this.contextProcessor = undefined;
+		this.progress = undefined;
+		this.qualityChecker = undefined;
+>>>>>>> Stashed changes:src/core/orchestrator.ts
 	}
 }
 

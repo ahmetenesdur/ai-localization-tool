@@ -6,11 +6,57 @@ const xaiProvider = require("../providers/xai");
 const FallbackProvider = require("./fallback-provider");
 const rateLimiter = require("../utils/rate-limiter");
 
+<<<<<<< Updated upstream:src/core/provider-factory.js
 class ProviderFactory {
+=======
+// Import provider implementations
+import type { DashScopeProvider } from "@/providers/dashscope";
+import type { XAIProvider } from "@/providers/xai";
+import type { OpenAIProvider } from "@/providers/openai";
+import type { DeepSeekProvider } from "@/providers/deepseek";
+import type { GeminiProvider } from "@/providers/gemini";
+
+interface ProviderImplementation {
+	translate: (
+		text: string,
+		sourceLang: string,
+		targetLang: string,
+		options?: TranslationOptions
+	) => Promise<string>;
+	analyze?: (prompt: string, options?: any) => Promise<string>;
+}
+
+interface ProviderEntry {
+	name: string;
+	implementation: ProviderImplementation;
+}
+
+interface WrappedProvider {
+	translate: (
+		text: string,
+		sourceLang: string,
+		targetLang: string,
+		options?: TranslationOptions
+	) => Promise<string>;
+	analyze?: (prompt: string, options?: any) => Promise<string>;
+}
+
+export class ProviderFactory {
+	// Extracted environment-variable mapping constant
+	private static readonly PROVIDER_ENV_VARS: Record<string, string> = {
+		dashscope: "DASHSCOPE_API_KEY",
+		xai: "XAI_API_KEY",
+		openai: "OPENAI_API_KEY",
+		deepseek: "DEEPSEEK_API_KEY",
+		gemini: "GEMINI_API_KEY",
+	};
+
+>>>>>>> Stashed changes:src/core/provider-factory.ts
 	/**
 	 * Get provider with intelligent fallback based on configuration
 	 * FIXED: Now respects config.fallbackOrder for proper provider chaining
 	 */
+<<<<<<< Updated upstream:src/core/provider-factory.js
 	static getProvider(providerName, useFallback = true, config = null) {
 		const providers = {
 			dashscope: dashscopeProvider,
@@ -19,6 +65,43 @@ class ProviderFactory {
 			deepseek: deepseekProvider,
 			gemini: geminiProvider,
 		};
+=======
+	static async getProvider(
+		providerName?: string,
+		useFallback: boolean = true,
+		config: LocalizationConfig | null = null
+	): Promise<WrappedProvider | any> {
+		// Dynamic imports for providers using ES modules
+		const providers: Record<string, ProviderImplementation> = {};
+
+		// Load providers dynamically only if they are configured
+		const availableProviders = this.getAvailableProviders();
+
+		if (availableProviders.includes("dashscope")) {
+			const { dashscopeProvider } = await import("../providers/dashscope");
+			providers.dashscope = dashscopeProvider;
+		}
+
+		if (availableProviders.includes("xai")) {
+			const { xaiProvider } = await import("../providers/xai");
+			providers.xai = xaiProvider;
+		}
+
+		if (availableProviders.includes("openai")) {
+			const { openaiProvider } = await import("../providers/openai");
+			providers.openai = openaiProvider;
+		}
+
+		if (availableProviders.includes("deepseek")) {
+			const { deepseekProvider } = await import("../providers/deepseek");
+			providers.deepseek = deepseekProvider;
+		}
+
+		if (availableProviders.includes("gemini")) {
+			const { geminiProvider } = await import("../providers/gemini");
+			providers.gemini = geminiProvider;
+		}
+>>>>>>> Stashed changes:src/core/provider-factory.ts
 
 		// Ensure the provider name is properly normalized
 		const normalizedProviderName = (providerName || "").toLowerCase();
@@ -121,7 +204,13 @@ class ProviderFactory {
 		}
 
 		// Create fallback provider with ordered list of providers
+<<<<<<< Updated upstream:src/core/provider-factory.js
 		return new FallbackProvider(allProviders);
+=======
+		// This will be typed properly when FallbackProvider is migrated
+		const FallbackProviderModule = await import("./fallback-provider");
+		return new FallbackProviderModule.default(allProviders);
+>>>>>>> Stashed changes:src/core/provider-factory.ts
 	}
 
 	static getAvailableProviders() {

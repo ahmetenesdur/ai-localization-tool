@@ -43,4 +43,10 @@ class PunctuationChecker {
 	}
 }
 
+<<<<<<< Updated upstream:src/utils/quality/punctuation-checker.js
 module.exports = PunctuationChecker;
+=======
+export default PunctuationChecker;
+export type { PunctuationIssue, PunctuationFixResult };
+export { PunctuationChecker };
+>>>>>>> Stashed changes:src/utils/quality/punctuation-checker.ts

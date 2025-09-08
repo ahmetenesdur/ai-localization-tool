@@ -1,7 +1,13 @@
 {
 	"name": "ai-localization-tool",
+<<<<<<< Updated upstream
 	"version": "1.2.0",
 	"main": "src/core/orchestrator.js",
+=======
+	"version": "1.5.0",
+	"main": "dist/index.js",
+	"types": "dist/types/index.d.ts",
+>>>>>>> Stashed changes
 	"directories": {
 		"src": "src"
 	},
@@ -36,7 +42,17 @@
 		"lru-cache": "^11.0.2"
 	},
 	"devDependencies": {
+<<<<<<< Updated upstream
 		"prettier": "^3.1.0"
+=======
+		"@types/node": "^24.3.1",
+		"nodemon": "^3.1.10",
+		"prettier": "^3.1.0",
+		"ts-node": "^10.9.2",
+		"tsconfig-paths": "^4.2.0",
+		"tsc-alias": "^1.8.16",
+		"typescript": "^5.9.2"
+>>>>>>> Stashed changes
 	},
 	"files": [
 		"bin/",

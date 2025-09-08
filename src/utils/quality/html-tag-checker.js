@@ -53,4 +53,10 @@ class HtmlTagChecker {
 	}
 }
 
+<<<<<<< Updated upstream:src/utils/quality/html-tag-checker.js
 module.exports = HtmlTagChecker;
+=======
+export default HtmlTagChecker;
+export type { HtmlTagIssue, HtmlTagFixResult };
+export { HtmlTagChecker };
+>>>>>>> Stashed changes:src/utils/quality/html-tag-checker.ts

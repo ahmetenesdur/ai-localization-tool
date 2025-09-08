@@ -6,7 +6,13 @@
  * including API providers, performance settings, and quality controls.
  */
 
+<<<<<<< Updated upstream:localize.config.js
 module.exports = {
+=======
+import type { LocalizationConfig } from "./src/types";
+
+const config = {
+>>>>>>> Stashed changes:localize.config.ts
 	/**
 	 * Basic Configuration
 	 */
@@ -312,4 +318,10 @@ module.exports = {
 		autoOptimize: true, // Automatically optimize settings for hardware
 		debug: false, // Enable debug mode with additional information
 	},
+<<<<<<< Updated upstream:localize.config.js
 };
+=======
+} satisfies LocalizationConfig;
+
+export default config;
+>>>>>>> Stashed changes:localize.config.ts

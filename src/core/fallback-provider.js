@@ -1,5 +1,62 @@
+<<<<<<< Updated upstream:src/core/fallback-provider.js
 const RetryHelper = require("../utils/retry-helper");
 const rateLimiter = require("../utils/rate-limiter");
+=======
+import RetryHelper from "@/utils/retry-helper";
+import rateLimiter from "@/utils/rate-limiter";
+
+interface ProviderImplementation {
+	translate: (
+		text: string,
+		sourceLang: string,
+		targetLang: string,
+		options?: any
+	) => Promise<string>;
+	analyze?: (prompt: string, options?: any) => Promise<string>;
+}
+
+interface ProviderEntry {
+	name: string;
+	implementation: ProviderImplementation;
+}
+
+interface ProviderStats {
+	success: number;
+	failure: number;
+	avgResponseTime: number;
+	totalTime: number;
+	lastSuccess: Date | null;
+	consecutiveFailures: number;
+	lastError: {
+		time: Date;
+		message: string;
+	} | null;
+	disabled: boolean;
+	disabledUntil: number | null;
+	reenableTimerId?: NodeJS.Timeout | null;
+	successRate?: number;
+	totalCalls?: number;
+	avgResponseTimeMs?: number;
+	isDisabled?: boolean;
+	enablesInMs?: number;
+}
+
+interface TranslationOptions {
+	[key: string]: any;
+	retryOptions?: {
+		maxRetries?: number;
+		initialDelay?: number;
+	};
+	maxRetries?: number;
+	initialDelay?: number;
+}
+
+interface ErrorRecord {
+	provider: string;
+	error: string;
+	attempt: number;
+}
+>>>>>>> Stashed changes:src/core/fallback-provider.ts
 
 class FallbackProvider {
 	constructor(providers) {
@@ -117,7 +174,9 @@ class FallbackProvider {
 				stats.lastSuccess = new Date();
 
 				// Update average response time using weighted average
-				const prevTotal = stats.avgResponseTime * (stats.success + stats.failure - 1);
+				// Capture previous count before incrementing to avoid off-by-one error
+				const prevCount = stats.success + stats.failure - 1; // -1 because we just incremented success
+				const prevTotal = stats.avgResponseTime * prevCount;
 				stats.totalTime = prevTotal + responseTime;
 				stats.avgResponseTime = stats.totalTime / (stats.success + stats.failure);
 
@@ -192,7 +251,7 @@ class FallbackProvider {
 		this._checkAndReRankProviders();
 
 		// Get available providers (not disabled)
-		const availableProviders = this.providers.filter(
+		let availableProviders = this.providers.filter(
 			(provider) =>
 				!this._isProviderDisabled(provider) &&
 				typeof provider.implementation.analyze === "function"
@@ -201,8 +260,8 @@ class FallbackProvider {
 		if (availableProviders.length === 0) {
 			// If all providers are disabled, reset and try those with analyze capability
 			this._resetDisabledProviders();
-			availableProviders.push(
-				...this.providers.filter((p) => typeof p.implementation.analyze === "function")
+			availableProviders = this.providers.filter(
+				(p) => typeof p.implementation.analyze === "function"
 			);
 		}
 
@@ -263,7 +322,9 @@ class FallbackProvider {
 				stats.lastSuccess = new Date();
 
 				// Update average response time
-				const prevTotal = stats.avgResponseTime * (stats.success + stats.failure - 1);
+				// Capture previous count before incrementing to avoid off-by-one error
+				const prevCount = stats.success + stats.failure - 1; // -1 because we just incremented success
+				const prevTotal = stats.avgResponseTime * prevCount;
 				stats.totalTime = prevTotal + responseTime;
 				stats.avgResponseTime = stats.totalTime / (stats.success + stats.failure);
 
@@ -435,13 +496,19 @@ class FallbackProvider {
 		const providerName = this._getProviderName(provider);
 		const stats = this.providerStats.get(providerName);
 		if (stats) {
+			// Clear any existing timer before scheduling a new one
+			if (stats.reenableTimerId) {
+				clearTimeout(stats.reenableTimerId);
+			}
+
 			stats.disabled = true;
 			stats.disabledUntil = Date.now() + timeoutMs;
 
-			// Schedule re-enabling
-			setTimeout(() => {
+			// Schedule re-enabling and store timer ID
+			stats.reenableTimerId = setTimeout(() => {
 				stats.disabled = false;
 				stats.disabledUntil = null;
+				stats.reenableTimerId = null; // Clear the timer ID
 				console.log(`Re-enabled provider: ${providerName}`);
 			}, timeoutMs);
 
@@ -475,6 +542,11 @@ class FallbackProvider {
 		this.providerStats.forEach((stats) => {
 			stats.disabled = false;
 			stats.disabledUntil = null;
+			// Clear any outstanding re-enable timers
+			if (stats.reenableTimerId) {
+				clearTimeout(stats.reenableTimerId);
+				stats.reenableTimerId = null;
+			}
 		});
 	}
 
@@ -484,4 +556,9 @@ class FallbackProvider {
 	}
 }
 
+<<<<<<< Updated upstream:src/core/fallback-provider.js
 module.exports = FallbackProvider;
+=======
+export default FallbackProvider;
+export type { ProviderEntry, ProviderImplementation, ProviderStats, TranslationOptions };
+>>>>>>> Stashed changes:src/core/fallback-provider.ts

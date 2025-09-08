@@ -1,6 +1,44 @@
+<<<<<<< Updated upstream:src/utils/state-manager.js
 const crypto = require("crypto");
 const { FileManager } = require("./file-manager");
 const path = require("path");
+=======
+import * as crypto from "crypto";
+import { FileManager } from "@/utils/file-manager";
+import * as fs from "fs/promises";
+import * as path from "path";
+
+interface StateManagerOptions {
+	stateFileName?: string;
+	stateDir?: string;
+}
+
+interface StateComparisonResult {
+	deletedKeys: string[];
+	modifiedKeys: string[];
+	newKeys: string[];
+	hasChanges: boolean;
+}
+
+interface ComparisonStats {
+	totalChanges: number;
+	deletedCount: number;
+	modifiedCount: number;
+	newCount: number;
+	hasChanges: boolean;
+}
+
+interface StateMetadata {
+	lastUpdated: string;
+	version: string;
+	toolVersion: string;
+}
+
+interface StateWithMetadata {
+	[key: string]: string | StateMetadata | undefined;
+	_metadata?: StateMetadata;
+}
+>>>>>>> Stashed changes:src/utils/state-manager.ts
 
 /**
  * StateManager - Tracks changes in source locale files using hash-based state management
@@ -70,7 +108,22 @@ class StateManager {
 			const stateDir = path.dirname(stateFilePath);
 			await FileManager.ensureDir(stateDir);
 
+<<<<<<< Updated upstream:src/utils/state-manager.js
 			// Save state with metadata
+=======
+			// Get package version - more robust approach
+			let version = "1.0.0";
+			try {
+				// Use a more robust method to find package.json
+				const packagePath = path.resolve(__dirname, "../../package.json");
+				const packageJsonContent = await fs.readFile(packagePath, "utf-8");
+				const packageJson = JSON.parse(packageJsonContent);
+				version = packageJson.version || "1.0.0";
+			} catch (versionError) {
+				console.warn("Could not read package version, using default:", versionError);
+			}
+
+>>>>>>> Stashed changes:src/utils/state-manager.ts
 			const stateWithMetadata = {
 				...state,
 				_metadata: {
@@ -184,4 +237,10 @@ class StateManager {
 	}
 }
 
+<<<<<<< Updated upstream:src/utils/state-manager.js
 module.exports = StateManager;
+=======
+export default StateManager;
+export type { StateManagerOptions, StateComparisonResult, ComparisonStats, StateWithMetadata };
+export { StateManager };
+>>>>>>> Stashed changes:src/utils/state-manager.ts

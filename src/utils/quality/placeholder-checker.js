@@ -65,4 +65,10 @@ class PlaceholderChecker {
 	}
 }
 
+<<<<<<< Updated upstream:src/utils/quality/placeholder-checker.js
 module.exports = PlaceholderChecker;
+=======
+export default PlaceholderChecker;
+export type { PlaceholderIssue, PlaceholderFixResult };
+export { PlaceholderChecker };
+>>>>>>> Stashed changes:src/utils/quality/placeholder-checker.ts

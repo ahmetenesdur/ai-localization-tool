@@ -60,13 +60,55 @@ module.exports = {
 };
 ```
 
+<<<<<<< Updated upstream
+=======
+Or use `localize.config.ts` if you prefer TypeScript with full type safety:
+
+``typescript
+export default {
+// Basic Settings
+localesDir: "./locales",
+source: "en",
+targets: ["tr", "de", "es", "fr", "ja", "zh"],
+
+    // AI Provider
+    apiProvider: "deepseek",
+    useFallback: true,
+
+    // Performance
+    concurrencyLimit: 5,
+    cacheEnabled: true,
+
+    // Context Detection
+    context: {
+    	enabled: true,
+    	useAI: true,
+    	categories: {
+    		technical: {
+    			keywords: ["API", "backend", "database"],
+    			prompt: "Preserve technical terms",
+    		},
+    		marketing: {
+    			keywords: ["brand", "campaign", "customer"],
+    			prompt: "Use engaging language",
+    		},
+    	},
+    },
+
+} satisfies import("./src/types").LocalizationConfig;
+
+````
+
+> **Note**: If you are using the repo source directly, you should adjust the path to your local `src/types` location so the `satisfies` type resolves correctly.
+
+>>>>>>> Stashed changes
 ### 2. Set API Keys
 
 Create `.env` file:
 
 ```bash
 cp .env.example .env
-```
+````
 
 ```env
 OPENAI_API_KEY=your_key_here
@@ -201,7 +243,7 @@ pnpm format
 
 Here's the complete configuration file with all available options and their explanations:
 
-```javascript
+```
 /**
  * Localization Tool Configuration
  * Version: 1.0.0
