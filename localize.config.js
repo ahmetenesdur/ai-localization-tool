@@ -18,9 +18,9 @@ module.exports = {
 	/**
 	 * API Provider Configuration
 	 */
-	apiProvider: "dashscope", // Default/primary provider
+	apiProvider: "openai", // Default/primary provider (changed from dashscope due to performance issues)
 	useFallback: true, // Enable automatic fallback to other providers if primary fails
-	fallbackOrder: ["dashscope", "deepseek", "openai", "gemini"], // Fallback order
+	fallbackOrder: ["openai", "dashscope", "deepseek", "gemini", "xai"], // Fallback order (OpenAI first for better performance)
 	apiConfig: {
 		dashscope: {
 			model: "qwen-plus",
@@ -58,7 +58,7 @@ module.exports = {
 	 * Performance Optimization - OPTIMIZED FOR SPEED
 	 */
 	// Concurrency and Cache Settings
-	concurrencyLimit: 15, // MAXIMUM parallelism for speed
+	concurrencyLimit: 1, // Increased for faster processing
 	cacheEnabled: true, // Enable translation caching
 	cacheTTL: 24 * 60 * 60 * 1000, // Cache TTL in milliseconds (24 hours)
 	cacheSize: 2000, // Increased cache size
@@ -67,15 +67,15 @@ module.exports = {
 	rateLimiter: {
 		enabled: true, // Enable rate limiting
 		providerLimits: {
-			dashscope: { rpm: 200, concurrency: 8 },
-			xai: { rpm: 250, concurrency: 8 },
-			openai: { rpm: 1200, concurrency: 20 }, // MAXIMUM aggressive for OpenAI
-			deepseek: { rpm: 150, concurrency: 8 },
-			gemini: { rpm: 1000, concurrency: 20 },
+			dashscope: { rpm: 200, concurrency: 8 }, // Increased for speed
+			xai: { rpm: 300, concurrency: 10 },
+			openai: { rpm: 1000, concurrency: 15 }, // Much more aggressive
+			deepseek: { rpm: 200, concurrency: 8 },
+			gemini: { rpm: 500, concurrency: 12 },
 		},
 		queueStrategy: "fifo", // FIFO for speed
-		adaptiveThrottling: false, // NO throttling down
-		queueTimeout: 8000, // Much faster timeout - 8 seconds
+		adaptiveThrottling: false, // Disable throttling for maximum speed
+		queueTimeout: 10000, // Reduced timeout - 10 seconds
 	},
 
 	/**
@@ -104,12 +104,12 @@ module.exports = {
 	 */
 	// Context Detection System
 	context: {
-		enabled: true, // Enable context detection
-		useAI: true, // Use AI for context analysis
+		enabled: true, // Enable context detection with optimized batch AI
+		useAI: true, // Enable optimized batch AI analysis
 		aiProvider: "openai", // AI provider for context analysis
-		minTextLength: 50, // Minimum text length for AI analysis
+		minTextLength: 200, // Higher threshold - only very long texts get AI analysis
 		allowNewCategories: true, // Allow AI to suggest new categories
-		debug: false, // Show detailed analysis information
+		debug: false, // Hide detailed analysis information
 		analysisOptions: {
 			model: "gpt-4o", // OpenAI model for analysis
 			temperature: 0.2, // Slightly higher temperature for more creative context analysis
@@ -277,8 +277,8 @@ module.exports = {
 	 * Logging and Diagnostics
 	 */
 	logging: {
-		verbose: false, // Enable verbose logging
-		diagnosticsLevel: "normal", // minimal, normal, detailed
+		verbose: false, // Disable verbose logging for cleaner output
+		diagnosticsLevel: "minimal", // minimal, normal, detailed
 		outputFormat: "pretty", // pretty, json, minimal
 		saveErrorLogs: true, // Save error logs to file
 		logDirectory: "./logs", // Directory for log files
@@ -306,10 +306,10 @@ module.exports = {
 	 * Generally you shouldn't need to modify these
 	 */
 	advanced: {
-		timeoutMs: 30000, // Even faster timeout
+		timeoutMs: 15000, // Much faster timeout
 		maxKeyLength: 10000, // Maximum key length for translation
 		maxBatchSize: 30, // MAXIMUM batch size for extreme speed!
 		autoOptimize: true, // Automatically optimize settings for hardware
-		debug: false, // Enable debug mode with additional information
+		debug: false, // Disable debug mode for cleaner output
 	},
 };

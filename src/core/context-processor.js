@@ -30,55 +30,100 @@ class ContextProcessor {
 		}
 	}
 
-	async analyze(text) {
-		if (!text || !this.config.enabled) {
-			return this.getFallback();
+	// Batch analysis for multiple texts
+	async analyzeBatch(texts) {
+		if (!texts || !Array.isArray(texts) || !this.config.enabled) {
+			return texts.map(() => this.getFallback());
 		}
 
-		const cacheKey = this.getCacheKey(text, {});
-		if (this.resultCache.has(cacheKey)) {
-			return this.resultCache.get(cacheKey);
-		}
+		const results = [];
+		const aiTexts = [];
+		const aiIndices = [];
 
-		if (this.config.useAI && text.length >= this.config.minTextLength) {
-			try {
-				const aiResult = await this.aiAnalyzer.analyzeContext(
-					text,
-					this.config.aiProvider || "openai"
-				);
+		// First pass: cache lookup and keyword matching
+		for (let i = 0; i < texts.length; i++) {
+			const text = texts[i];
 
-				if (aiResult) {
-					console.log(
-						`🧠 AI Context Analysis: ${aiResult.category} (${(
-							aiResult.confidence * 100
-						).toFixed(1)}%)`
-					);
+			if (!text) {
+				results[i] = this.getFallback();
+				continue;
+			}
 
-					if (this.config.debug) {
-						console.log(`📊 AI Analysis Details:
-- Category: ${aiResult.category}
-- Confidence: ${(aiResult.confidence * 100).toFixed(1)}%
-- Keywords: ${aiResult.keywords.join(", ")}
-- Explanation: ${aiResult.explanation}`);
-					}
+			const cacheKey = this.getCacheKey(text, {});
+			if (this.resultCache.has(cacheKey)) {
+				results[i] = this.resultCache.get(cacheKey);
+				continue;
+			}
 
-					const result = {
-						category: aiResult.category,
-						confidence: aiResult.confidence,
-						prompt: aiResult.prompt,
-						matches: aiResult.keywords.length,
-						aiAnalyzed: true,
-						keywords: aiResult.keywords,
-					};
+			// Try keyword matching first
+			const keywordResult = this._performKeywordAnalysis(text);
 
-					this.resultCache.set(cacheKey, result);
-					return result;
-				}
-			} catch (error) {
-				console.error("AI context analysis failed:", error.message);
+			// If keyword matching is confident enough, use it
+			if (
+				keywordResult.confidence >= 0.8 ||
+				!this.config.useAI ||
+				text.length < this.config.minTextLength
+			) {
+				results[i] = keywordResult;
+				this.resultCache.set(cacheKey, keywordResult);
+			} else {
+				// Need AI analysis
+				aiTexts.push(text);
+				aiIndices.push(i);
+				results[i] = keywordResult; // Fallback
 			}
 		}
 
+		// Batch AI analysis if needed
+		if (aiTexts.length > 0 && this.config.useAI) {
+			try {
+				const aiResults = await this.aiAnalyzer.analyzeBatch(
+					aiTexts,
+					this.config.aiProvider || "openai"
+				);
+
+				for (let i = 0; i < aiResults.length; i++) {
+					const originalIndex = aiIndices[i];
+					const aiResult = aiResults[i];
+
+					if (aiResult) {
+						const processedResult = {
+							category: aiResult.category,
+							confidence: aiResult.confidence,
+							prompt: aiResult.prompt,
+							matches: aiResult.keywords?.length || 0,
+							aiAnalyzed: true,
+							keywords: aiResult.keywords || [],
+						};
+
+						results[originalIndex] = processedResult;
+						const cacheKey = this.getCacheKey(aiTexts[i], {});
+						this.resultCache.set(cacheKey, processedResult);
+					}
+				}
+
+				// Log batch AI analysis summary
+				if (aiResults.some((r) => r)) {
+					console.log(
+						`🧠 Batch AI Context Analysis: ${aiResults.filter((r) => r).length}/${aiTexts.length} analyzed`
+					);
+				}
+			} catch (error) {
+				console.error("Batch AI context analysis failed:", error.message);
+			}
+		}
+
+		return results;
+	}
+
+	// Single text analysis (legacy support)
+	async analyze(text) {
+		const results = await this.analyzeBatch([text]);
+		return results[0];
+	}
+
+	// Extract keyword analysis logic
+	_performKeywordAnalysis(text) {
 		const lowerText = text.toLowerCase();
 		const results = new Map();
 		let totalScore = 0;
@@ -122,10 +167,7 @@ class ContextProcessor {
 			}
 		}
 
-		const result = this.getBestMatch(results, totalScore);
-
-		this.resultCache.set(cacheKey, result);
-		return result;
+		return this.getBestMatch(results, totalScore);
 	}
 
 	getBestMatch(results, totalScore) {

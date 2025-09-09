@@ -6,7 +6,7 @@ const path = require("path");
 class GracefulShutdown {
 	constructor(options = {}) {
 		this.options = {
-			shutdownTimeout: options.shutdownTimeout || 30000, // 30 seconds default
+			shutdownTimeout: options.shutdownTimeout || 5000, // 5 seconds default (faster)
 			cleanupCache: options.cleanupCache !== false, // Enabled by default
 			cleanupLogs: options.cleanupLogs || false,
 			...options,
@@ -172,8 +172,16 @@ class GracefulShutdown {
 		}
 
 		if (hasPending) {
-			// Give some time for operations to complete
-			await new Promise((resolve) => setTimeout(resolve, 1000));
+			// Give some time for operations to complete, but not too long
+			await new Promise((resolve) => setTimeout(resolve, 2000));
+
+			// Force clear queues if still pending after wait
+			try {
+				rateLimiter.clearAllQueues();
+				this.logger.info("Forced queue cleanup completed");
+			} catch (error) {
+				this.logger.warn("Error during forced queue cleanup:", error.message);
+			}
 		}
 	}
 }

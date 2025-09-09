@@ -226,9 +226,14 @@ class Orchestrator {
 			const chunk = chunks[i];
 			console.log(`📦 Processing batch ${i + 1}/${chunks.length} (${chunk.length} items)`);
 
-			const chunkPromises = chunk.map(async (item) => {
+			// Batch context analysis for efficiency
+			const texts = chunk.map((item) => item.text);
+			const contextResults = await this.contextProcessor.analyzeBatch(texts);
+
+			const chunkPromises = chunk.map(async (item, index) => {
 				try {
-					const contextData = await this.contextProcessor.analyze(item.text);
+					const contextData =
+						contextResults[index] || (await this.contextProcessor.analyze(item.text));
 
 					const result = await this.processTranslation(
 						item.key,

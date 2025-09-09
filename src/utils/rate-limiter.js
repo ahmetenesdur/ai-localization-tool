@@ -418,6 +418,25 @@ class RateLimiter {
 		return { ...this.config };
 	}
 
+	// Clear all queues for graceful shutdown
+	clearAllQueues() {
+		for (const provider in this.queues) {
+			if (this.queues[provider] && this.queues[provider].length > 0) {
+				console.log(
+					`Clearing ${this.queues[provider].length} pending operations for ${provider}`
+				);
+				// Reject all pending operations
+				this.queues[provider].forEach((item) => {
+					if (item.reject) {
+						item.reject(new Error("Operation cancelled due to shutdown"));
+					}
+				});
+				this.queues[provider] = [];
+			}
+			this.processing[provider] = 0;
+		}
+	}
+
 	_cleanupMetrics() {
 		const now = Date.now();
 

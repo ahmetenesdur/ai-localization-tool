@@ -35,73 +35,141 @@ class AIContextAnalyzer {
 		};
 	}
 
-	async analyzeContext(text, apiProvider = "openai") {
-		if (!text || !this.config.enabled) {
-			return null;
+	// Batch analysis for multiple texts - much more efficient
+	async analyzeBatch(texts, apiProvider = "openai") {
+		if (!texts || !Array.isArray(texts) || !this.config.enabled) {
+			return texts.map(() => null);
 		}
 
-		if (text.length < this.config.minTextLength) {
-			return this._fastKeywordMatch(text);
-		}
+		const results = [];
+		const aiTexts = [];
+		const aiIndices = [];
 
-		const cacheKey = this._getCacheKey(text);
+		// First pass: keyword matching and cache lookup
+		for (let i = 0; i < texts.length; i++) {
+			const text = texts[i];
 
-		if (this.cache.has(cacheKey)) {
-			this.stats.cacheHits++;
-			return this.cache.get(cacheKey);
-		}
-
-		const keywordMatch = this._fastKeywordMatch(text);
-
-		if (keywordMatch && keywordMatch.confidence > 0.85) {
-			this.stats.keywordMatches++;
-			this.cache.set(cacheKey, keywordMatch);
-			return keywordMatch;
-		}
-
-		if (!this.config.useAI) {
-			return keywordMatch || this._getDefaultContext();
-		}
-
-		try {
-			this.stats.totalAnalyzed++;
-			this.stats.aiCalls++;
-
-			const provider = ProviderFactory.getProvider(apiProvider, true, this.config);
-
-			if (!provider) {
-				throw new Error("AI provider not available for context analysis");
+			if (!text) {
+				results[i] = null;
+				continue;
 			}
 
-			const analysisPrompt =
-				text.length < 500
-					? this._createSimplifiedAnalysisPrompt(text)
-					: this._createAnalysisPrompt(text);
+			if (text.length < this.config.minTextLength) {
+				results[i] = this._fastKeywordMatch(text);
+				continue;
+			}
 
-			const result = await rateLimiter.enqueue(apiProvider.toLowerCase(), () =>
-				provider.analyze(analysisPrompt, this.config.analysisOptions)
-			);
+			const cacheKey = this._getCacheKey(text);
+			if (this.cache.has(cacheKey)) {
+				this.stats.cacheHits++;
+				results[i] = this.cache.get(cacheKey);
+				continue;
+			}
 
-			const contextData = this._parseAnalysisResult(result);
-
-			if (contextData) {
-				this.cache.set(cacheKey, contextData);
-			} else if (keywordMatch) {
+			const keywordMatch = this._fastKeywordMatch(text);
+			if (keywordMatch && keywordMatch.confidence > 0.85) {
+				this.stats.keywordMatches++;
 				this.cache.set(cacheKey, keywordMatch);
-				return keywordMatch;
+				results[i] = keywordMatch;
+				continue;
 			}
 
-			return contextData;
-		} catch (error) {
-			this.stats.errors++;
-			console.error("AI context analysis error:", error.message);
-
-			if (keywordMatch) {
-				return keywordMatch;
+			// Need AI analysis
+			if (this.config.useAI) {
+				aiTexts.push(text);
+				aiIndices.push(i);
+				results[i] = keywordMatch || this._getDefaultContext();
+			} else {
+				results[i] = keywordMatch || this._getDefaultContext();
 			}
-
-			return this._getDefaultContext();
 		}
+
+		// Batch AI analysis if needed
+		if (aiTexts.length > 0 && this.config.useAI) {
+			try {
+				const batchResults = await this._batchAIAnalysis(aiTexts, apiProvider);
+
+				for (let i = 0; i < batchResults.length; i++) {
+					const originalIndex = aiIndices[i];
+					const aiResult = batchResults[i];
+
+					if (aiResult) {
+						results[originalIndex] = aiResult;
+						const cacheKey = this._getCacheKey(aiTexts[i]);
+						this.cache.set(cacheKey, aiResult);
+					}
+				}
+			} catch (error) {
+				console.error("Batch AI analysis failed:", error.message);
+			}
+		}
+
+		return results;
+	}
+
+	// Single text analysis (legacy support)
+	async analyzeContext(text, apiProvider = "openai") {
+		const results = await this.analyzeBatch([text], apiProvider);
+		return results[0];
+	}
+
+	// Efficient batch AI analysis
+	async _batchAIAnalysis(texts, apiProvider) {
+		if (texts.length === 0) return [];
+
+		this.stats.totalAnalyzed += texts.length;
+		this.stats.aiCalls++; // Only one API call for the batch
+
+		const provider = ProviderFactory.getProvider(apiProvider, true, this.config);
+		if (!provider) {
+			throw new Error("AI provider not available for context analysis");
+		}
+
+		const batchPrompt = this._createBatchAnalysisPrompt(texts);
+
+		const result = await rateLimiter.enqueue(apiProvider.toLowerCase(), () =>
+			provider.analyze(batchPrompt, {
+				...this.config.analysisOptions,
+				maxTokens: Math.min(4000, this.config.analysisOptions?.maxTokens || 2000),
+			})
+		);
+
+		return this._parseBatchAnalysisResult(result, texts.length);
+	}
+
+	// Create batch analysis prompt for multiple texts
+	_createBatchAnalysisPrompt(texts) {
+		const categories = Object.keys(this.config.categories).join(", ");
+
+		const maxTextLength = 200; // Shorter for batch processing
+		const truncatedTexts = texts
+			.map((text, index) => {
+				const truncated =
+					text.length > maxTextLength ? text.substring(0, maxTextLength) + "..." : text;
+				return `${index + 1}. "${truncated}"`;
+			})
+			.join("\n");
+
+		return `
+TASK: Analyze the following ${texts.length} texts and determine their context categories. Be concise.
+
+TEXTS TO ANALYZE:
+${truncatedTexts}
+
+AVAILABLE CATEGORIES: ${categories}
+
+INSTRUCTIONS:
+1. For each text, identify the primary context category
+2. Provide a confidence score (0.0-1.0)
+3. Be concise - this is batch processing
+
+FORMAT YOUR RESPONSE AS JSON ARRAY:
+[
+  {"index": 1, "category": "category_name", "confidence": 0.0-1.0},
+  {"index": 2, "category": "category_name", "confidence": 0.0-1.0},
+  ...
+]
+`;
 	}
 
 	_createAnalysisPrompt(text) {
@@ -157,6 +225,68 @@ RESPONSE FORMAT:
   "keywords": ["keyword1", "keyword2", "keyword3"]
 }
 `;
+	}
+
+	// Parse batch analysis results
+	_parseBatchAnalysisResult(result, expectedCount) {
+		try {
+			const jsonMatch = result.match(/\[[\s\S]*?\]/);
+			if (!jsonMatch) {
+				throw new Error("No valid JSON array found in AI response");
+			}
+
+			let analysisArray;
+			try {
+				analysisArray = JSON.parse(jsonMatch[0]);
+			} catch (jsonError) {
+				// Try to clean up the JSON
+				const cleanedJson = jsonMatch[0]
+					.replace(/,\s*]/g, "]")
+					.replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3');
+				analysisArray = JSON.parse(cleanedJson);
+			}
+
+			if (!Array.isArray(analysisArray)) {
+				throw new Error("Response is not an array");
+			}
+
+			// Create results array with proper indexing
+			const results = new Array(expectedCount).fill(null);
+
+			for (const item of analysisArray) {
+				if (!item.category || typeof item.confidence !== "number" || !item.index) {
+					continue;
+				}
+
+				const index = item.index - 1; // Convert to 0-based index
+				if (index < 0 || index >= expectedCount) {
+					continue;
+				}
+
+				let category = item.category.toLowerCase().trim();
+
+				if (!this.config.categories[category] && this.config.allowNewCategories) {
+					this._saveNewCategory(category, item.keywords || []);
+					this.stats.newCategories++;
+				} else if (!this.config.categories[category]) {
+					category = this._findClosestCategory(category, item.keywords || []);
+				}
+
+				results[index] = {
+					category,
+					confidence: item.confidence,
+					keywords: item.keywords || [],
+					explanation: item.explanation || "Batch analysis",
+					prompt: this.config.categories[category]?.prompt || this.config.fallback.prompt,
+					method: "batch_ai",
+				};
+			}
+
+			return results;
+		} catch (error) {
+			console.error("Error parsing batch AI analysis result:", error.message);
+			return new Array(expectedCount).fill(null);
+		}
 	}
 
 	_parseAnalysisResult(result) {

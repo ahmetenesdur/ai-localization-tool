@@ -5,7 +5,7 @@
 class ProgressTracker {
 	constructor(options = {}) {
 		this.logToConsole = options.logToConsole !== false;
-		this.logFrequency = options.logFrequency || 20; // How many times to log during process
+		this.logFrequency = options.logFrequency || 1; // Log every update for better visibility
 
 		this._isUpdating = false;
 		this._pendingUpdates = [];
@@ -156,11 +156,10 @@ class ProgressTracker {
 	}
 
 	_shouldLog() {
-		return (
-			this.completed % Math.max(1, Math.floor(this.total / this.logFrequency)) === 0 || // Log based on frequency
-			this.completed === 1 || // First item
-			this.completed === this.total // Last item
-		);
+		if (!this.logToConsole || this.total === 0) return false;
+
+		// Log every update for real-time progress
+		return true;
 	}
 
 	_updateStatistics() {
@@ -206,11 +205,18 @@ class ProgressTracker {
 		const percent = (this.completed / this.total) * 100;
 		const elapsed = (Date.now() - this.startTime) / 1000;
 
-		// Create a progress bar
-		const width = 20;
+		// Create a more visible progress bar
+		const width = 30;
 		const filledWidth = Math.max(0, Math.round((this.completed / this.total) * width));
 		const emptyWidth = Math.max(0, width - filledWidth);
-		const progressBar = `[${"=".repeat(filledWidth)}${" ".repeat(emptyWidth)}]`;
+		const progressBar = `[${"█".repeat(filledWidth)}${"░".repeat(emptyWidth)}]`;
+
+		// Add loading spinner for active processing
+		const spinners = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+		const spinner =
+			this.completed < this.total
+				? spinners[Math.floor(Date.now() / 100) % spinners.length]
+				: "✅";
 
 		// Format ETA
 		let etaText = "";
@@ -225,17 +231,22 @@ class ProgressTracker {
 			}
 		}
 
-		const langInfo = this.language ? `[${this.language}] ` : "";
+		const langInfo = this.language ? `🌍 ${this.language.toUpperCase()} ` : "";
 		const percentText = `${percent.toFixed(1)}%`.padStart(6);
-		const itemsText = `${this.completed}/${this.total}`.padEnd(10);
-		const successText = `✅ ${this.success}`.padEnd(8);
-		const failedText = `❌ ${this.failed}`.padEnd(8);
-		const timeText = `⏱️ ${elapsed.toFixed(1)}s`.padEnd(10);
+		const itemsText = `${this.completed}/${this.total}`.padEnd(8);
+		const timeText = `${elapsed.toFixed(1)}s`.padEnd(8);
+		const statusText = this.completed < this.total ? "🔄 PROCESSING" : "✅ COMPLETED";
 
-		console.log(
-			`${langInfo}${progressBar} ${percentText} | ${itemsText}items | ` +
-				`${successText}| ${failedText}| ${timeText}${etaText}`
+		// Clear previous line and show progress
+		process.stdout.write("\r\x1b[K");
+		process.stdout.write(
+			`${spinner} ${langInfo}${progressBar} ${percentText} | ${itemsText} | ⏱️ ${timeText} | ${statusText} ${etaText}`
 		);
+
+		// Add newline when completed
+		if (this.completed === this.total) {
+			process.stdout.write("\n");
+		}
 	}
 
 	_finalReport() {
