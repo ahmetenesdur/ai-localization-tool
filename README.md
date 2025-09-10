@@ -4,9 +4,9 @@
 
 ## Key Features
 
-- **AI-Powered Translation** - 5 providers with intelligent fallback (OpenAI, DeepSeek, Gemini, etc.)
+- **AI-Powered Translation** - 5 providers with intelligent fallback (OpenAI, DeepSeek, Gemini, Dashscope, XAI)
 - **Smart Synchronization** - SHA-256 change detection, incremental updates
-- **Context-Aware** - Automatically detects technical, marketing, legal content
+- **Context-Aware** - Automatically detects technical, marketing, legal, DeFi, and UI content
 - **High Performance** - Concurrent processing, caching, rate limiting
 - **Quality Assured** - Built-in validation, auto-fixing, length control
 - **Real-time Progress** - Detailed statistics and progress tracking
@@ -32,28 +32,47 @@ module.exports = {
 	// Basic Settings
 	localesDir: "./locales",
 	source: "en",
-	targets: ["tr", "de", "es", "fr", "ja", "zh"],
+	targets: ["tr", "de", "es", "fr", "hi", "ja", "pl", "ru", "th", "uk", "vi", "yo", "zh"],
 
 	// AI Provider
-	apiProvider: "deepseek",
+	apiProvider: "openai",
 	useFallback: true,
+	fallbackOrder: ["openai", "dashscope", "deepseek", "gemini", "xai"],
 
 	// Performance
-	concurrencyLimit: 5,
+	concurrencyLimit: 1,
 	cacheEnabled: true,
 
 	// Context Detection
 	context: {
 		enabled: true,
 		useAI: true,
+		aiProvider: "openai",
 		categories: {
 			technical: {
-				keywords: ["API", "backend", "database"],
-				prompt: "Preserve technical terms",
+				keywords: ["API", "backend", "database", "server", "endpoint"],
+				prompt: "Preserve technical terms and variable names",
+				weight: 1.3,
+			},
+			defi: {
+				keywords: ["DeFi", "staking", "yield", "liquidity", "token", "blockchain"],
+				prompt: "Keep DeFi terms in English",
+				weight: 1.2,
 			},
 			marketing: {
-				keywords: ["brand", "campaign", "customer"],
-				prompt: "Use engaging language",
+				keywords: ["brand", "campaign", "customer", "audience", "promotion"],
+				prompt: "Use persuasive and engaging language",
+				weight: 1.1,
+			},
+			legal: {
+				keywords: ["terms", "conditions", "privacy", "policy", "agreement"],
+				prompt: "Maintain formal tone and precise legal terminology",
+				weight: 1.4,
+			},
+			ui: {
+				keywords: ["button", "click", "menu", "screen", "page", "view"],
+				prompt: "Keep UI terms consistent and clear",
+				weight: 1.2,
 			},
 		},
 	},
@@ -72,6 +91,8 @@ cp .env.example .env
 OPENAI_API_KEY=your_key_here
 DEEPSEEK_API_KEY=your_key_here
 GEMINI_API_KEY=your_key_here
+DASHSCOPE_API_KEY=your_key_here
+XAI_API_KEY=your_key_here
 ```
 
 ## Usage
@@ -136,13 +157,13 @@ localize
 
 #### Translation Options
 
-| Option          | Description             | Default    |
-| --------------- | ----------------------- | ---------- |
-| `--provider`    | AI provider             | `deepseek` |
-| `--concurrency` | Concurrent translations | `5`        |
-| `--force`       | Update existing         | `false`    |
-| `--length`      | Length control mode     | `smart`    |
-| `--stats`       | Show detailed stats     | `false`    |
+| Option          | Description             | Default  |
+| --------------- | ----------------------- | -------- |
+| `--provider`    | AI provider             | `openai` |
+| `--concurrency` | Concurrent translations | `1`      |
+| `--force`       | Update existing         | `false`  |
+| `--length`      | Length control mode     | `smart`  |
+| `--stats`       | Show detailed stats     | `false`  |
 
 </details>
 
@@ -150,13 +171,13 @@ localize
 
 ### Supported Providers
 
-| Provider      | Model            | RPM | Concurrency | Context Window |
-| ------------- | ---------------- | --- | ----------- | -------------- |
-| **DeepSeek**  | deepseek-chat    | 60  | 3           | 8K tokens      |
-| **OpenAI**    | gpt-4o           | 60  | 3           | 16K tokens     |
-| **Gemini**    | gemini-1.5-flash | 100 | 3           | 16K tokens     |
-| **Dashscope** | qwen-plus        | 50  | 3           | 8K tokens      |
-| **XAI**       | grok-2-1212      | 60  | 3           | 8K tokens      |
+| Provider      | Model                | RPM  | Concurrency | Context Window |
+| ------------- | -------------------- | ---- | ----------- | -------------- |
+| **OpenAI**    | gpt-4o               | 1000 | 15          | 16K tokens     |
+| **Gemini**    | gemini-2.0-flash-exp | 500  | 12          | 16K tokens     |
+| **XAI**       | grok-4               | 300  | 10          | 8K tokens      |
+| **Dashscope** | qwen-plus            | 200  | 8           | 8K tokens      |
+| **DeepSeek**  | deepseek-chat        | 200  | 8           | 8K tokens      |
 
 ### Quality Features
 
@@ -218,9 +239,9 @@ module.exports = {
 	targets: ["tr", "de", "es", "fr", "hi", "ja", "pl", "ru", "th", "uk", "vi", "yo", "zh"],
 
 	// ===== API PROVIDER CONFIGURATION =====
-	apiProvider: "deepseek", // Primary provider: deepseek, openai, gemini, dashscope, xai
+	apiProvider: "openai", // Primary provider: openai, dashscope, deepseek, gemini, xai
 	useFallback: true, // Enable automatic fallback to other providers
-	fallbackOrder: ["deepseek", "openai", "gemini"], // Provider fallback chain
+	fallbackOrder: ["openai", "dashscope", "deepseek", "gemini", "xai"], // Provider fallback chain
 
 	// Individual provider configurations
 	apiConfig: {
@@ -231,13 +252,13 @@ module.exports = {
 			contextWindow: 8000, // Maximum context window size
 		},
 		openai: {
-			model: "gpt-4o-mini", // Latest optimized model
+			model: "gpt-4o", // Latest optimized model
 			temperature: 0.3,
 			maxTokens: 2000,
 			contextWindow: 16000, // Larger context window
 		},
 		gemini: {
-			model: "gemini-2.5-flash-lite", // Latest Gemini model
+			model: "gemini-2.0-flash-exp", // Latest Gemini model
 			temperature: 0.3,
 			maxTokens: 2000,
 			contextWindow: 16000,
@@ -249,7 +270,7 @@ module.exports = {
 			contextWindow: 8000,
 		},
 		xai: {
-			model: "grok-2-1212",
+			model: "grok-4",
 			temperature: 0.3,
 			maxTokens: 2000,
 			contextWindow: 8000,
@@ -257,7 +278,7 @@ module.exports = {
 	},
 
 	// ===== PERFORMANCE OPTIMIZATION =====
-	concurrencyLimit: 15, // Maximum parallel translations (optimized for speed)
+	concurrencyLimit: 1, // Maximum parallel translations (optimized for stability)
 	cacheEnabled: true, // Enable translation caching
 	cacheTTL: 24 * 60 * 60 * 1000, // Cache time-to-live (24 hours)
 	cacheSize: 2000, // Maximum cached items
@@ -266,15 +287,15 @@ module.exports = {
 	rateLimiter: {
 		enabled: true,
 		providerLimits: {
-			openai: { rpm: 1200, concurrency: 20 }, // Aggressive limits for OpenAI
-			deepseek: { rpm: 150, concurrency: 8 },
-			gemini: { rpm: 1000, concurrency: 20 }, // High-performance settings
+			openai: { rpm: 1000, concurrency: 15 }, // Aggressive limits for OpenAI
+			deepseek: { rpm: 200, concurrency: 8 },
+			gemini: { rpm: 500, concurrency: 12 }, // High-performance settings
 			dashscope: { rpm: 200, concurrency: 8 },
-			xai: { rpm: 250, concurrency: 8 },
+			xai: { rpm: 300, concurrency: 10 },
 		},
 		queueStrategy: "fifo", // First-in-first-out for maximum speed
 		adaptiveThrottling: false, // Disabled for consistent high performance
-		queueTimeout: 8000, // Fast timeout (8 seconds)
+		queueTimeout: 10000, // Fast timeout (10 seconds)
 	},
 
 	// ===== ERROR HANDLING & RELIABILITY =====
@@ -301,7 +322,7 @@ module.exports = {
 
 		// AI Analysis Configuration
 		analysisOptions: {
-			model: "gpt-4o-mini", // OpenAI model for context analysis
+			model: "gpt-4o", // OpenAI model for context analysis
 			temperature: 0.2, // Lower temperature for consistent analysis
 			maxTokens: 1000, // Tokens for analysis
 		},
@@ -471,8 +492,8 @@ module.exports = {
 
 	// ===== LOGGING & DIAGNOSTICS =====
 	logging: {
-		verbose: false, // Enable verbose logging
-		diagnosticsLevel: "normal", // Options: minimal, normal, detailed
+		verbose: false, // Disable verbose logging for cleaner output
+		diagnosticsLevel: "minimal", // Options: minimal, normal, detailed
 		outputFormat: "pretty", // Options: pretty, json, minimal
 		saveErrorLogs: true, // Save error logs to file
 		logDirectory: "./logs", // Directory for log files
@@ -494,7 +515,7 @@ module.exports = {
 
 	// ===== ADVANCED SETTINGS =====
 	advanced: {
-		timeoutMs: 30000, // Request timeout (30 seconds)
+		timeoutMs: 15000, // Request timeout (15 seconds)
 		maxKeyLength: 10000, // Maximum key length for translation
 		maxBatchSize: 30, // Maximum batch size for operations
 		autoOptimize: true, // Auto-optimize settings for hardware
@@ -507,7 +528,7 @@ module.exports = {
 
 #### Performance Settings
 
-- **concurrencyLimit**: Number of parallel translations (15 = high performance)
+- **concurrencyLimit**: Number of parallel translations (1 = stable performance)
 - **rateLimiter.providerLimits**: Provider-specific RPM and concurrency limits
 - **queueStrategy**: "fifo" for speed, "priority" for importance-based processing
 - **adaptiveThrottling**: Disabled for consistent maximum performance
