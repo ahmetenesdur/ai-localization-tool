@@ -9,6 +9,24 @@ const StateManager = require("../utils/state-manager");
 const InputValidator = require("../utils/input-validator");
 const gracefulShutdown = require("../utils/graceful-shutdown");
 
+/**
+ * Check if a text only contains placeholders and whitespace (no actual translatable content)
+ * @param {string} text - Text to check
+ * @returns {boolean} - True if text only contains placeholders
+ */
+function isPlaceholderOnlyText(text) {
+	if (!text || typeof text !== "string") {
+		return false;
+	}
+
+	// Remove all placeholders from the text
+	const placeholderRegex = /\{[^}]+\}|\$\{[^}]+\}|%[sd]/g;
+	const textWithoutPlaceholders = text.replace(placeholderRegex, "").trim();
+
+	// If nothing remains after removing placeholders, it's placeholder-only
+	return textWithoutPlaceholders.length === 0;
+}
+
 // Prevents overlapping console output
 const consoleLock = {
 	queue: [],
@@ -441,6 +459,7 @@ async function processLanguage(
 
 		// Find missing or outdated keys
 		const missingKeys = [];
+		let hasPlaceholderOnlyChanges = false; // Track if we made any placeholder-only changes
 
 		for (const [key, sourceText] of Object.entries(flattenedSource)) {
 			// SECURITY FIX: Validate translation key
@@ -458,6 +477,25 @@ async function processLanguage(
 
 			// Track what we're processing for this language in globalStats
 			globalStats.languages[safeTargetLang].processed++;
+
+			// Check if this is a placeholder-only text that doesn't need translation
+			if (isPlaceholderOnlyText(sourceText)) {
+				// For placeholder-only text, just copy the value directly
+				const existingValue = flattenedTarget[key];
+				if (existingValue !== sourceText) {
+					// Only update if the value is different
+					flattenedTarget[key] = sourceText;
+					hasPlaceholderOnlyChanges = true;
+					if (options.debug) {
+						await consoleLock.log(
+							`   ✅ Copying placeholder-only text: "${sourceText}"`
+						);
+					}
+				}
+				globalStats.languages[safeTargetLang].skipped++;
+				globalStats.skipped++;
+				continue;
+			}
 
 			// Determine if this key needs translation/re-translation
 			const isNewKey = comparison.newKeys.includes(key);
@@ -483,33 +521,44 @@ async function processLanguage(
 			});
 		}
 
-		if (missingKeys.length === 0) {
+		if (missingKeys.length === 0 && !hasPlaceholderOnlyChanges) {
 			await consoleLock.log(`✅ All translations exist for ${safeTargetLang}`);
 			globalStats.languages[safeTargetLang].timeMs = Date.now() - langStartTime;
 			return { status: { completed: 0, total: 0, language: safeTargetLang } }; // Return minimal status
 		}
 
-		await consoleLock.log(
-			`Found ${missingKeys.length} missing translations for ${safeTargetLang}`
-		);
+		if (missingKeys.length > 0) {
+			await consoleLock.log(
+				`Found ${missingKeys.length} missing translations for ${safeTargetLang}`
+			);
+		}
 
 		// FIXED: Enhanced error boundary for translation processing
 		let results = [];
-		try {
-			results = await orchestrator.processTranslations(missingKeys);
+		if (missingKeys.length > 0) {
+			try {
+				results = await orchestrator.processTranslations(missingKeys);
 
-			// FIXED: Validate results structure
-			if (!Array.isArray(results)) {
-				console.warn("Invalid results from orchestrator, using empty array");
+				// FIXED: Validate results structure
+				if (!Array.isArray(results)) {
+					console.warn("Invalid results from orchestrator, using empty array");
+					results = [];
+				}
+			} catch (err) {
+				console.error(
+					`Error processing translations for ${safeTargetLang}: ${err.message}`
+				);
 				results = [];
+				// Update global stats for failed processing
+				if (globalStats.languages[safeTargetLang]) {
+					globalStats.languages[safeTargetLang].failed += missingKeys.length;
+					globalStats.failed += missingKeys.length;
+				}
 			}
-		} catch (err) {
-			console.error(`Error processing translations for ${safeTargetLang}: ${err.message}`);
-			results = [];
-			// Update global stats for failed processing
-			if (globalStats.languages[safeTargetLang]) {
-				globalStats.languages[safeTargetLang].failed += missingKeys.length;
-				globalStats.failed += missingKeys.length;
+		} else {
+			// No translations needed, but we might have placeholder-only changes
+			if (hasPlaceholderOnlyChanges) {
+				await consoleLock.log(`✅ Found placeholder-only changes for ${safeTargetLang}`);
 			}
 		}
 
@@ -544,7 +593,12 @@ async function processLanguage(
 			validResults.forEach(({ key, translated }) => {
 				flattenedTarget[key] = translated;
 			});
+		}
 
+		// Check if we have any changes to save (either from translations or placeholder-only copies)
+		const hasChangesToSave = validResults.length > 0 || hasPlaceholderOnlyChanges;
+
+		if (hasChangesToSave) {
 			// Save to file
 			const unflattened = ObjectTransformer.unflatten(flattenedTarget);
 			await FileManager.writeJSON(targetPath, unflattened);

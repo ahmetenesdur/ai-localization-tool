@@ -156,7 +156,15 @@ STRICT OUTPUT REQUIREMENTS:
 2. NO EXPLANATIONS OR COMMENTARY
 3. NO <think> BLOCKS OR MARKDOWN
 4. NO QUOTES OR FORMATTING
-5. PRESERVE TECHNICAL TERMS AND PLACEHOLDERS
+5. PRESERVE ALL PLACEHOLDERS EXACTLY AS THEY APPEAR
+
+CRITICAL PLACEHOLDER RULES:
+- Keep ALL placeholders like {message}, {name}, {value} EXACTLY as they appear in the source
+- DO NOT translate placeholder names: {message} must stay {message}, NOT {mesaj} or {mensaje}
+- DO NOT add content around placeholders: {message} must NOT become {mesaj}{message} or Bạn{message}
+- DO NOT modify the curly braces: { and } must remain unchanged
+- Placeholders are variables that will be replaced with dynamic content later
+- Only translate the text AROUND the placeholders, never the placeholders themselves
 
 Style: ${formality}, ${toneOfVoice}
 

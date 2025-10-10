@@ -121,6 +121,15 @@ class BaseProvider {
 			prompt += " Keep the translation length similar to the original.";
 		}
 
+		// Add explicit placeholder preservation instructions
+		const placeholderRegex = /\{[^}]+\}/g;
+		const hasPlaceholders = placeholderRegex.test(text);
+
+		if (hasPlaceholders) {
+			prompt +=
+				"\n\nCRITICAL: This text contains placeholders like {variable}. You MUST preserve them EXACTLY as they appear. Do NOT translate the placeholder names, do NOT modify the curly braces, and do NOT add any text around them.";
+		}
+
 		prompt += `\n\nText to translate: "${text}"`;
 		prompt += "\n\nProvide only the translation without explanations or quotes.";
 

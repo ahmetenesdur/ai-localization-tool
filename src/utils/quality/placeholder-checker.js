@@ -4,17 +4,44 @@ class PlaceholderChecker {
 		const sourcePlaceholders = source.match(placeholderRegex) || [];
 		const translatedPlaceholders = translated.match(placeholderRegex) || [];
 
+		const issues = [];
+
+		// Check for missing or extra placeholders
 		if (sourcePlaceholders.length !== translatedPlaceholders.length) {
-			return [
-				{
-					type: "placeholder",
-					message: "Placeholder count mismatch",
-					source: sourcePlaceholders,
-					translated: translatedPlaceholders,
-				},
-			];
+			issues.push({
+				type: "placeholder",
+				message: "Placeholder count mismatch",
+				source: sourcePlaceholders,
+				translated: translatedPlaceholders,
+			});
 		}
-		return [];
+
+		// Check for corrupted placeholders (placeholders that were translated/modified)
+		for (const sourcePlaceholder of sourcePlaceholders) {
+			if (!translated.includes(sourcePlaceholder)) {
+				// Look for potential corrupted versions
+				const corruptedPattern = this.findCorruptedPlaceholder(
+					translated,
+					sourcePlaceholder
+				);
+				if (corruptedPattern) {
+					issues.push({
+						type: "placeholder",
+						message: `Corrupted placeholder detected: expected '${sourcePlaceholder}' but found '${corruptedPattern}'`,
+						source: sourcePlaceholder,
+						corrupted: corruptedPattern,
+					});
+				} else {
+					issues.push({
+						type: "placeholder",
+						message: `Missing placeholder: ${sourcePlaceholder}`,
+						source: sourcePlaceholder,
+					});
+				}
+			}
+		}
+
+		return issues;
 	}
 
 	fixPlaceholders(source, translated) {
@@ -24,30 +51,91 @@ class PlaceholderChecker {
 		const foundIssues = [];
 		const appliedFixes = [];
 
-		sourcePlaceholders.forEach((placeholder) => {
-			if (!fixedText.includes(placeholder)) {
-				foundIssues.push({
-					type: "placeholder",
-					message: `Missing placeholder: ${placeholder}`,
-				});
-
-				const possiblePosition = this.findBestPlaceholderPosition(
+		// First, fix corrupted placeholders
+		for (const sourcePlaceholder of sourcePlaceholders) {
+			if (!fixedText.includes(sourcePlaceholder)) {
+				// Try to find and fix corrupted versions
+				const corruptedPattern = this.findCorruptedPlaceholder(
 					fixedText,
-					source,
-					placeholder
+					sourcePlaceholder
 				);
+				if (corruptedPattern) {
+					foundIssues.push({
+						type: "placeholder",
+						message: `Corrupted placeholder: ${corruptedPattern} → ${sourcePlaceholder}`,
+					});
 
-				if (possiblePosition !== -1) {
-					fixedText = this.insertPlaceholder(fixedText, placeholder, possiblePosition);
+					// Replace the corrupted version with the correct one
+					fixedText = fixedText.replace(corruptedPattern, sourcePlaceholder);
 					appliedFixes.push({
 						type: "placeholder",
-						message: `Added placeholder: ${placeholder}`,
+						message: `Fixed corrupted placeholder: ${corruptedPattern} → ${sourcePlaceholder}`,
 					});
+				} else {
+					// Placeholder is completely missing, try to add it
+					foundIssues.push({
+						type: "placeholder",
+						message: `Missing placeholder: ${sourcePlaceholder}`,
+					});
+
+					const possiblePosition = this.findBestPlaceholderPosition(
+						fixedText,
+						source,
+						sourcePlaceholder
+					);
+
+					if (possiblePosition !== -1) {
+						fixedText = this.insertPlaceholder(
+							fixedText,
+							sourcePlaceholder,
+							possiblePosition
+						);
+						appliedFixes.push({
+							type: "placeholder",
+							message: `Added missing placeholder: ${sourcePlaceholder}`,
+						});
+					}
 				}
 			}
-		});
+		}
 
 		return { text: fixedText, foundIssues, appliedFixes };
+	}
+
+	findCorruptedPlaceholder(translated, sourcePlaceholder) {
+		// Extract the placeholder name (e.g., "message" from "{message}")
+		const placeholderName = sourcePlaceholder.slice(1, -1); // Remove { and }
+
+		// Look for common corruption patterns
+		const corruptionPatterns = [
+			// Pattern: {mesaj}{message} or {mensaje}{message} (translated + original)
+			new RegExp(`\\{[^}]*\\}\\{${placeholderName}\\}`, "g"),
+			// Pattern: {mesaj} or {mensaje} (just translated)
+			new RegExp(`\\{[^}]*${placeholderName.slice(0, -2)}[^}]*\\}`, "g"),
+			// Pattern: Bạn{message} or text{message} (text prefixed to placeholder)
+			new RegExp(`[^\\s]{2,}\\{${placeholderName}\\}`, "g"),
+			// Pattern: {message}được or {message}text (text suffixed to placeholder)
+			new RegExp(`\\{${placeholderName}\\}[^\\s]{2,}`, "g"),
+			// Pattern: Any placeholder with similar length but different content
+			new RegExp(
+				`\\{[^}]{${Math.max(1, placeholderName.length - 2)},${placeholderName.length + 3}}\\}`,
+				"g"
+			),
+		];
+
+		for (const pattern of corruptionPatterns) {
+			const matches = translated.match(pattern);
+			if (matches && matches.length > 0) {
+				// Return the first match that's not the original placeholder
+				for (const match of matches) {
+					if (match !== sourcePlaceholder) {
+						return match;
+					}
+				}
+			}
+		}
+
+		return null;
 	}
 
 	findBestPlaceholderPosition(translated, source, placeholder) {
