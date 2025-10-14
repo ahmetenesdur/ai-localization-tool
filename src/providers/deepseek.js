@@ -1,7 +1,7 @@
-const axios = require("axios");
-const BaseProvider = require("./base-provider");
-const { getPrompt, getAnalysisPrompt } = require("../utils/prompt-templates");
-const RetryHelper = require("../utils/retry-helper");
+import axios from "axios";
+import BaseProvider from "./base-provider.js";
+import { getPrompt, getAnalysisPrompt } from "../utils/prompt-templates.js";
+import RetryHelper from "../utils/retry-helper.js";
 
 class DeepSeekProvider extends BaseProvider {
 	constructor(config = {}) {
@@ -109,4 +109,4 @@ async function analyze(prompt, options = {}) {
 	return deepseekProvider.analyze(prompt, options);
 }
 
-module.exports = { translate, analyze, DeepSeekProvider };
+export { translate, analyze, DeepSeekProvider };

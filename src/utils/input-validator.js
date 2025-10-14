@@ -2,7 +2,7 @@
  * Input validation utility for security and data integrity
  */
 
-const path = require("path");
+import path from "path";
 
 class InputValidator {
 	static LANGUAGE_CODE_PATTERN = /^[a-z]{2}(-[a-z]{2})?$/;
@@ -324,4 +324,4 @@ class InputValidator {
 	}
 }
 
-module.exports = InputValidator;
+export default InputValidator;

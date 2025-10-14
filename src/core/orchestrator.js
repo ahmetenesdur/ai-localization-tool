@@ -1,11 +1,12 @@
-const rateLimiter = require("../utils/rate-limiter");
-const ProviderFactory = require("./provider-factory");
-const ProgressTracker = require("../utils/progress-tracker");
-const QualityChecker = require("../utils/quality");
-const ContextProcessor = require("./context-processor");
-const { LRUCache } = require("lru-cache");
-const crypto = require("crypto");
-const gracefulShutdown = require("../utils/graceful-shutdown");
+import rateLimiter from "../utils/rate-limiter.js";
+import ProviderFactory from "./provider-factory.js";
+import ProgressTracker from "../utils/progress-tracker.js";
+import QualityChecker from "../utils/quality/index.js";
+import ContextProcessor from "./context-processor.js";
+import { LRUCache } from "lru-cache";
+import crypto from "crypto";
+import os from "os";
+import gracefulShutdown from "../utils/graceful-shutdown.js";
 
 class Orchestrator {
 	constructor(options) {
@@ -264,7 +265,6 @@ class Orchestrator {
 
 	_applyAutoOptimizations() {
 		try {
-			const os = require("os");
 			const cpuCount = os.cpus().length;
 			const totalMemory = os.totalmem();
 			const memoryGB = Math.floor(totalMemory / (1024 * 1024 * 1024));
@@ -400,4 +400,4 @@ class Orchestrator {
 	}
 }
 
-module.exports = Orchestrator;
+export default Orchestrator;

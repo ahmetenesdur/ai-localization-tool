@@ -1,4 +1,4 @@
-const { performance } = require("perf_hooks");
+import { performance } from "perf_hooks";
 
 class RateLimiter {
 	constructor(config = {}) {
@@ -444,4 +444,4 @@ const config = {
 	adaptiveThrottling: process.env.ADAPTIVE_THROTTLING !== "false",
 };
 
-module.exports = new RateLimiter(config);
+export default new RateLimiter(config);

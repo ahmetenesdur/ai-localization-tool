@@ -1,6 +1,12 @@
-const crypto = require("crypto");
-const { FileManager } = require("./file-manager");
-const path = require("path");
+import crypto from "crypto";
+import { FileManager } from "./file-manager.js";
+import path from "path";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /**
  * StateManager - Tracks changes in source locale files using hash-based state management
@@ -76,7 +82,9 @@ class StateManager {
 				_metadata: {
 					lastUpdated: new Date().toISOString(),
 					version: "1.0.0",
-					toolVersion: require("../../package.json").version,
+					toolVersion: JSON.parse(
+						readFileSync(path.join(__dirname, "../../package.json"), "utf8")
+					).version,
 				},
 			};
 
@@ -184,4 +192,4 @@ class StateManager {
 	}
 }
 
-module.exports = StateManager;
+export default StateManager;

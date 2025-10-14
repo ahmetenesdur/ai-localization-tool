@@ -99,4 +99,4 @@ class TextSanitizer {
 	}
 }
 
-module.exports = TextSanitizer;
+export default TextSanitizer;

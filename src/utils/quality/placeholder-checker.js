@@ -153,4 +153,4 @@ class PlaceholderChecker {
 	}
 }
 
-module.exports = PlaceholderChecker;
+export default PlaceholderChecker;

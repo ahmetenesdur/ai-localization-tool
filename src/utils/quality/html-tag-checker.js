@@ -53,4 +53,4 @@ class HtmlTagChecker {
 	}
 }
 
-module.exports = HtmlTagChecker;
+export default HtmlTagChecker;

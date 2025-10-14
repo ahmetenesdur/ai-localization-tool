@@ -166,4 +166,4 @@ class ObjectTransformer {
 	}
 }
 
-module.exports = ObjectTransformer;
+export default ObjectTransformer;

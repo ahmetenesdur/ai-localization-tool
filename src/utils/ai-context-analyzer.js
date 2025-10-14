@@ -1,8 +1,8 @@
-const axios = require("axios");
-const ProviderFactory = require("../core/provider-factory");
-const rateLimiter = require("./rate-limiter");
-const { LRUCache } = require("lru-cache");
-const crypto = require("crypto");
+import axios from "axios";
+import ProviderFactory from "../core/provider-factory.js";
+import rateLimiter from "./rate-limiter.js";
+import { LRUCache } from "lru-cache";
+import crypto from "crypto";
 
 class AIContextAnalyzer {
 	constructor(config) {
@@ -514,4 +514,4 @@ RESPONSE FORMAT:
 	}
 }
 
-module.exports = AIContextAnalyzer;
+export default AIContextAnalyzer;

@@ -1,7 +1,6 @@
-const fs = require("fs").promises;
-const fsSync = require("fs");
-const path = require("path");
-const { promisify } = require("util");
+import { promises as fs } from "fs";
+import fsSync from "fs";
+import path from "path";
 
 /**
  * FileManager - Modern asynchronous file operations
@@ -482,4 +481,4 @@ class SyncFileManager {
 // Initialize options with defaults
 SyncFileManager.options = { ...SyncFileManager.defaultOptions };
 
-module.exports = { FileManager, SyncFileManager };
+export { FileManager, SyncFileManager };

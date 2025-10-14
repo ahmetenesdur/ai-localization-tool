@@ -1,11 +1,11 @@
-const path = require("path");
-const { FileManager } = require("../utils/file-manager");
-const ObjectTransformer = require("../utils/object-transformer");
-const Orchestrator = require("../core/orchestrator");
-const QualityChecker = require("../utils/quality");
-const StateManager = require("../utils/state-manager");
-const InputValidator = require("../utils/input-validator");
-const gracefulShutdown = require("../utils/graceful-shutdown");
+import path from "path";
+import { FileManager } from "../utils/file-manager.js";
+import ObjectTransformer from "../utils/object-transformer.js";
+import Orchestrator from "../core/orchestrator.js";
+import QualityChecker from "../utils/quality/index.js";
+import StateManager from "../utils/state-manager.js";
+import InputValidator from "../utils/input-validator.js";
+import gracefulShutdown from "../utils/graceful-shutdown.js";
 
 /**
  * Check if text only contains placeholders and whitespace
@@ -811,7 +811,7 @@ async function removeDeletedKeysFromTargets(sourceFile, deletedKeys, options) {
 	);
 }
 
-module.exports = {
+export {
 	findLocaleFiles,
 	translateFile,
 	validateAndFixExistingTranslations,
