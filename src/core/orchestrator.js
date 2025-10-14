@@ -5,6 +5,7 @@ import QualityChecker from "../utils/quality/index.js";
 import ContextProcessor from "./context-processor.js";
 import { LRUCache } from "lru-cache";
 import crypto from "crypto";
+import os from "os";
 import gracefulShutdown from "../utils/graceful-shutdown.js";
 
 class Orchestrator {
@@ -264,7 +265,6 @@ class Orchestrator {
 
 	_applyAutoOptimizations() {
 		try {
-			const os = require("os");
 			const cpuCount = os.cpus().length;
 			const totalMemory = os.totalmem();
 			const memoryGB = Math.floor(totalMemory / (1024 * 1024 * 1024));
