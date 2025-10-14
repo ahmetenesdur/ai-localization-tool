@@ -1,10 +1,8 @@
 /**
- * ENHANCED: Get length instructions with comprehensive input validation
- * @param {Object} options - Configuration options
- * @returns {string} - Length instructions for translation
+ * Prompt template utilities for translation and analysis
  */
+
 const getLengthInstructions = (options) => {
-	// FIXED: Enhanced input validation with null safety
 	if (!options || typeof options !== "object") {
 		console.warn("Invalid options provided to getLengthInstructions, using defaults");
 		options = {};
@@ -12,7 +10,6 @@ const getLengthInstructions = (options) => {
 
 	const { mode = "smart", lengthControl, targetLang, detectedContext } = options;
 
-	// FIXED: More lenient targetLang validation - don't fail if missing
 	if (!targetLang || typeof targetLang !== "string") {
 		// Just return basic length instructions without failing
 		return "TRANSLATION LENGTH: Keep translation concise and natural.";
@@ -21,7 +18,6 @@ const getLengthInstructions = (options) => {
 	const context = detectedContext?.category || "general";
 
 	if (mode === "smart" && lengthControl?.rules?.smart) {
-		// FIXED: Enhanced null safety for nested properties
 		const langRules = lengthControl.rules.smart.byLanguage?.[targetLang] || {};
 		const contextRules = lengthControl.rules.smart.byContext?.[context] || {};
 
@@ -35,7 +31,6 @@ const getLengthInstructions = (options) => {
 4. Maintain semantic completeness while being concise`;
 	}
 
-	// FIXED: Enhanced templates with null safety for length control rules
 	const templates = {
 		strict: () => {
 			const strictLimit = lengthControl?.rules?.strict;
@@ -59,7 +54,6 @@ const getLengthInstructions = (options) => {
 		},
 	};
 
-	// FIXED: Safe template access with fallback
 	const templateFn = templates[mode];
 	if (typeof templateFn === "function") {
 		try {
@@ -69,20 +63,13 @@ const getLengthInstructions = (options) => {
 		}
 	}
 
-	// Fallback for invalid mode or errors
 	return "TRANSLATION LENGTH: Keep translation concise and natural.";
 };
 
 /**
- * ENHANCED: Base translation prompt template with comprehensive input validation
- * @param {string} sourceLang - Source language code
- * @param {string} targetLang - Target language code
- * @param {string} text - Text to translate
- * @param {Object} options - Translation options
- * @returns {string} - Generated prompt template
+ * Base translation prompt template
  */
 const baseTranslationPromptTemplate = (sourceLang, targetLang, text, options) => {
-	// FIXED: Enhanced input validation for all parameters
 	if (!sourceLang || typeof sourceLang !== "string") {
 		console.warn("Invalid sourceLang provided to baseTranslationPromptTemplate");
 		sourceLang = "en";
@@ -103,7 +90,6 @@ const baseTranslationPromptTemplate = (sourceLang, targetLang, text, options) =>
 		options = {};
 	}
 
-	// FIXED: Safe context extraction with defaults
 	const context =
 		options.detectedContext && typeof options.detectedContext === "object"
 			? options.detectedContext
@@ -113,7 +99,6 @@ const baseTranslationPromptTemplate = (sourceLang, targetLang, text, options) =>
 					prompt: "Provide a natural translation",
 				};
 
-	// Ensure context properties are safe
 	const safeContext = {
 		category: context.category || "general",
 		confidence: typeof context.confidence === "number" ? context.confidence : 1.0,
@@ -129,7 +114,6 @@ const baseTranslationPromptTemplate = (sourceLang, targetLang, text, options) =>
 
 	let additionalInstructions = "";
 	if (safeContext.existingTranslation && typeof safeContext.existingTranslation === "string") {
-		// FIXED: Truncate long existing translations to prevent prompt bloat
 		const truncatedTranslation =
 			safeContext.existingTranslation.length > 200
 				? safeContext.existingTranslation.substring(0, 200) + "..."
@@ -137,7 +121,6 @@ const baseTranslationPromptTemplate = (sourceLang, targetLang, text, options) =>
 		additionalInstructions = `\nREVISION REQUEST: The existing translation "${truncatedTranslation}" has length issues. Please provide a corrected version that matches the source text length requirements.`;
 	}
 
-	// FIXED: Safe style guide access with defaults
 	const formality = options.styleGuide?.formality || "neutral";
 	const toneOfVoice = options.styleGuide?.toneOfVoice || "professional";
 
@@ -173,10 +156,7 @@ ${text}`;
 };
 
 /**
- * ENHANCED: Base analysis prompt template with comprehensive input validation
- * @param {string} text - Text to analyze
- * @param {Object} options - Analysis options
- * @returns {string} - Generated analysis prompt
+ * Base analysis prompt template
  */
 const baseAnalysisPromptTemplate = (text, options = {}) => {
 	if (typeof text !== "string") {
@@ -416,16 +396,9 @@ const analysisPrompts = {
 
 module.exports = {
 	/**
-	 * ENHANCED: Get translation prompt with comprehensive input validation
-	 * @param {string} provider - Translation provider name
-	 * @param {string} sourceLang - Source language code
-	 * @param {string} targetLang - Target language code
-	 * @param {string} text - Text to translate
-	 * @param {Object} options - Translation options
-	 * @returns {Object} - Generated prompt for the specified provider
+	 * Get translation prompt
 	 */
 	getPrompt: (provider, sourceLang, targetLang, text, options) => {
-		// FIXED: Enhanced input validation for all parameters
 		if (!provider || typeof provider !== "string") {
 			console.warn("Invalid provider provided to getPrompt, using default");
 			provider = "default";
@@ -451,27 +424,20 @@ module.exports = {
 			options = {};
 		}
 
-		// FIXED: Safe provider access with fallback
 		const promptGenerator = translationPrompts[provider] || translationPrompts.default;
 
 		try {
 			return promptGenerator(sourceLang, targetLang, text, options);
 		} catch (error) {
 			console.error(`Error generating prompt for provider ${provider}:`, error.message);
-			// Fallback to default provider
 			return translationPrompts.default(sourceLang, targetLang, text, options);
 		}
 	},
 
 	/**
-	 * ENHANCED: Get analysis prompt with comprehensive input validation
-	 * @param {string} provider - Analysis provider name
-	 * @param {string} text - Text to analyze
-	 * @param {Object} options - Analysis options
-	 * @returns {Object} - Generated analysis prompt for the specified provider
+	 * Get analysis prompt
 	 */
 	getAnalysisPrompt: (provider, text, options = {}) => {
-		// FIXED: Enhanced input validation
 		if (!provider || typeof provider !== "string") {
 			console.warn("Invalid provider provided to getAnalysisPrompt, using default");
 			provider = "default";
@@ -487,7 +453,6 @@ module.exports = {
 			options = {};
 		}
 
-		// FIXED: Safe provider access with fallback
 		const promptGenerator = analysisPrompts[provider] || analysisPrompts.default;
 
 		try {
@@ -497,7 +462,6 @@ module.exports = {
 				`Error generating analysis prompt for provider ${provider}:`,
 				error.message
 			);
-			// Fallback to default provider
 			return analysisPrompts.default(text, options);
 		}
 	},

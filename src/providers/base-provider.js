@@ -1,6 +1,5 @@
 /**
- * OPTIMIZED: Abstract base class for all translation providers
- * Eliminates code duplication and provides consistent interface
+ * Base class for translation providers
  */
 class BaseProvider {
 	constructor(name, config = {}) {
@@ -16,30 +15,18 @@ class BaseProvider {
 		};
 	}
 
-	/**
-	 * Abstract method - must be implemented by subclasses
-	 */
 	async translate(text, sourceLang, targetLang, options = {}) {
 		throw new Error(`translate method must be implemented by ${this.name} provider`);
 	}
 
-	/**
-	 * Abstract method - must be implemented by subclasses
-	 */
 	getApiKey() {
 		throw new Error(`getApiKey method must be implemented by ${this.name} provider`);
 	}
 
-	/**
-	 * Abstract method - must be implemented by subclasses
-	 */
 	getEndpoint() {
 		throw new Error(`getEndpoint method must be implemented by ${this.name} provider`);
 	}
 
-	/**
-	 * OPTIMIZED: Common request validation logic
-	 */
 	validateRequest(text, sourceLang, targetLang) {
 		if (!text || typeof text !== "string") {
 			throw new Error("Text must be a non-empty string");
@@ -54,9 +41,6 @@ class BaseProvider {
 		}
 	}
 
-	/**
-	 * OPTIMIZED: Common response validation logic
-	 */
 	validateResponse(response, providerName) {
 		if (!response) {
 			throw new Error(`No response from ${providerName} API`);
@@ -69,9 +53,6 @@ class BaseProvider {
 		return true;
 	}
 
-	/**
-	 * OPTIMIZED: Common error handling
-	 */
 	handleApiError(error, providerName) {
 		if (error.response) {
 			const status = error.response.status;
@@ -98,9 +79,6 @@ class BaseProvider {
 		}
 	}
 
-	/**
-	 * OPTIMIZED: Generate translation prompt with context
-	 */
 	generatePrompt(text, sourceLang, targetLang, options = {}) {
 		const context = options.detectedContext;
 		let prompt = `Translate the following text from ${sourceLang} to ${targetLang}`;
@@ -121,7 +99,6 @@ class BaseProvider {
 			prompt += " Keep the translation length similar to the original.";
 		}
 
-		// Add explicit placeholder preservation instructions
 		const placeholderRegex = /\{[^}]+\}/g;
 		const hasPlaceholders = placeholderRegex.test(text);
 
@@ -136,9 +113,6 @@ class BaseProvider {
 		return prompt;
 	}
 
-	/**
-	 * OPTIMIZED: Common configuration getter with validation
-	 */
 	getConfig(options = {}) {
 		const apiKey = this.getApiKey();
 		if (!apiKey) {
@@ -155,16 +129,10 @@ class BaseProvider {
 		};
 	}
 
-	/**
-	 * OPTIMIZED: Extract translation from various response formats
-	 */
 	extractTranslation(response, providerName) {
-		// Debug logging for DeepSeek issues
 		if (providerName === "deepseek") {
 			console.log(`DeepSeek response structure:`, JSON.stringify(response, null, 2));
 		}
-
-		// Try common response formats
 		if (response.choices && response.choices[0]?.message?.content) {
 			return response.choices[0].message.content.trim();
 		}
@@ -173,7 +141,6 @@ class BaseProvider {
 			return response.choices[0].text.trim();
 		}
 
-		// DeepSeek specific response format
 		if (response.choices && response.choices[0]?.delta?.content) {
 			return response.choices[0].delta.content.trim();
 		}
@@ -194,12 +161,10 @@ class BaseProvider {
 			return response.content.trim();
 		}
 
-		// Additional DeepSeek response formats
 		if (response.data && response.data.choices && response.data.choices[0]?.message?.content) {
 			return response.data.choices[0].message.content.trim();
 		}
 
-		// Log the full response structure for debugging
 		console.error(
 			`Unable to extract translation from ${providerName} response. Response structure:`,
 			{
@@ -217,18 +182,15 @@ class BaseProvider {
 		);
 	}
 
-	/**
-	 * OPTIMIZED: Sanitize translation output
-	 */
 	sanitizeTranslation(translation) {
 		if (!translation || typeof translation !== "string") {
 			throw new Error("Invalid translation format");
 		}
 
 		return translation
-			.replace(/^["']|["']$/g, "") // Remove surrounding quotes
-			.replace(/^\s*Translation:\s*/i, "") // Remove "Translation:" prefix
-			.replace(/^\s*Result:\s*/i, "") // Remove "Result:" prefix
+			.replace(/^["']|["']$/g, "")
+			.replace(/^\s*Translation:\s*/i, "")
+			.replace(/^\s*Result:\s*/i, "")
 			.trim();
 	}
 }

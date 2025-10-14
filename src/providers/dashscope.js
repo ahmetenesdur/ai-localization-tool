@@ -119,7 +119,7 @@ class DashScopeProvider extends BaseProvider {
 	}
 }
 
-// Create singleton instance for backward compatibility
+// Create singleton instance
 const dashscopeProvider = new DashScopeProvider();
 
 // Export both class and legacy functions

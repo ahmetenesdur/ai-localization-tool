@@ -3,9 +3,6 @@ const BaseProvider = require("./base-provider");
 const { getPrompt, getAnalysisPrompt } = require("../utils/prompt-templates");
 const RetryHelper = require("../utils/retry-helper");
 
-/**
- * REFACTORED: XAI provider now extends BaseProvider for consistency
- */
 class XAIProvider extends BaseProvider {
 	constructor(config = {}) {
 		super("xai", config);
@@ -100,7 +97,7 @@ class XAIProvider extends BaseProvider {
 	}
 }
 
-// Create singleton instance for backward compatibility
+// Create singleton instance
 const xaiProvider = new XAIProvider();
 
 // Export both class and legacy functions

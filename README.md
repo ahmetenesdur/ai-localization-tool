@@ -129,7 +129,7 @@ localize
 localize
 # 🔄 Sync Analysis:
 #    📝 New keys: 3
-#    ✏️  Modified keys: 1
+#    ✏️ Modified keys: 1
 #    🗑️ Deleted keys: 2
 ```
 

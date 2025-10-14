@@ -3,9 +3,6 @@ const BaseProvider = require("./base-provider");
 const { getPrompt, getAnalysisPrompt } = require("../utils/prompt-templates");
 const RetryHelper = require("../utils/retry-helper");
 
-/**
- * REFACTORED: DeepSeek provider now extends BaseProvider for consistency
- */
 class DeepSeekProvider extends BaseProvider {
 	constructor(config = {}) {
 		super("deepseek", config);
@@ -16,7 +13,7 @@ class DeepSeekProvider extends BaseProvider {
 				...this.commonHeaders,
 				Authorization: `Bearer ${this.getApiKey()}`,
 			},
-			timeout: 45000, // Increased timeout for DeepSeek
+			timeout: 45000,
 			maxRedirects: 0,
 			validateStatus: (status) => status < 500,
 		});
@@ -54,8 +51,8 @@ class DeepSeekProvider extends BaseProvider {
 				}
 			},
 			{
-				maxRetries: options.retryOptions?.maxRetries || 3, // Increased retries for DeepSeek
-				initialDelay: options.retryOptions?.initialDelay || 2000, // Increased initial delay
+				maxRetries: options.retryOptions?.maxRetries || 3,
+				initialDelay: options.retryOptions?.initialDelay || 2000,
 				context: "DeepSeek Provider",
 				logContext: {
 					source: sourceLang,
@@ -100,7 +97,7 @@ class DeepSeekProvider extends BaseProvider {
 	}
 }
 
-// Create singleton instance for backward compatibility
+// Create singleton instance
 const deepseekProvider = new DeepSeekProvider();
 
 // Export both class and legacy functions

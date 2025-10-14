@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-// Load environment variables with support for .env.local
-// FIXED: Use dotenv v17+ compatible loading with multiple paths
 require("dotenv").config({ path: [".env.local", ".env"] });
 const fs = require("fs").promises;
 const fsSync = require("fs");
@@ -19,21 +17,12 @@ const Orchestrator = require("../src/core/orchestrator");
 const InputValidator = require("../src/utils/input-validator");
 const gracefulShutdown = require("../src/utils/graceful-shutdown");
 
-// FIXED: Load environment variables asynchronously to prevent blocking
-// Note: Main dotenv loading is now handled at the top of the file with v17+ syntax
 const loadEnvironmentVariables = async () => {
-	// Environment variables are now loaded at startup with dotenv v17+ syntax
-	// This function is kept for compatibility but no longer needed
 	return Promise.resolve();
 };
 
-/**
- * Load configuration from localize.config.js
- * FIXED: Use dynamic import to prevent blocking main thread with fallback support
- */
 const loadConfig = async () => {
 	try {
-		// Look for config file in current directory and parent directories
 		const configPaths = [
 			path.resolve(process.cwd(), "localize.config.js"),
 			path.resolve(process.cwd(), "localize.config.cjs"),
@@ -49,9 +38,7 @@ const loadConfig = async () => {
 				await fs.access(configPath);
 				configFile = configPath;
 				break;
-			} catch (e) {
-				// File doesn't exist, try next path
-			}
+			} catch (e) {}
 		}
 
 		if (!configFile) {
@@ -60,37 +47,28 @@ const loadConfig = async () => {
 
 		console.log(`🔍 Loading config from: ${path.relative(process.cwd(), configFile)}`);
 
-		// FIXED: Enhanced config loading with better ES module support
 		try {
-			// First try CommonJS require (most compatible)
 			try {
-				// Clear require cache to ensure fresh load
 				delete require.cache[require.resolve(configFile)];
 				const config = require(configFile);
 
-				// Validate that we got a valid config object
 				if (!config || typeof config !== "object") {
 					throw new Error("Config file does not export a valid configuration object");
 				}
 
 				return config;
 			} catch (requireError) {
-				// If CommonJS fails, try dynamic import for ES modules
 				console.warn(
 					`⚠️ CommonJS require failed, trying ES module import: ${requireError.message}`
 				);
 
-				// Convert to file:// URL for cross-platform compatibility
 				const configUrl = `file://${configFile.replace(/\\/g, "/")}`;
 
-				// Add timestamp to avoid module caching issues
 				const configUrlWithCache = `${configUrl}?t=${Date.now()}`;
 				const configModule = await import(configUrlWithCache);
 
-				// Handle both CommonJS (module.exports) and ES module (export default/named) formats
 				const config = configModule.default || configModule;
 
-				// Validate that we got a valid config object
 				if (!config || typeof config !== "object") {
 					throw new Error("Config file does not export a valid configuration object");
 				}
@@ -125,26 +103,20 @@ const loadConfig = async () => {
 	}
 };
 
-/**
- * Configure file system and other components
- */
 const configureComponents = (config) => {
-	// Configure file operations
 	if (config.fileOperations) {
 		FileManager.configure(config.fileOperations);
 	}
 
-	// Configure rate limiter
 	if (config.rateLimiter) {
 		rateLimiter.updateConfig({
 			queueStrategy: config.rateLimiter.queueStrategy || "priority",
 			queueTimeout: config.rateLimiter.queueTimeout || 30000,
 			adaptiveThrottling: config.rateLimiter.adaptiveThrottling !== false,
-			providerLimits: config.rateLimiter.providerLimits, // Add provider limits
+			providerLimits: config.rateLimiter.providerLimits,
 		});
 	}
 
-	// Configure environment variables if needed
 	if (config.advanced?.debug) {
 		process.env.DEBUG = "true";
 	}
@@ -154,20 +126,14 @@ const configureComponents = (config) => {
 	}
 };
 
-/**
- * Configure CLI options
- */
 const configureCLI = async (defaultConfig) => {
-	// Setup components based on config file
 	configureComponents(defaultConfig);
 
-	// Main program setup
 	program
 		.name("localize")
 		.description("AI-powered localization tool for Next.js projects")
 		.version("1.0.0");
 
-	// Common global options
 	program
 		.option("-s, --source <lang>", "Source language", defaultConfig.source)
 		.option(
@@ -180,36 +146,29 @@ const configureCLI = async (defaultConfig) => {
 		.option("--debug", "Enable debug mode with verbose logging", false)
 		.option("--verbose", "Enable detailed diagnostic output", false);
 
-	// Set debug mode if requested
 	program.on("option:debug", function () {
 		process.env.DEBUG = "true";
 		console.log("🔍 Debug mode: ENABLED (verbose logging)");
 	});
 
-	// Set verbose mode if requested
 	program.on("option:verbose", function () {
 		process.env.VERBOSE = "true";
 		console.log("🔍 Verbose mode: ENABLED (detailed diagnostics)");
 	});
 
-	// Run helper for all actions
 	const runCommand = async (options, commandOptions, commandName) => {
 		try {
-			// SECURITY FIX: Validate command name
 			const validCommands = ["translate", "fix", "analyze", "advanced"];
 			if (!validCommands.includes(commandName)) {
 				throw new Error(`Invalid command: ${commandName}`);
 			}
 
-			// Set up global debug mode if requested
 			const globalOpts = program.opts();
 
 			if (globalOpts.debug) {
-				// SECURITY FIX: Debug CLI options safely without exposing sensitive data
 				const safeGlobalOpts = { ...globalOpts };
 				const safeCommandOptions = { ...commandOptions };
 
-				// Remove or mask sensitive information
 				if (safeGlobalOpts.targets) {
 					safeGlobalOpts.targets = `[${safeGlobalOpts.targets.length} languages]`;
 				}
@@ -225,11 +184,9 @@ const configureCLI = async (defaultConfig) => {
 				console.log("Command Options:", JSON.stringify(safeCommandOptions, null, 2));
 			}
 
-			// SECURITY FIX: Validate and sanitize CLI inputs
 			const sanitizedGlobalOpts = { ...globalOpts };
 			const sanitizedCommandOptions = { ...commandOptions };
 
-			// Validate source language
 			if (sanitizedGlobalOpts.source) {
 				sanitizedGlobalOpts.source = InputValidator.validateLanguageCode(
 					sanitizedGlobalOpts.source,
@@ -237,7 +194,6 @@ const configureCLI = async (defaultConfig) => {
 				);
 			}
 
-			// Validate target languages
 			if (sanitizedGlobalOpts.targets && Array.isArray(sanitizedGlobalOpts.targets)) {
 				sanitizedGlobalOpts.targets = InputValidator.validateLanguageCodes(
 					sanitizedGlobalOpts.targets,
@@ -245,7 +201,6 @@ const configureCLI = async (defaultConfig) => {
 				);
 			}
 
-			// Validate locales directory
 			if (sanitizedGlobalOpts.localesDir) {
 				sanitizedGlobalOpts.localesDir = InputValidator.validateDirectoryPath(
 					sanitizedGlobalOpts.localesDir,
@@ -253,7 +208,6 @@ const configureCLI = async (defaultConfig) => {
 				);
 			}
 
-			// Validate API provider
 			if (sanitizedCommandOptions.provider) {
 				sanitizedCommandOptions.provider = InputValidator.validateProvider(
 					sanitizedCommandOptions.provider,
@@ -261,7 +215,6 @@ const configureCLI = async (defaultConfig) => {
 				);
 			}
 
-			// Validate numeric inputs
 			if (sanitizedCommandOptions.concurrency !== undefined) {
 				const concurrency = parseInt(sanitizedCommandOptions.concurrency);
 				if (isNaN(concurrency) || concurrency < 1 || concurrency > 20) {
@@ -286,7 +239,6 @@ const configureCLI = async (defaultConfig) => {
 				sanitizedCommandOptions.contextConfidence = confidence;
 			}
 
-			// Validate length mode
 			if (sanitizedCommandOptions.length) {
 				const validLengthModes = ["strict", "flexible", "exact", "relaxed", "smart"];
 				if (!validLengthModes.includes(sanitizedCommandOptions.length)) {
@@ -296,34 +248,26 @@ const configureCLI = async (defaultConfig) => {
 				}
 			}
 
-			// Merge configurations: Defaults < Global < Command
-			// FIXED: Only override config if CLI parameters are explicitly provided
 			const mergedOpts = {
-				// Start with config defaults
 				source: defaultConfig.source,
 				targets: defaultConfig.targets,
 				localesDir: defaultConfig.localesDir,
 				apiProvider: defaultConfig.apiProvider,
-				// Override only if CLI parameters are provided
 				...(sanitizedGlobalOpts.source && { source: sanitizedGlobalOpts.source }),
 				...(sanitizedGlobalOpts.targets && { targets: sanitizedGlobalOpts.targets }),
 				...(sanitizedGlobalOpts.localesDir && {
 					localesDir: sanitizedGlobalOpts.localesDir,
 				}),
-				// Apply command-specific options
 				...sanitizedCommandOptions,
 			};
 
-			// Set up concurrency options
 			let concurrencyLimit =
 				parseInt(mergedOpts.concurrency) || defaultConfig.concurrencyLimit || 5;
 
-			// Auto-optimize if requested
 			if (mergedOpts.autoOptimize) {
 				const cpuCount = os.cpus().length;
 				const memoryGB = Math.floor(os.totalmem() / (1024 * 1024 * 1024));
 
-				// Adjust concurrency based on available CPU cores and memory
 				if (memoryGB < 4) {
 					concurrencyLimit = Math.min(3, cpuCount);
 				} else if (memoryGB < 8) {
@@ -338,12 +282,10 @@ const configureCLI = async (defaultConfig) => {
 				console.log(`   - Concurrency: ${concurrencyLimit}`);
 			}
 
-			// SECURITY FIX: Final validation of concurrency limit
 			if (concurrencyLimit < 1 || concurrencyLimit > 20) {
 				throw new Error("Invalid concurrency limit after optimization");
 			}
 
-			// Create final config
 			const finalConfig = {
 				...defaultConfig,
 				command: commandName,
@@ -405,7 +347,7 @@ const configureCLI = async (defaultConfig) => {
 							0.6,
 					},
 				},
-				// Include advanced configuration
+
 				advanced: {
 					...defaultConfig.advanced,
 					timeoutMs: mergedOpts.timeout || defaultConfig.advanced?.timeoutMs || 60000,
@@ -415,54 +357,45 @@ const configureCLI = async (defaultConfig) => {
 						mergedOpts.autoOptimize || defaultConfig.advanced?.autoOptimize || false,
 					debug: mergedOpts.debug || defaultConfig.advanced?.debug || false,
 				},
-				// Include rate limiter configuration
+
 				rateLimiter: {
 					...defaultConfig.rateLimiter,
 					enabled: defaultConfig.rateLimiter?.enabled !== false,
 				},
-				// Include file operations configuration
+
 				fileOperations: defaultConfig.fileOperations || {},
-				// Include logging configuration
+
 				logging: {
 					...defaultConfig.logging,
 					verbose: mergedOpts.verbose || defaultConfig.logging?.verbose || false,
 				},
 			};
 
-			// SECURITY FIX: Final validation of entire config
 			try {
 				InputValidator.validateConfig(finalConfig);
 			} catch (configError) {
 				throw new Error(`Configuration validation failed: ${configError.message}`);
 			}
 
-			// Update configurations with final settings
 			configureComponents(finalConfig);
 
-			// Validate environment
 			validateEnvironment();
 
-			// Debug configuration details
 			if (finalConfig.debug) {
 				console.log("\n📋 Configuration details:");
 
-				// SECURITY FIX: Create safe config copy without sensitive data
 				const safeConfig = {
 					...finalConfig,
-					// Remove API config completely to prevent key exposure
 					apiConfig: Object.keys(finalConfig.apiConfig || {}).reduce((acc, provider) => {
 						acc[provider] = {
 							model: finalConfig.apiConfig[provider]?.model || "configured",
 							temperature: finalConfig.apiConfig[provider]?.temperature,
 							maxTokens: finalConfig.apiConfig[provider]?.maxTokens,
-							// Exclude any potential API keys or endpoints
 						};
 						return acc;
 					}, {}),
-					// Remove any other potentially sensitive fields
 					advanced: {
 						...finalConfig.advanced,
-						// Keep only non-sensitive advanced settings
 						timeoutMs: finalConfig.advanced?.timeoutMs,
 						maxKeyLength: finalConfig.advanced?.maxKeyLength,
 						maxBatchSize: finalConfig.advanced?.maxBatchSize,
@@ -471,17 +404,14 @@ const configureCLI = async (defaultConfig) => {
 					},
 				};
 
-				// SECURITY FIX: Additional sensitive field removal
 				delete safeConfig.apiProvider; // Could leak preferred provider info
 				delete safeConfig.localesDir; // Could leak file system structure
 
 				console.log(JSON.stringify(safeConfig, null, 2));
 			}
 
-			// Display performance tips
 			await displayPerformanceTips(finalConfig);
 
-			// Find locale files
 			const localesDir = path.resolve(finalConfig.localesDir);
 			console.log(`\n📁 Looking for source files in: ${localesDir}`);
 
@@ -493,7 +423,6 @@ const configureCLI = async (defaultConfig) => {
 				);
 			}
 
-			// Execute the command
 			const startTime = Date.now();
 
 			switch (commandName) {
@@ -545,14 +474,12 @@ const configureCLI = async (defaultConfig) => {
 						);
 					}
 
-					// Process all files
 					for (const file of files) {
 						await translateFile(file, finalConfig);
 					}
 					break;
 			}
 
-			// Calculate and display total execution time
 			const executionTime = (Date.now() - startTime) / 1000;
 			console.log(
 				`\n✅ All operations completed successfully in ${executionTime.toFixed(1)}s`
@@ -563,7 +490,6 @@ const configureCLI = async (defaultConfig) => {
 		}
 	};
 
-	// Translate command - the default action
 	program
 		.command("translate")
 		.description("Translate missing strings (default command)")
@@ -595,7 +521,6 @@ const configureCLI = async (defaultConfig) => {
 			}
 		});
 
-	// Fix command - for fixing existing translations
 	program
 		.command("fix")
 		.description("Fix issues in existing translations")
@@ -612,7 +537,6 @@ const configureCLI = async (defaultConfig) => {
 			}
 		});
 
-	// Context command - for analyzing context
 	program
 		.command("analyze")
 		.description("Analyze context patterns")
@@ -640,7 +564,6 @@ const configureCLI = async (defaultConfig) => {
 			}
 		});
 
-	// Advanced options command - for rarely used, technical options
 	program
 		.command("advanced")
 		.description("Access advanced configuration options")
@@ -680,10 +603,8 @@ const configureCLI = async (defaultConfig) => {
 			}
 		});
 
-	// Handle the default command (no command specified)
 	program.action(async () => {
 		try {
-			// If no command, run translate with default options
 			await runCommand(program.opts(), {}, "translate");
 		} catch (error) {
 			console.error(`\n❌ Error: ${error.message}`);
@@ -694,22 +615,16 @@ const configureCLI = async (defaultConfig) => {
 		}
 	});
 
-	// Parse arguments
 	program.parse(process.argv);
 
-	// Return dummy config for compatibility
 	return defaultConfig;
 };
 
-/**
- * Validate environment variables and configuration
- */
 const validateEnvironment = () => {
 	try {
 		// Check that ProviderFactory can validate providers
 		const availableProviders = ProviderFactory.validateProviders();
 
-		// Log available providers
 		console.log(`\n🔑 Available API providers: ${availableProviders.join(", ")}`);
 
 		return availableProviders;
@@ -717,7 +632,6 @@ const validateEnvironment = () => {
 		console.error("\n❌ Error: " + error.message);
 		console.error("Please set at least one of the following environment variables:");
 
-		// List all possible providers
 		const possibleProviders = [
 			"DASHSCOPE_API_KEY",
 			"OPENAI_API_KEY",
@@ -732,21 +646,15 @@ const validateEnvironment = () => {
 	}
 };
 
-/**
- * Display performance optimization tips
- */
 const displayPerformanceTips = async (options) => {
-	// Skip if debug is not enabled
 	if (!options.debug) return;
 
 	try {
-		// Check system specifications
 		const cpuCount = os.cpus().length;
 		const cpuModel = os.cpus()[0]?.model || "Unknown CPU";
 		const memoryGB = Math.floor(os.totalmem() / (1024 * 1024 * 1024));
 		const freememGB = Math.floor(os.freemem() / (1024 * 1024 * 1024));
 
-		// Instantiate orchestrator to check cache
 		const orchestrator = new Orchestrator(options);
 		const cacheStats = orchestrator.getCacheStats();
 
@@ -777,14 +685,10 @@ const displayPerformanceTips = async (options) => {
 			);
 		}
 	} catch (error) {
-		// Ignore errors in performance tips calculation
 		console.log("⚠️ Could not calculate performance tips");
 	}
 };
 
-/**
- * Main CLI function
- */
 (async () => {
 	const startTime = Date.now();
 

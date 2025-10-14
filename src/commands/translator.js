@@ -4,15 +4,11 @@ const ObjectTransformer = require("../utils/object-transformer");
 const Orchestrator = require("../core/orchestrator");
 const QualityChecker = require("../utils/quality");
 const StateManager = require("../utils/state-manager");
-// FIXED: Removed unused 'os' import
-// SECURITY FIX: Add input validation
 const InputValidator = require("../utils/input-validator");
 const gracefulShutdown = require("../utils/graceful-shutdown");
 
 /**
- * Check if a text only contains placeholders and whitespace (no actual translatable content)
- * @param {string} text - Text to check
- * @returns {boolean} - True if text only contains placeholders
+ * Check if text only contains placeholders and whitespace
  */
 function isPlaceholderOnlyText(text) {
 	if (!text || typeof text !== "string") {
@@ -23,7 +19,6 @@ function isPlaceholderOnlyText(text) {
 	const placeholderRegex = /\{[^}]+\}|\$\{[^}]+\}|%[sd]/g;
 	const textWithoutPlaceholders = text.replace(placeholderRegex, "").trim();
 
-	// If nothing remains after removing placeholders, it's placeholder-only
 	return textWithoutPlaceholders.length === 0;
 }
 
@@ -60,7 +55,7 @@ const consoleLock = {
 };
 
 /**
- * REFACTORED: Validate input parameters for translation process
+ * Validate input parameters for translation process
  */
 async function validateTranslationInputs(file, options) {
 	if (!file || typeof file !== "string") {
@@ -71,17 +66,14 @@ async function validateTranslationInputs(file, options) {
 		throw new Error("Options must be an object");
 	}
 
-	// Validate source language
 	if (options.source) {
 		options.source = InputValidator.validateLanguageCode(options.source, "source language");
 	}
 
-	// Validate target languages
 	if (options.targets && Array.isArray(options.targets)) {
 		options.targets = InputValidator.validateLanguageCodes(options.targets, "target languages");
 	}
 
-	// Validate locales directory if provided
 	if (options.localesDir) {
 		options.localesDir = InputValidator.validateDirectoryPath(
 			options.localesDir,
@@ -89,7 +81,6 @@ async function validateTranslationInputs(file, options) {
 		);
 	}
 
-	// Resolve and validate file path to prevent traversal
 	const resolvedFile = path.resolve(file);
 	const cwd = process.cwd();
 	if (!resolvedFile.startsWith(cwd)) {
@@ -102,32 +93,28 @@ async function validateTranslationInputs(file, options) {
 }
 
 /**
- * REFACTORED: Initialize translation state and sync analysis
+ * Initialize translation state and sync analysis
  */
 async function initializeTranslationState(resolvedFile, flattenedSource, options) {
 	const stateManager = new StateManager();
 	const projectRoot = process.cwd();
 
-	// Load previous state and generate current state
 	const previousState = await stateManager.loadState(projectRoot);
 	const currentState = stateManager.generateStateFromSource(flattenedSource);
 
-	// Compare states to find changes
 	const comparison = stateManager.compareStates(previousState, currentState);
 	const stats = stateManager.getComparisonStats(comparison);
 
-	// Log sync information if there are changes
 	if (stats.hasChanges) {
 		await consoleLock.log(`\n🔄 Sync Analysis:`);
 		await consoleLock.log(`   📝 New keys: ${stats.newCount}`);
-		await consoleLock.log(`   ✏️  Modified keys: ${stats.modifiedCount}`);
+		await consoleLock.log(`   ✏️ Modified keys: ${stats.modifiedCount}`);
 		await consoleLock.log(`   🗑️ Deleted keys: ${stats.deletedCount}`);
 
 		// Handle deleted keys - remove them from all target files
 		const syncEnabled = options.syncOptions?.enabled !== false;
 		const removeDeletedEnabled = options.syncOptions?.removeDeletedKeys !== false;
 
-		// FIXED: Enhanced null safety for comparison results
 		if (
 			comparison?.deletedKeys &&
 			Array.isArray(comparison.deletedKeys) &&
@@ -154,7 +141,7 @@ async function initializeTranslationState(resolvedFile, flattenedSource, options
 }
 
 /**
- * REFACTORED: Initialize global statistics structure
+ * Initialize global statistics structure
  */
 function initializeGlobalStats() {
 	return {
@@ -171,7 +158,7 @@ function initializeGlobalStats() {
 }
 
 /**
- * REFACTORED: Process all target languages with improved concurrency
+ * Process all target languages
  */
 async function processAllLanguages(
 	resolvedFile,
@@ -180,7 +167,6 @@ async function processAllLanguages(
 	globalStats,
 	comparison
 ) {
-	// Use concurrency limit from options
 	const languageConcurrency = options.concurrencyLimit || 3;
 	const targetLanguages = [...options.targets];
 
@@ -188,12 +174,10 @@ async function processAllLanguages(
 		`🚀 Processing ${targetLanguages.length} languages with concurrency of ${languageConcurrency}`
 	);
 
-	// Process languages in batches
 	for (let i = 0; i < targetLanguages.length; i += languageConcurrency) {
 		const currentBatch = targetLanguages.slice(i, i + languageConcurrency);
 		const progressOptions = { logToConsole: false };
 
-		// Process batch of languages in parallel
 		const batchResults = await Promise.all(
 			currentBatch.map((targetLang) =>
 				processLanguage(
@@ -208,10 +192,8 @@ async function processAllLanguages(
 			)
 		);
 
-		// Log results for completed batch
 		await logBatchResults(batchResults);
 
-		// Add line break between batches
 		if (i + languageConcurrency < targetLanguages.length) {
 			await consoleLock.log("");
 		}
@@ -219,27 +201,15 @@ async function processAllLanguages(
 }
 
 /**
- * REFACTORED: Log results for a batch of language processing
+ * Log results for a batch of language processing
  */
 async function logBatchResults(batchResults) {
 	for (const result of batchResults) {
 		if (result && result.status && result.status.completed > 0) {
 			const status = result.status;
-			const percent = (status.completed / status.total) * 100;
-			const width = 20;
-			const filledWidth = Math.max(0, Math.round((status.completed / status.total) * width));
-			const emptyWidth = Math.max(0, width - filledWidth);
-			const progressBar = `[${"=".repeat(filledWidth)}${" ".repeat(emptyWidth)}]`;
 
-			const percentText = `${percent.toFixed(1)}%`.padStart(6);
-			const itemsText = `${status.completed}/${status.total}`.padEnd(10);
-			const successText = `✅ ${status.success}`.padEnd(8);
-			const failedText = `❌ ${status.failed}`.padEnd(8);
-			const langInfo = status.language ? `[${status.language}] ` : "";
-
-			await consoleLock.log(
-				`${langInfo}${progressBar} ${percentText} | ${itemsText}items | ${successText}| ${failedText}`
-			);
+			// Progress bar is now handled by ProgressTracker in real-time
+			// No need to log static progress bar here anymore
 
 			// Log summary
 			await consoleLock.log(`\n📊 Translation Summary:`);
@@ -258,7 +228,7 @@ async function logBatchResults(batchResults) {
 }
 
 /**
- * REFACTORED: Finalize translation process and save state
+ * Finalize translation process and save state
  */
 async function finalizeTranslation(
 	stateManager,
@@ -268,14 +238,11 @@ async function finalizeTranslation(
 	startTime,
 	options
 ) {
-	// Calculate final metrics
 	globalStats.endTime = new Date().toISOString();
 	globalStats.totalDuration = (Date.now() - startTime) / 1000;
 
-	// Display final summary
 	await displayGlobalSummary(globalStats, options.targets.length);
 
-	// Save current state for future sync operations
 	try {
 		await stateManager.saveState(projectRoot, currentState);
 		if (options.debug) {
@@ -287,9 +254,7 @@ async function finalizeTranslation(
 }
 
 /**
- * Main translator function to process a source file and create translations
- * for all target languages. Enhanced with better performance and error handling.
- * SECURITY FIX: Added input validation to prevent path traversal and injection attacks
+ * Main translator function to process source file and create translations
  */
 async function translateFile(file, options) {
 	await consoleLock.log(`\nProcessing File: "${path.basename(file)}"`);
@@ -297,7 +262,6 @@ async function translateFile(file, options) {
 	try {
 		let resolvedFile = await validateTranslationInputs(file, options);
 
-		// Read source content
 		const startTime = Date.now();
 		const sourceContent = await FileManager.readJSON(resolvedFile);
 		const flattenedSource = ObjectTransformer.flatten(sourceContent);
@@ -305,11 +269,9 @@ async function translateFile(file, options) {
 
 		await consoleLock.log(`Source file contains ${totalKeys} translation keys`);
 
-		// Initialize translation state and sync analysis
 		const { stateManager, projectRoot, currentState, comparison } =
 			await initializeTranslationState(resolvedFile, flattenedSource, options);
 
-		// Register shutdown callback to save state before exit
 		gracefulShutdown.registerCallback(async () => {
 			try {
 				await stateManager.saveState(projectRoot, currentState);
@@ -319,11 +281,9 @@ async function translateFile(file, options) {
 			}
 		});
 
-		// Initialize global statistics structure
 		const globalStats = initializeGlobalStats();
 
 		try {
-			// Process all target languages using the refactored helper function
 			await processAllLanguages(
 				resolvedFile,
 				flattenedSource,
@@ -332,7 +292,6 @@ async function translateFile(file, options) {
 				comparison
 			);
 
-			// Finalize translation process and save state
 			await finalizeTranslation(
 				stateManager,
 				projectRoot,
@@ -346,7 +305,6 @@ async function translateFile(file, options) {
 		} catch (error) {
 			await consoleLock.log(`\nTranslation error: ${error.message}`);
 
-			// Add error information to stats
 			globalStats.error = {
 				message: error.message,
 				time: new Date().toISOString(),
@@ -355,12 +313,8 @@ async function translateFile(file, options) {
 
 			throw error;
 		} finally {
-			// Save cache stats if debug is enabled
 			if (process.env.DEBUG) {
 				await consoleLock.log("\nCache statistics:");
-				// Note: This will only show cache stats for the *last* orchestrator instance used in the loop.
-				// A more robust solution would involve aggregating stats from all instances.
-				// For now, we log the globalStats which contain aggregated success/fail counts.
 			}
 		}
 	} catch (validationError) {
@@ -371,22 +325,19 @@ async function translateFile(file, options) {
 
 /**
  * Process a single language translation
- * SECURITY FIX: Added input validation to prevent path traversal attacks
  */
 async function processLanguage(
 	targetLang,
 	sourceFile,
 	flattenedSource,
-	orchestrator, // Now gets a fresh instance per language
+	orchestrator,
 	options,
-	globalStats, // Used for aggregating final stats
-	comparison // Comparison results for sync functionality
+	globalStats,
+	comparison
 ) {
 	const langStartTime = Date.now();
 
-	// FIXED: Enhanced error boundary with comprehensive validation
 	try {
-		// FIXED: Input validation error boundary
 		if (!targetLang || typeof targetLang !== "string") {
 			throw new Error("Invalid target language provided");
 		}
@@ -402,14 +353,13 @@ async function processLanguage(
 		if (!globalStats || typeof globalStats !== "object") {
 			throw new Error("Invalid global stats object provided");
 		}
-		// SECURITY FIX: Validate target language before processing
+
 		const safeTargetLang = InputValidator.validateLanguageCode(targetLang, "target language");
 
 		await consoleLock.log(`\n\ud83c\udf0e Starting translations for ${safeTargetLang}`);
 		let finalStatus = null;
 		let savedMessage = null;
 
-		// Initialize language stats in globalStats
 		globalStats.languages[safeTargetLang] = {
 			processed: 0,
 			added: 0,
@@ -418,34 +368,31 @@ async function processLanguage(
 			timeMs: 0,
 		};
 
-		// SECURITY FIX: Create safe target file path to prevent path traversal
 		const sourceDir = path.dirname(sourceFile);
 		const safeTargetFilename = `${safeTargetLang}.json`;
 		const targetPath = InputValidator.createSafeFilePath(sourceDir, safeTargetFilename);
 
-		// FIXED: Enhanced error boundary for file operations
 		let targetContent = {};
 		try {
 			targetContent = await FileManager.readJSON(targetPath);
 
-			// FIXED: Validate read content
 			if (!targetContent || typeof targetContent !== "object") {
 				console.warn(`Invalid content in ${targetPath}, using empty object`);
 				targetContent = {};
 			}
 		} catch (err) {
-			// FIXED: More specific error handling
 			if (err.code === "ENOENT") {
 				await consoleLock.log(
 					`\ud83c\udd95 Creating new translation file for ${safeTargetLang}`
 				);
 			} else {
-				console.warn(`Error reading ${targetPath}: ${err.message}, using empty object`);
+				if (options.debug) {
+					console.warn(`Error reading ${targetPath}: ${err.message}, using empty object`);
+				}
 			}
 			targetContent = {};
 		}
 
-		// FIXED: Safe object transformation with error boundary
 		let flattenedTarget = {};
 		try {
 			flattenedTarget = ObjectTransformer.flatten(targetContent);
@@ -457,12 +404,10 @@ async function processLanguage(
 			flattenedTarget = {};
 		}
 
-		// Find missing or outdated keys
 		const missingKeys = [];
-		let hasPlaceholderOnlyChanges = false; // Track if we made any placeholder-only changes
+		let hasPlaceholderOnlyChanges = false;
 
 		for (const [key, sourceText] of Object.entries(flattenedSource)) {
-			// SECURITY FIX: Validate translation key
 			try {
 				InputValidator.validateKey(key, "translation key");
 				InputValidator.validateText(sourceText, "source text");
@@ -475,15 +420,11 @@ async function processLanguage(
 				continue;
 			}
 
-			// Track what we're processing for this language in globalStats
 			globalStats.languages[safeTargetLang].processed++;
 
-			// Check if this is a placeholder-only text that doesn't need translation
 			if (isPlaceholderOnlyText(sourceText)) {
-				// For placeholder-only text, just copy the value directly
 				const existingValue = flattenedTarget[key];
 				if (existingValue !== sourceText) {
-					// Only update if the value is different
 					flattenedTarget[key] = sourceText;
 					hasPlaceholderOnlyChanges = true;
 					if (options.debug) {
@@ -497,20 +438,16 @@ async function processLanguage(
 				continue;
 			}
 
-			// Determine if this key needs translation/re-translation
 			const isNewKey = comparison.newKeys.includes(key);
 			const isModifiedKey = comparison.modifiedKeys.includes(key);
 			const keyExistsInTarget = key in flattenedTarget;
 
-			// Skip if key exists in target and we're not forcing update,
-			// AND it's not a modified key that needs re-translation
 			if (keyExistsInTarget && !options.forceUpdate && !isModifiedKey) {
 				globalStats.languages[safeTargetLang].skipped++;
 				globalStats.skipped++;
 				continue;
 			}
 
-			// Add to processing list (includes new keys, modified keys, and force updates)
 			missingKeys.push({
 				key,
 				text: sourceText,
@@ -524,7 +461,7 @@ async function processLanguage(
 		if (missingKeys.length === 0 && !hasPlaceholderOnlyChanges) {
 			await consoleLock.log(`✅ All translations exist for ${safeTargetLang}`);
 			globalStats.languages[safeTargetLang].timeMs = Date.now() - langStartTime;
-			return { status: { completed: 0, total: 0, language: safeTargetLang } }; // Return minimal status
+			return { status: { completed: 0, total: 0, language: safeTargetLang } };
 		}
 
 		if (missingKeys.length > 0) {
@@ -533,13 +470,11 @@ async function processLanguage(
 			);
 		}
 
-		// FIXED: Enhanced error boundary for translation processing
 		let results = [];
 		if (missingKeys.length > 0) {
 			try {
 				results = await orchestrator.processTranslations(missingKeys);
 
-				// FIXED: Validate results structure
 				if (!Array.isArray(results)) {
 					console.warn("Invalid results from orchestrator, using empty array");
 					results = [];
@@ -549,20 +484,18 @@ async function processLanguage(
 					`Error processing translations for ${safeTargetLang}: ${err.message}`
 				);
 				results = [];
-				// Update global stats for failed processing
+
 				if (globalStats.languages[safeTargetLang]) {
 					globalStats.languages[safeTargetLang].failed += missingKeys.length;
 					globalStats.failed += missingKeys.length;
 				}
 			}
 		} else {
-			// No translations needed, but we might have placeholder-only changes
 			if (hasPlaceholderOnlyChanges) {
 				await consoleLock.log(`✅ Found placeholder-only changes for ${safeTargetLang}`);
 			}
 		}
 
-		// FIXED: Safe status capture with error boundary
 		try {
 			if (orchestrator?.progress && typeof orchestrator.progress.getStatus === "function") {
 				finalStatus = orchestrator.progress.getStatus();
@@ -571,12 +504,10 @@ async function processLanguage(
 			console.warn(`Error getting orchestrator status: ${err.message}`);
 		}
 
-		// FIXED: Safe results filtering with error boundary
 		let validResults = [];
 		try {
 			validResults = results.filter((result) => result && result.success === true);
 
-			// FIXED: Additional validation of valid results
 			validResults = validResults.filter(
 				(result) =>
 					result.key &&
@@ -595,26 +526,18 @@ async function processLanguage(
 			});
 		}
 
-		// Check if we have any changes to save (either from translations or placeholder-only copies)
 		const hasChangesToSave = validResults.length > 0 || hasPlaceholderOnlyChanges;
 
 		if (hasChangesToSave) {
-			// Save to file
 			const unflattened = ObjectTransformer.unflatten(flattenedTarget);
 			await FileManager.writeJSON(targetPath, unflattened);
 
-			// Aggregate statistics into globalStats
 			globalStats.total += validResults.length;
 			globalStats.success += validResults.length;
 			globalStats.failed += results.length - validResults.length;
 			globalStats.languages[safeTargetLang].added += validResults.length;
 			globalStats.languages[safeTargetLang].failed += results.length - validResults.length;
 
-			// Update total time (consider aggregating this differently if needed)
-			// const orchestratorTime = parseFloat(orchestrator.progress.statistics.totalTime || 0);
-			// globalStats.totalTime += orchestratorTime; // This might overestimate total time if run in parallel
-
-			// Update category stats if context data exists
 			validResults.forEach((result) => {
 				if (result.context) {
 					const category = result.context.category || "general";
@@ -635,22 +558,19 @@ async function processLanguage(
 			savedMessage = `\n\ud83d\udcbe Translations saved: ${safeTargetLang}.json`;
 		}
 
-		// Update language timing in globalStats
 		globalStats.languages[safeTargetLang].timeMs = Date.now() - langStartTime;
-		return { status: finalStatus, savedMessage }; // Return status and save message
+		return { status: finalStatus, savedMessage };
 	} catch (error) {
-		// SECURITY FIX: Sanitize error messages to prevent information leakage
 		const safeError = error.message.includes("outside working directory")
 			? "Invalid file path detected"
 			: error.message;
 
-		// Log error but continue with other languages
 		await consoleLock.log(`\n\u274c Error processing ${targetLang}: ${safeError}`);
 		if (globalStats.languages[targetLang]) {
 			globalStats.languages[targetLang].error = safeError;
 			globalStats.languages[targetLang].timeMs = Date.now() - langStartTime;
 		}
-		return { status: null, error: safeError }; // Return error info
+		return { status: null, error: safeError };
 	}
 }
 
@@ -843,7 +763,6 @@ async function removeDeletedKeysFromTargets(sourceFile, deletedKeys, options) {
 
 	for (const targetLang of options.targets) {
 		try {
-			// SECURITY FIX: Create safe target file path
 			const safeTargetFilename = `${targetLang}.json`;
 			const targetPath = InputValidator.createSafeFilePath(sourceDir, safeTargetFilename);
 

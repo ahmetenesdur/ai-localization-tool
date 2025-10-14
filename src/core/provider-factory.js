@@ -8,8 +8,7 @@ const rateLimiter = require("../utils/rate-limiter");
 
 class ProviderFactory {
 	/**
-	 * Get provider with intelligent fallback based on configuration
-	 * FIXED: Now respects config.fallbackOrder for proper provider chaining
+	 * Get provider with intelligent fallback
 	 */
 	static getProvider(providerName, useFallback = true, config = null) {
 		const providers = {
@@ -20,27 +19,22 @@ class ProviderFactory {
 			gemini: geminiProvider,
 		};
 
-		// Ensure the provider name is properly normalized
 		const normalizedProviderName = (providerName || "").toLowerCase();
 
-		// Check if a specific provider was requested
 		if (!useFallback) {
 			const selected = providers[normalizedProviderName];
 			if (!selected) {
 				throw new Error(`Provider ${providerName} not found or not configured`);
 			}
 
-			// Verify the provider has required API key
 			if (!this.isProviderConfigured(normalizedProviderName)) {
 				throw new Error(`Provider ${providerName} is not configured. Missing API key.`);
 			}
 
-			// Wrap the provider's functions with rate limiting
 			const wrappedProvider = {};
 
 			if (selected.translate) {
 				wrappedProvider.translate = (text, sourceLang, targetLang, options) => {
-					// This assumes a simple priority calculation. This could be enhanced.
 					const priority = text.length < 100 ? 1 : 0;
 					return rateLimiter.enqueue(
 						normalizedProviderName,
@@ -61,12 +55,9 @@ class ProviderFactory {
 			return wrappedProvider;
 		}
 
-		// For fallback mode, create array with selected provider first,
-		// then all remaining providers, but only include providers with valid API keys
 		const allProviders = [];
 		const availableProviderNames = this.getAvailableProviders();
 
-		// First add the selected provider if available and configured
 		if (
 			normalizedProviderName &&
 			providers[normalizedProviderName] &&
@@ -82,24 +73,19 @@ class ProviderFactory {
 			);
 		}
 
-		// FIXED: Use config.fallbackOrder if available, otherwise use availableProviderNames
 		let fallbackOrder = availableProviderNames;
 		if (config?.fallbackOrder && Array.isArray(config.fallbackOrder)) {
-			// Filter fallbackOrder to only include available providers
 			fallbackOrder = config.fallbackOrder
 				.filter((name) => availableProviderNames.includes(name.toLowerCase()))
 				.map((name) => name.toLowerCase());
 
-			// Add any remaining available providers not in fallbackOrder
 			const remainingProviders = availableProviderNames.filter(
 				(name) => !fallbackOrder.includes(name)
 			);
 			fallbackOrder = [...fallbackOrder, ...remainingProviders];
 		}
 
-		// Then add providers according to fallback order
 		for (const name of fallbackOrder) {
-			// Skip the already added primary provider
 			if (!allProviders.some((p) => p.name === name) && providers[name]) {
 				allProviders.push({ name, implementation: providers[name] });
 			}
@@ -111,16 +97,13 @@ class ProviderFactory {
 			);
 		}
 
-		// SECURITY FIX: Log the provider chain safely if in debug mode
 		if (process.env.DEBUG) {
-			// Sanitize provider names to prevent information leakage
 			const safeProviderNames = allProviders.map(
 				(p) => p.constructor?.name || "UnknownProvider"
 			);
 			console.log(`Provider fallback chain: ${safeProviderNames.join(" → ")}`);
 		}
 
-		// Create fallback provider with ordered list of providers
 		return new FallbackProvider(allProviders);
 	}
 
@@ -147,7 +130,6 @@ class ProviderFactory {
 		return available;
 	}
 
-	// Helper to check if a provider is properly configured
 	static isProviderConfigured(providerName) {
 		const envVarMap = {
 			dashscope: "DASHSCOPE_API_KEY",

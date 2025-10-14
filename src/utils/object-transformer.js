@@ -1,11 +1,4 @@
-/**
- * OPTIMIZED: Object transformation utilities with better performance and memory management
- */
 class ObjectTransformer {
-	/**
-	 * OPTIMIZED: Flatten object with iterative approach for better performance
-	 * Prevents stack overflow for deeply nested objects
-	 */
 	static flatten(obj, prefix = "", maxDepth = 20) {
 		if (!obj || typeof obj !== "object" || Array.isArray(obj)) {
 			return prefix ? { [prefix]: obj } : {};
@@ -21,7 +14,6 @@ class ObjectTransformer {
 			const depth = stackItem.depth;
 
 			if (depth > maxDepth) {
-				// Prevent infinite recursion
 				result[currentPrefix] = "[Object too deep]";
 				continue;
 			}
@@ -50,9 +42,6 @@ class ObjectTransformer {
 		return result;
 	}
 
-	/**
-	 * OPTIMIZED: Unflatten object with improved memory efficiency and performance
-	 */
 	static unflatten(obj) {
 		if (!obj || typeof obj !== "object") {
 			return {};
@@ -105,16 +94,13 @@ class ObjectTransformer {
 		return result;
 	}
 
-	/**
-	 * OPTIMIZED: Deep clone with circular reference protection
-	 */
 	static deepClone(obj, seen = new WeakSet()) {
 		if (obj === null || typeof obj !== "object") {
 			return obj;
 		}
 
 		if (seen.has(obj)) {
-			return {}; // Handle circular references
+			return {};
 		}
 
 		seen.add(obj);
@@ -131,7 +117,6 @@ class ObjectTransformer {
 		}
 
 		if (obj.constructor !== Object) {
-			// Don't clone complex objects, return as-is
 			seen.delete(obj);
 			return obj;
 		}
@@ -145,9 +130,6 @@ class ObjectTransformer {
 		return result;
 	}
 
-	/**
-	 * OPTIMIZED: Merge objects efficiently with conflict resolution
-	 */
 	static mergeObjects(target, source, overwriteArrays = false) {
 		if (!target || !source || typeof target !== "object" || typeof source !== "object") {
 			return target;

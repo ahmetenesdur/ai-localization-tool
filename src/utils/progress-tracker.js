@@ -1,19 +1,25 @@
 /**
- * Enhanced progress tracking for monitoring translation and processing operations
- * with improved ETA calculation and detailed statistics
+ * Progress tracking for translation operations
  */
+
 class ProgressTracker {
 	constructor(options = {}) {
 		this.logToConsole = options.logToConsole !== false;
-		this.logFrequency = options.logFrequency || 1; // Log every update for better visibility
+		this.logFrequency = options.logFrequency || 1;
 
 		this._isUpdating = false;
 		this._pendingUpdates = [];
+		this._spinnerInterval = null;
+		this._spinnerIndex = 0;
+		this._spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 		this.reset();
 	}
 
 	reset() {
+		// Stop any existing spinner
+		this._stopSpinner();
+
 		this.total = 0;
 		this.completed = 0;
 		this.success = 0;
@@ -47,7 +53,9 @@ class ProgressTracker {
 		this.isCompleted = false;
 
 		if (this.logToConsole && this.total > 0) {
-			this._logProgress();
+			// Start spinner animation
+			this._startSpinner();
+			this._renderProgress();
 		}
 	}
 
@@ -102,12 +110,14 @@ class ProgressTracker {
 			this._updateStatistics();
 
 			if (this.logToConsole && this._shouldLog()) {
-				this._logProgress();
+				this._renderProgress();
 			}
 
 			if (this.completed >= this.total && !this.isCompleted) {
 				this.endTime = Date.now();
 				this.isCompleted = true;
+				this._stopSpinner();
+				this._renderProgress(true); // Final render
 				if (this.logToConsole) {
 					this._finalReport();
 				}
@@ -157,9 +167,58 @@ class ProgressTracker {
 
 	_shouldLog() {
 		if (!this.logToConsole || this.total === 0) return false;
-
-		// Log every update for real-time progress
 		return true;
+	}
+
+	_startSpinner() {
+		if (this._spinnerInterval) return;
+		this._spinnerInterval = setInterval(() => {
+			if (!this.isCompleted) {
+				this._spinnerIndex = (this._spinnerIndex + 1) % this._spinnerFrames.length;
+				this._renderProgress();
+			}
+		}, 80);
+	}
+
+	_stopSpinner() {
+		if (this._spinnerInterval) {
+			clearInterval(this._spinnerInterval);
+			this._spinnerInterval = null;
+		}
+	}
+
+	_renderProgress(final = false) {
+		const percent = this.total > 0 ? (this.completed / this.total) * 100 : 0;
+		const langInfo = this.language ? `[${this.language}] ` : "";
+
+		const barWidth = 20;
+		const filledWidth = Math.max(
+			0,
+			Math.min(barWidth, Math.round((this.completed / this.total) * barWidth))
+		);
+		const emptyWidth = barWidth - filledWidth;
+		const bar = "[" + "█".repeat(filledWidth) + "═".repeat(emptyWidth) + "]";
+
+		let etaText = "";
+		if (this.completed > 0 && this.completed < this.total) {
+			const eta = this.statistics.estimatedTimeRemaining;
+			if (eta < 60) {
+				etaText = ` | ETA: ${Math.round(eta)}s`;
+			} else if (eta < 3600) {
+				etaText = ` | ETA: ${Math.floor(eta / 60)}m ${Math.round(eta % 60)}s`;
+			} else {
+				etaText = ` | ETA: ${Math.floor(eta / 3600)}h ${Math.floor((eta % 3600) / 60)}m`;
+			}
+		}
+
+		const spinner = final ? "✅" : this._spinnerFrames[this._spinnerIndex];
+		const text = `${spinner} ${langInfo}${bar} ${percent.toFixed(1)}% | ${this.completed}/${this.total} items | ✅ ${this.success} | ❌ ${this.failed}${etaText}`;
+
+		process.stderr.write("\r\x1b[K" + text);
+
+		if (final) {
+			process.stderr.write("\n");
+		}
 	}
 
 	_updateStatistics() {
@@ -201,54 +260,6 @@ class ProgressTracker {
 		};
 	}
 
-	_logProgress() {
-		const percent = (this.completed / this.total) * 100;
-		const elapsed = (Date.now() - this.startTime) / 1000;
-
-		// Create a more visible progress bar
-		const width = 30;
-		const filledWidth = Math.max(0, Math.round((this.completed / this.total) * width));
-		const emptyWidth = Math.max(0, width - filledWidth);
-		const progressBar = `[${"█".repeat(filledWidth)}${"░".repeat(emptyWidth)}]`;
-
-		// Add loading spinner for active processing
-		const spinners = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-		const spinner =
-			this.completed < this.total
-				? spinners[Math.floor(Date.now() / 100) % spinners.length]
-				: "✅";
-
-		// Format ETA
-		let etaText = "";
-		if (this.completed > 0 && this.completed < this.total) {
-			const eta = this.statistics.estimatedTimeRemaining;
-			if (eta < 60) {
-				etaText = `ETA: ${Math.round(eta)}s`;
-			} else if (eta < 3600) {
-				etaText = `ETA: ${Math.floor(eta / 60)}m ${Math.round(eta % 60)}s`;
-			} else {
-				etaText = `ETA: ${Math.floor(eta / 3600)}h ${Math.floor((eta % 3600) / 60)}m`;
-			}
-		}
-
-		const langInfo = this.language ? `🌍 ${this.language.toUpperCase()} ` : "";
-		const percentText = `${percent.toFixed(1)}%`.padStart(6);
-		const itemsText = `${this.completed}/${this.total}`.padEnd(8);
-		const timeText = `${elapsed.toFixed(1)}s`.padEnd(8);
-		const statusText = this.completed < this.total ? "🔄 PROCESSING" : "✅ COMPLETED";
-
-		// Clear previous line and show progress
-		process.stdout.write("\r\x1b[K");
-		process.stdout.write(
-			`${spinner} ${langInfo}${progressBar} ${percentText} | ${itemsText} | ⏱️ ${timeText} | ${statusText} ${etaText}`
-		);
-
-		// Add newline when completed
-		if (this.completed === this.total) {
-			process.stdout.write("\n");
-		}
-	}
-
 	_finalReport() {
 		const totalTime = (this.endTime - this.startTime) / 1000;
 		const avgTimePerItem = totalTime / this.total;
@@ -264,7 +275,6 @@ class ProgressTracker {
 		console.log(`📏 Average Time per Item: ${(avgTimePerItem * 1000).toFixed(0)}ms`);
 	}
 
-	// Get a snapshot of the current progress
 	getStatus() {
 		return {
 			total: this.total,
@@ -277,7 +287,6 @@ class ProgressTracker {
 		};
 	}
 
-	// Allow disabling console output after creation
 	setLogToConsole(value) {
 		this.logToConsole = value;
 	}

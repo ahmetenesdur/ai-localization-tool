@@ -10,12 +10,14 @@
 		"buttons": {
 			"submit": "Submit",
 			"cancel": "Cancel",
-			"save": "Save Changes"
+			"save": "Save Changes",
+			"text": "{count, plural, one {message} other {messages}}"
 		},
 		"messages": {
 			"success": "Operation completed successfully!",
 			"error": "An error occurred. Please try again.",
-			"loading": "Please wait..."
+			"loading": "Please wait...",
+			"error-messages": "Please check the following errors: {messages}"
 		}
 	}
 }

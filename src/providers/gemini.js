@@ -3,9 +3,6 @@ const BaseProvider = require("./base-provider");
 const { getPrompt, getAnalysisPrompt } = require("../utils/prompt-templates");
 const RetryHelper = require("../utils/retry-helper");
 
-/**
- * REFACTORED: Gemini provider now extends BaseProvider for consistency
- */
 class GeminiProvider extends BaseProvider {
 	constructor(config = {}) {
 		super("gemini", config);
@@ -139,7 +136,7 @@ class GeminiProvider extends BaseProvider {
 	}
 }
 
-// Create singleton instance for backward compatibility
+// Create singleton instance
 const geminiProvider = new GeminiProvider();
 
 // Export both class and legacy functions

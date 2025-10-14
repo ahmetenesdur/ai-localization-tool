@@ -2,55 +2,52 @@ const { performance } = require("perf_hooks");
 
 class RateLimiter {
 	constructor(config = {}) {
-		// Provider queue system - separate queue for each API provider
 		this.queues = {};
 		this.processing = {};
 
-		// Configuration
 		this.config = {
-			queueStrategy: config.queueStrategy || "fifo", // Changed default to fifo for speed
-			queueTimeout: config.queueTimeout || 15000, // Reduced to 15 seconds for faster processing
-			adaptiveThrottling: config.adaptiveThrottling !== false, // Enabled by default
+			queueStrategy: config.queueStrategy || "fifo",
+			queueTimeout: config.queueTimeout || 15000,
+			adaptiveThrottling: config.adaptiveThrottling !== false,
 		};
 
 		this.metrics = {
 			responseTimes: {},
-			errorRates: {}, // Will store arrays instead of counters
+			errorRates: {},
 			adjustments: {},
 			lastMetricsReset: {},
 		};
 
-		// API provider rate limit settings - each provider has different limits
 		this.providers = {
 			openai: {
-				requestsPerMinute: 300, // Much higher for small jobs
+				requestsPerMinute: 300,
 				currentRequests: 0,
 				lastReset: performance.now(),
-				maxConcurrent: 5, // Multiple concurrent
+				maxConcurrent: 5,
 			},
 			deepseek: {
-				requestsPerMinute: 30, // Reduced for better stability
+				requestsPerMinute: 30,
 				currentRequests: 0,
 				lastReset: performance.now(),
-				maxConcurrent: 2, // Reduced for better stability
+				maxConcurrent: 2,
 			},
 			gemini: {
-				requestsPerMinute: 300, // Much higher for speed
+				requestsPerMinute: 300,
 				currentRequests: 0,
 				lastReset: performance.now(),
-				maxConcurrent: 5, // Good balance
+				maxConcurrent: 5,
 			},
 			dashscope: {
-				requestsPerMinute: 80, // Increased from 50
+				requestsPerMinute: 80,
 				currentRequests: 0,
 				lastReset: performance.now(),
-				maxConcurrent: 6, // Increased from 4
+				maxConcurrent: 6,
 			},
 			xai: {
-				requestsPerMinute: 80, // Increased from 60
+				requestsPerMinute: 80,
 				currentRequests: 0,
 				lastReset: performance.now(),
-				maxConcurrent: 8, // Increased from 5
+				maxConcurrent: 8,
 			},
 		};
 
@@ -63,12 +60,10 @@ class RateLimiter {
 			this.metrics.lastMetricsReset[provider] = Date.now();
 		});
 
-		// Auto-reset counters every minute
 		setInterval(() => this._resetCounters(), 60000);
 
-		setInterval(() => this._cleanupMetrics(), 2 * 60 * 1000); // Every 2 minutes
+		setInterval(() => this._cleanupMetrics(), 2 * 60 * 1000);
 
-		// Adaptive throttling adjustment interval (every 5 minutes)
 		if (this.config.adaptiveThrottling) {
 			setInterval(() => this._adjustThrottling(), 5 * 60 * 1000);
 		}
@@ -90,7 +85,6 @@ class RateLimiter {
 			this.config.adaptiveThrottling = config.adaptiveThrottling;
 		}
 
-		// Update provider limits from config
 		if (config.providerLimits && typeof config.providerLimits === "object") {
 			Object.keys(config.providerLimits).forEach((providerName) => {
 				if (this.providers[providerName]) {
@@ -158,7 +152,7 @@ class RateLimiter {
 		}
 
 		if (this._processingLocks && this._processingLocks[provider]) {
-			return; // Another process is already handling this provider
+			return;
 		}
 
 		if (!this._processingLocks) {
@@ -232,8 +226,7 @@ class RateLimiter {
 			const startTime = performance.now();
 			const queueTime = Date.now() - timestamp;
 
-			if (queueTime > 2000) {
-				// Reduced warning threshold to 2000ms for better monitoring
+			if (queueTime > 30000) {
 				console.warn(`Task for ${provider} waited ${queueTime}ms in queue`);
 			}
 
@@ -250,7 +243,7 @@ class RateLimiter {
 				resolve(result);
 			} catch (error) {
 				this._trackErrorRate(provider, true);
-				// Enhanced error logging for debugging
+
 				console.error(`Provider ${provider} task failed:`, {
 					error: error.message,
 					queueTime: queueTime,
@@ -272,23 +265,23 @@ class RateLimiter {
 
 	_trackResponseTime(provider, time) {
 		const times = this.metrics.responseTimes[provider];
-		const MAX_RESPONSE_TIMES = 50; // Reduced from 100 to save memory
+		const MAX_RESPONSE_TIMES = 50;
 
 		times.push(time);
 
 		if (times.length > MAX_RESPONSE_TIMES) {
-			times.splice(0, times.length - MAX_RESPONSE_TIMES); // Remove excess entries
+			times.splice(0, times.length - MAX_RESPONSE_TIMES);
 		}
 	}
 
 	_trackErrorRate(provider, isError) {
 		const errorRates = this.metrics.errorRates[provider];
-		const MAX_ERROR_RATES = 50; // Reduced from 100 to save memory
+		const MAX_ERROR_RATES = 50;
 
 		errorRates.push(isError ? 1 : 0);
 
 		if (errorRates.length > MAX_ERROR_RATES) {
-			errorRates.splice(0, errorRates.length - MAX_ERROR_RATES); // Remove excess entries
+			errorRates.splice(0, errorRates.length - MAX_ERROR_RATES);
 		}
 	}
 
@@ -312,13 +305,11 @@ class RateLimiter {
 			let rpmAdjustment = 0;
 
 			if (errorRate > 0.15) {
-				// Increased threshold from 0.1 to 0.15 (15% errors)
-				// >15% errors
 				concurrencyAdjustment = -1;
 				rpmAdjustment = -5;
 			} else if (
-				errorRate < 0.05 && // Increased from 0.02 to 0.05 (5% errors)
-				avgResponseTime < 3000 && // Increased from 2000 to 3000ms
+				errorRate < 0.05 &&
+				avgResponseTime < 3000 &&
 				this.queues[provider].length > 0
 			) {
 				concurrencyAdjustment = 1;
@@ -418,14 +409,12 @@ class RateLimiter {
 		return { ...this.config };
 	}
 
-	// Clear all queues for graceful shutdown
 	clearAllQueues() {
 		for (const provider in this.queues) {
 			if (this.queues[provider] && this.queues[provider].length > 0) {
 				console.log(
 					`Clearing ${this.queues[provider].length} pending operations for ${provider}`
 				);
-				// Reject all pending operations
 				this.queues[provider].forEach((item) => {
 					if (item.reject) {
 						item.reject(new Error("Operation cancelled due to shutdown"));
@@ -451,7 +440,7 @@ class RateLimiter {
 
 const config = {
 	queueStrategy: process.env.QUEUE_STRATEGY || "priority",
-	queueTimeout: parseInt(process.env.QUEUE_TIMEOUT || "30000"), // Increased back to 30000 for stability
+	queueTimeout: parseInt(process.env.QUEUE_TIMEOUT || "30000"),
 	adaptiveThrottling: process.env.ADAPTIVE_THROTTLING !== "false",
 };
 

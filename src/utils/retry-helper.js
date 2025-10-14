@@ -1,23 +1,10 @@
 /**
- * Enhanced retry helper for API operations
- * - Exponential backoff with jitter
- * - Different retry strategies based on error types
- * - Better logging and error tracking
+ * Retry helper for API operations with exponential backoff
  */
 
 class RetryHelper {
 	/**
 	 * Retry an operation with configurable backoff strategy
-	 *
-	 * @param {Function} operation - Async function to retry
-	 * @param {Object} options - Configuration options
-	 * @param {number} options.maxRetries - Maximum number of retries
-	 * @param {number} options.initialDelay - Initial delay in ms
-	 * @param {number} options.maxDelay - Maximum delay in ms
-	 * @param {string} options.context - Operation context for logs
-	 * @param {Object} options.logContext - Additional context for logs
-	 * @param {Function} options.retryCondition - Custom function to determine if retry should happen
-	 * @returns {Promise<*>} - Result of operation
 	 */
 	static async withRetry(operation, options = {}) {
 		const maxRetries = options.maxRetries ?? 2;
@@ -65,7 +52,6 @@ class RetryHelper {
 				attempts++;
 				lastError = error;
 
-				// Extend the error with additional context
 				if (!error.retryInfo) {
 					error.retryInfo = {
 						attemptNumber: attempts,
@@ -75,26 +61,21 @@ class RetryHelper {
 					};
 				}
 
-				// Check if this error is retryable
 				const shouldRetry =
 					attempts <= maxRetries && (await retryCondition(error, attempts, maxRetries));
 
+				if (process.env.DEBUG) {
+					console.warn(
+						`⚠️ ${context}: Error on attempt ${attempts}/${maxRetries + 1}: ${error.message}` +
+							(error.code ? ` [${error.code}]` : "")
+					);
+				}
 				if (shouldRetry) {
-					// Log retry attempt if debug enabled
-					if (process.env.DEBUG) {
-						console.warn(
-							`⚠️ ${context}: Error on attempt ${attempts}/${maxRetries + 1}: ${error.message}` +
-								(error.code ? ` [${error.code}]` : "")
-						);
-					}
-				} else {
-					// Error is not retryable or max retries reached
 					break;
 				}
 			}
 		}
 
-		// All retries failed
 		retryStats.totalTime = Date.now() - startTime;
 		retryStats.success = false;
 
@@ -107,41 +88,26 @@ class RetryHelper {
 	}
 
 	/**
-	 * Calculate exponential backoff with jitter for more efficient retries
-	 *
-	 * @param {number} attempt - Current attempt number (starting from 1)
-	 * @param {number} initialDelay - Initial delay in ms
-	 * @param {number} maxDelay - Maximum delay in ms
-	 * @returns {number} - Delay in ms
+	 * Calculate exponential backoff with jitter
 	 */
 	static calculateBackoff(attempt, initialDelay, maxDelay) {
-		// Full jitter exponential backoff:
-		// https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
 		const expBackoff = Math.min(maxDelay, initialDelay * Math.pow(2, attempt - 1));
 
-		// Add jitter - random value between 0 and expBackoff
 		return Math.floor(Math.random() * expBackoff);
 	}
 
 	/**
 	 * Default retry condition based on error type
-	 *
-	 * @param {Error} error - Error to check
-	 * @returns {boolean} - True if error is retryable
 	 */
 	static defaultRetryCondition(error) {
-		// Don't retry on client errors (4xx) except specific cases
 		if (error.status && error.status >= 400 && error.status < 500) {
-			// Rate limit errors should be retried
 			if (error.status === 429) return true;
 
-			// Certain 4xx errors are retryable
 			if ([408, 425, 449].includes(error.status)) return true;
 
 			return false;
 		}
 
-		// Retry on network errors
 		if (
 			error.code === "ECONNRESET" ||
 			error.code === "ETIMEDOUT" ||
@@ -154,15 +120,11 @@ class RetryHelper {
 			return true;
 		}
 
-		// By default, retry server errors
 		return error.status >= 500 || !error.status;
 	}
 
 	/**
 	 * Promise-based delay
-	 *
-	 * @param {number} ms - Milliseconds to delay
-	 * @returns {Promise<void>}
 	 */
 	static delay(ms) {
 		return new Promise((resolve) => setTimeout(resolve, ms));

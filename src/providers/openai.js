@@ -3,9 +3,6 @@ const BaseProvider = require("./base-provider");
 const { getPrompt, getAnalysisPrompt } = require("../utils/prompt-templates");
 const RetryHelper = require("../utils/retry-helper");
 
-/**
- * REFACTORED: OpenAI provider now extends BaseProvider for consistency
- */
 class OpenAIProvider extends BaseProvider {
 	constructor(config = {}) {
 		super("openai", config);
@@ -18,7 +15,7 @@ class OpenAIProvider extends BaseProvider {
 			},
 			timeout: 30000,
 			maxRedirects: 0,
-			validateStatus: (status) => status < 500, // Don't throw on 4xx errors
+			validateStatus: (status) => status < 500,
 		});
 	}
 
@@ -66,7 +63,7 @@ class OpenAIProvider extends BaseProvider {
 	}
 }
 
-// Create singleton instance for backward compatibility
+// Create singleton instance
 const openaiProvider = new OpenAIProvider();
 
 // Export both class and legacy functions
