@@ -132,15 +132,11 @@ class BaseProvider {
 	extractTranslation(response, providerName) {
 		// Check for error response first
 		if (response.error) {
-			console.error(`${providerName} API error:`, JSON.stringify(response.error, null, 2));
 			const errorMsg =
 				response.error.message || response.error.error || JSON.stringify(response.error);
 			throw new Error(`api: ${providerName} - ${errorMsg}`);
 		}
 
-		if (providerName === "deepseek") {
-			console.log(`DeepSeek response structure:`, JSON.stringify(response, null, 2));
-		}
 		if (response.choices && response.choices[0]?.message?.content) {
 			return response.choices[0].message.content.trim();
 		}
