@@ -1,6 +1,6 @@
-const fs = require("fs").promises;
-const fsSync = require("fs");
-const path = require("path");
+import { promises as fs } from "fs";
+import fsSync from "fs";
+import path from "path";
 const { promisify } = require("util");
 
 /**
@@ -482,4 +482,4 @@ class SyncFileManager {
 // Initialize options with defaults
 SyncFileManager.options = { ...SyncFileManager.defaultOptions };
 
-module.exports = { FileManager, SyncFileManager };
+export { FileManager, SyncFileManager };

@@ -1,6 +1,7 @@
 {
 	"name": "ai-localization-tool",
 	"version": "1.2.0",
+	"type": "module",
 	"main": "src/core/orchestrator.js",
 	"directories": {
 		"src": "src"
@@ -27,6 +28,14 @@
 	},
 	"license": "ISC",
 	"description": "CLI tool for translating Next.js locale files with advanced settings and multiple AI providers",
+	"engines": {
+		"node": ">=14.13.0"
+	},
+	"exports": {
+		".": "./src/core/orchestrator.js",
+		"./orchestrator": "./src/core/orchestrator.js",
+		"./translator": "./src/commands/translator.js"
+	},
 	"dependencies": {
 		"axios": "1.12.2",
 		"commander": "^14.0.1",

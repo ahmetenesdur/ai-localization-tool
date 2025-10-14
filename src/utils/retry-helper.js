@@ -131,4 +131,4 @@ class RetryHelper {
 	}
 }
 
-module.exports = RetryHelper;
+export default RetryHelper;

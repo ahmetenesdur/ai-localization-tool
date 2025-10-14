@@ -466,3 +466,5 @@ module.exports = {
 		}
 	},
 };
+
+export { getPrompt, getAnalysisPrompt };
