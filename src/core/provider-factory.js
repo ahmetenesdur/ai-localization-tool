@@ -1,10 +1,10 @@
-const deepseekProvider = require("../providers/deepseek");
-const geminiProvider = require("../providers/gemini");
-const openaiProvider = require("../providers/openai");
-const dashscopeProvider = require("../providers/dashscope");
-const xaiProvider = require("../providers/xai");
-const FallbackProvider = require("./fallback-provider");
-const rateLimiter = require("../utils/rate-limiter");
+import deepseekProvider from "../providers/deepseek.js";
+import geminiProvider from "../providers/gemini.js";
+import openaiProvider from "../providers/openai.js";
+import dashscopeProvider from "../providers/dashscope.js";
+import xaiProvider from "../providers/xai.js";
+import FallbackProvider from "./fallback-provider.js";
+import rateLimiter from "../utils/rate-limiter.js";
 
 class ProviderFactory {
 	/**
@@ -144,4 +144,4 @@ class ProviderFactory {
 	}
 }
 
-module.exports = ProviderFactory;
+export default ProviderFactory;

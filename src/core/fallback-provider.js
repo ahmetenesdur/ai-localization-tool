@@ -1,5 +1,5 @@
-const RetryHelper = require("../utils/retry-helper");
-const rateLimiter = require("../utils/rate-limiter");
+import RetryHelper from "../utils/retry-helper.js";
+import rateLimiter from "../utils/rate-limiter.js";
 
 class FallbackProvider {
 	constructor(providers) {
@@ -420,4 +420,4 @@ class FallbackProvider {
 	}
 }
 
-module.exports = FallbackProvider;
+export default FallbackProvider;

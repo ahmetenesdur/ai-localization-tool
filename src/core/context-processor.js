@@ -1,7 +1,7 @@
-const crypto = require("crypto");
-const AIContextAnalyzer = require("../utils/ai-context-analyzer");
-const ProviderFactory = require("./provider-factory");
-const { LRUCache } = require("lru-cache");
+import crypto from "crypto";
+import AIContextAnalyzer from "../utils/ai-context-analyzer.js";
+import ProviderFactory from "./provider-factory.js";
+import { LRUCache } from "lru-cache";
 
 class ContextProcessor {
 	constructor(config) {
@@ -232,4 +232,4 @@ class ContextProcessor {
 	}
 }
 
-module.exports = ContextProcessor;
+export default ContextProcessor;
