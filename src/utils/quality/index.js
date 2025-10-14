@@ -1,9 +1,9 @@
-const BaseChecker = require("./base-checker");
-const PlaceholderChecker = require("./placeholder-checker");
-const HtmlTagChecker = require("./html-tag-checker");
-const PunctuationChecker = require("./punctuation-checker");
-const LengthChecker = require("./length-checker");
-const TextSanitizer = require("./text-sanitizer");
+import BaseChecker from "./base-checker.js";
+import PlaceholderChecker from "./placeholder-checker.js";
+import HtmlTagChecker from "./html-tag-checker.js";
+import PunctuationChecker from "./punctuation-checker.js";
+import LengthChecker from "./length-checker.js";
+import TextSanitizer from "./text-sanitizer.js";
 
 class QualityChecker extends BaseChecker {
 	constructor(options = {}) {
@@ -118,4 +118,4 @@ class QualityChecker extends BaseChecker {
 	}
 }
 
-module.exports = QualityChecker;
+export default QualityChecker;

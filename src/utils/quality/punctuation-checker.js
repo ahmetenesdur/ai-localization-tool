@@ -43,4 +43,4 @@ class PunctuationChecker {
 	}
 }
 
-module.exports = PunctuationChecker;
+export default PunctuationChecker;

@@ -52,4 +52,4 @@ class BaseChecker {
 	}
 }
 
-module.exports = BaseChecker;
+export default BaseChecker;

@@ -126,4 +126,4 @@ class LengthChecker {
 	}
 }
 
-module.exports = LengthChecker;
+export default LengthChecker;
