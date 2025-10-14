@@ -811,7 +811,7 @@ async function removeDeletedKeysFromTargets(sourceFile, deletedKeys, options) {
 	);
 }
 
-module.exports = {
+export {
 	findLocaleFiles,
 	translateFile,
 	validateAndFixExistingTranslations,
