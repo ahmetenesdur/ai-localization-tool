@@ -394,77 +394,75 @@ const analysisPrompts = {
 	}),
 };
 
-module.exports = {
-	/**
-	 * Get translation prompt
-	 */
-	getPrompt: (provider, sourceLang, targetLang, text, options) => {
-		if (!provider || typeof provider !== "string") {
-			console.warn("Invalid provider provided to getPrompt, using default");
-			provider = "default";
-		}
+/**
+ * Get translation prompt
+ */
+const getPrompt = (provider, sourceLang, targetLang, text, options) => {
+	if (!provider || typeof provider !== "string") {
+		console.warn("Invalid provider provided to getPrompt, using default");
+		provider = "default";
+	}
 
-		if (!sourceLang || typeof sourceLang !== "string") {
-			console.warn("Invalid sourceLang provided to getPrompt, using en");
-			sourceLang = "en";
-		}
+	if (!sourceLang || typeof sourceLang !== "string") {
+		console.warn("Invalid sourceLang provided to getPrompt, using en");
+		sourceLang = "en";
+	}
 
-		if (!targetLang || typeof targetLang !== "string") {
-			console.warn("Invalid targetLang provided to getPrompt, using es");
-			targetLang = "es";
-		}
+	if (!targetLang || typeof targetLang !== "string") {
+		console.warn("Invalid targetLang provided to getPrompt, using es");
+		targetLang = "es";
+	}
 
-		if (typeof text !== "string") {
-			console.warn("Invalid text provided to getPrompt, using empty string");
-			text = "";
-		}
+	if (typeof text !== "string") {
+		console.warn("Invalid text provided to getPrompt, using empty string");
+		text = "";
+	}
 
-		if (!options || typeof options !== "object") {
-			console.warn("Invalid options provided to getPrompt, using defaults");
-			options = {};
-		}
+	if (!options || typeof options !== "object") {
+		console.warn("Invalid options provided to getPrompt, using defaults");
+		options = {};
+	}
 
-		const promptGenerator = translationPrompts[provider] || translationPrompts.default;
+	const promptGenerator = translationPrompts[provider] || translationPrompts.default;
 
-		try {
-			return promptGenerator(sourceLang, targetLang, text, options);
-		} catch (error) {
-			console.error(`Error generating prompt for provider ${provider}:`, error.message);
-			return translationPrompts.default(sourceLang, targetLang, text, options);
-		}
-	},
+	try {
+		return promptGenerator(sourceLang, targetLang, text, options);
+	} catch (error) {
+		console.error(`Error generating prompt for provider ${provider}:`, error.message);
+		return translationPrompts.default(sourceLang, targetLang, text, options);
+	}
+};
 
-	/**
-	 * Get analysis prompt
-	 */
-	getAnalysisPrompt: (provider, text, options = {}) => {
-		if (!provider || typeof provider !== "string") {
-			console.warn("Invalid provider provided to getAnalysisPrompt, using default");
-			provider = "default";
-		}
+/**
+ * Get analysis prompt
+ */
+const getAnalysisPrompt = (provider, text, options = {}) => {
+	if (!provider || typeof provider !== "string") {
+		console.warn("Invalid provider provided to getAnalysisPrompt, using default");
+		provider = "default";
+	}
 
-		if (typeof text !== "string") {
-			console.warn("Invalid text provided to getAnalysisPrompt, using empty string");
-			text = "";
-		}
+	if (typeof text !== "string") {
+		console.warn("Invalid text provided to getAnalysisPrompt, using empty string");
+		text = "";
+	}
 
-		if (!options || typeof options !== "object") {
-			console.warn("Invalid options provided to getAnalysisPrompt, using defaults");
-			options = {};
-		}
+	if (!options || typeof options !== "object") {
+		console.warn("Invalid options provided to getAnalysisPrompt, using defaults");
+		options = {};
+	}
 
-		const promptGenerator = analysisPrompts[provider] || analysisPrompts.default;
+	const promptGenerator = analysisPrompts[provider] || analysisPrompts.default;
 
-		try {
-			return promptGenerator(text, options);
-		} catch (error) {
-			console.error(
-				`Error generating analysis prompt for provider ${provider}:`,
-				error.message
-			);
-			return analysisPrompts.default(text, options);
-		}
-	},
+	try {
+		return promptGenerator(text, options);
+	} catch (error) {
+		console.error(
+			`Error generating analysis prompt for provider ${provider}:`,
+			error.message
+		);
+		return analysisPrompts.default(text, options);
+	}
 };
 
 export { getPrompt, getAnalysisPrompt };
