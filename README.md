@@ -1,36 +1,48 @@
 # AI Localization Tool
 
-**Enterprise-grade AI-powered translation CLI for Next.js projects** with intelligent synchronization, multi-provider support, and context-aware translations.
+> **Enterprise-grade AI translation CLI for Next.js** — Intelligent synchronization, multi-provider support, and context-aware translations.
 
-> **🚀 v2.0 - Now using ES Modules (ESM)** - Modern JavaScript with better performance and tree-shaking support.
+## ✨ Features
 
-## Requirements
+### 🤖 AI-Powered Translation
 
-- **Node.js** >= 14.13.0 (v18+ recommended for best ESM support)
-- Supports ESM projects out of the box
+- **5 AI Providers**: OpenAI (GPT-4o), Gemini, DeepSeek, Dashscope, XAI
+- **Intelligent Fallback**: Automatic provider switching on failures
+- **Context Detection**: Auto-detects technical, marketing, legal, DeFi, and UI content
 
-## Key Features
+### ⚡ Performance & Quality
 
-- **AI-Powered Translation** - 5 providers with intelligent fallback (OpenAI, DeepSeek, Gemini, Dashscope, XAI)
-- **Smart Synchronization** - SHA-256 change detection, incremental updates
-- **Context-Aware** - Automatically detects technical, marketing, legal, DeFi, and UI content
-- **High Performance** - Concurrent processing, caching, rate limiting
-- **Quality Assured** - Built-in validation, auto-fixing, length control
-- **Real-time Progress** - Detailed statistics and progress tracking
+- **Smart Sync**: SHA-256 change detection for incremental updates
+- **Parallel Processing**: Concurrent translations with rate limiting
+- **LRU Cache**: Reduces API calls with stale-while-revalidate pattern
+- **Quality Assurance**: Auto-validation and fixing of placeholders, HTML tags, length
 
-## Quick Start
+### 📊 Developer Experience
+
+- **Real-time Progress**: Live progress bars with ETA
+- **Detailed Diagnostics**: Debug mode with performance metrics
+- **Graceful Shutdown**: State preservation on interruption
+
+## 🚀 Quick Start
+
+### Installation
 
 ```bash
-# Install globally
+# Global installation
 npm install -g ai-localization-tool
 
-# Or use directly
+# Or use with npx (no installation)
 npx ai-localization-tool
 ```
 
-## Configuration
+### Prerequisites
 
-### 1. Create Configuration File
+- **Node.js** >= 14.13.0 (v18+ recommended for ESM)
+- At least one AI provider API key
+
+## ⚙️ Configuration
+
+### Step 1: Create Config File
 
 Create `localize.config.js` in your project root:
 
@@ -86,23 +98,21 @@ export default {
 };
 ```
 
-### 2. Set API Keys
+### Step 2: Set API Keys
 
-Create `.env` file:
-
-```bash
-cp .env.example .env
-```
+Create a `.env` file with your provider credentials:
 
 ```env
-OPENAI_API_KEY=your_key_here
-DEEPSEEK_API_KEY=your_key_here
-GEMINI_API_KEY=your_key_here
-DASHSCOPE_API_KEY=your_key_here
-XAI_API_KEY=your_key_here
+OPENAI_API_KEY=sk-...
+GEMINI_API_KEY=AIza...
+DEEPSEEK_API_KEY=sk-...
+DASHSCOPE_API_KEY=sk-...
+XAI_API_KEY=xai-...
 ```
 
-## Usage
+> **Note**: You only need one provider to get started. The tool will use the available providers.
+
+## 📖 Usage
 
 ### Basic Commands
 
@@ -123,34 +133,40 @@ localize fix
 localize --debug
 ```
 
-### Intelligent Synchronization
+### Smart Synchronization
 
-The tool automatically detects changes in your source files:
+The tool uses SHA-256 hashing to detect changes:
+
+**First run:**
 
 ```bash
-# First run - processes all keys
 localize
-# → First run - will process all keys
+# 🎉 First run - will process all keys
+# Translates all 500 keys across 13 languages
+```
 
-# After modifying source file
+**Subsequent runs:**
+
+```bash
 localize
 # 🔄 Sync Analysis:
 #    📝 New keys: 3
 #    ✏️ Modified keys: 1
 #    🗑️ Deleted keys: 2
+# Only processes 4 keys instead of 500!
 ```
 
-**What happens:**
+**Smart Behavior:**
 
-- **New keys** → Translated automatically
-- **Modified keys** → Re-translated with context
-- **Deleted keys** → Removed from all target files
-- **Unchanged keys** → Skipped for performance
+- ✅ **New keys** → Translated automatically
+- 🔄 **Modified keys** → Re-translated with context
+- 🗑️ **Deleted keys** → Removed from all target files
+- ⏭️ **Unchanged keys** → Skipped for performance
 
-### Advanced Features
+### Command Reference
 
 <details>
-<summary>Command Options</summary>
+<summary>📋 All Options</summary>
 
 #### Global Options
 
@@ -174,9 +190,7 @@ localize
 
 </details>
 
-## Performance & Quality
-
-### Supported Providers
+## 🔧 Providers & Performance
 
 | Provider      | Model                | RPM  | Concurrency | Context Window |
 | ------------- | -------------------- | ---- | ----------- | -------------- |
@@ -186,18 +200,20 @@ localize
 | **Dashscope** | qwen-plus            | 200  | 8           | 8K tokens      |
 | **DeepSeek**  | deepseek-chat        | 200  | 8           | 8K tokens      |
 
-### Quality Features
+### Quality Assurance
 
-- **Placeholder validation** - Ensures `{{variables}}` consistency
-- **HTML preservation** - Maintains `<tags>` structure
-- **Length control** - 5 modes (strict, flexible, smart, etc.)
-- **Context detection** - Technical, marketing, legal content
-- **Auto-fixing** - Corrects common translation issues
+| Feature                    | Description                                                       |
+| -------------------------- | ----------------------------------------------------------------- |
+| **Placeholder Validation** | Preserves `{variable}` patterns exactly                           |
+| **HTML Preservation**      | Maintains `<tag>` structure and attributes                        |
+| **Length Control**         | 5 modes with language-specific rules                              |
+| **Context Detection**      | AI-powered categorization (technical, marketing, legal, DeFi, UI) |
+| **Auto-Fix**               | Corrects common issues automatically                              |
 
-### Real-time Progress
+### Progress Tracking
 
-```
-[tr] [█████=====     ] 50.0% | 250/500 | ✅ 240 | ❌ 10 | ⏱️ 25.3s
+```bash
+⠋ [tr] [█████═════════] 50.0% | 250/500 | ✅ 240 | ❌ 10 | ETA: 25s
 
 📊 Translation Summary:
 🔤 Language: tr
@@ -207,27 +223,42 @@ localize
 ⚡ Speed: 9.54 items/second
 ```
 
-## Development
+## 🛠️ Development
 
 ```bash
 # Install dependencies
 pnpm install
 
-# Run locally
+# Run CLI locally
 pnpm start
 
-# Format code
+# Format with Prettier
 pnpm format
+pnpm format:check
 ```
 
-## Advanced Configuration
+### Project Structure
+
+```
+src/
+├── commands/        # CLI commands (translate, fix, analyze)
+├── core/           # Core orchestration and processing
+│   ├── orchestrator.js       # Main translation engine
+│   ├── provider-factory.js   # AI provider management
+│   └── context-processor.js  # Context detection
+├── providers/      # AI provider implementations
+│   ├── openai.js
+│   ├── gemini.js
+│   └── ...
+└── utils/          # Utilities (cache, rate-limit, quality)
+```
+
+## 📚 Advanced Configuration
 
 <details>
-<summary>Complete Configuration Reference</summary>
+<summary>🔍 Complete Configuration Reference</summary>
 
-### Full Configuration Options
-
-Here's the complete configuration file with all available options and their explanations:
+### Full Options
 
 ```javascript
 /**
@@ -531,41 +562,21 @@ export default {
 };
 ```
 
-### Configuration Categories Explained
+### Key Configuration Categories
 
-#### Performance Settings
-
-- **concurrencyLimit**: Number of parallel translations (1 = stable performance)
-- **rateLimiter.providerLimits**: Provider-specific RPM and concurrency limits
-- **queueStrategy**: "fifo" for speed, "priority" for importance-based processing
-- **adaptiveThrottling**: Disabled for consistent maximum performance
-
-#### AI Context Detection
-
-- **context.useAI**: Enable AI-powered context analysis
-- **context.categories**: Define content types with keywords and prompts
-- **context.analysisOptions**: Configure AI model for context detection
-- **context.detection**: Set thresholds for category matching
-
-#### Quality Control
-
-- **qualityChecks.rules**: Enable specific validation rules
-- **autoFix**: Automatically correct detected issues
-- **lengthControl**: Smart length management with language-specific rules
-
-#### Smart Synchronization
-
-- **syncOptions**: Control how changes are synchronized
-- **removeDeletedKeys**: Auto-cleanup of deleted translations
-- **retranslateModified**: Re-translate changed content
-
-#### Provider Configuration
-
-- **apiConfig**: Model-specific settings for each provider
-- **fallbackOrder**: Define provider chain for reliability
-- **retryOptions**: Configure retry behavior and error handling
+| Category        | Key Options                           | Description                             |
+| --------------- | ------------------------------------- | --------------------------------------- |
+| **Performance** | `concurrencyLimit`, `rateLimiter`     | Parallel processing and rate limiting   |
+| **AI Context**  | `context.useAI`, `context.categories` | AI-powered content categorization       |
+| **Quality**     | `qualityChecks`, `lengthControl`      | Validation rules and auto-fixing        |
+| **Sync**        | `syncOptions.removeDeletedKeys`       | Smart synchronization behavior          |
+| **Providers**   | `apiConfig`, `fallbackOrder`          | AI provider settings and fallback chain |
 
 </details>
+
+## 🤝 Contributing
+
+## Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
