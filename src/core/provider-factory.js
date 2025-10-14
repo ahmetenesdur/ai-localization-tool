@@ -1,8 +1,8 @@
-import deepseekProvider from "../providers/deepseek.js";
-import geminiProvider from "../providers/gemini.js";
-import openaiProvider from "../providers/openai.js";
-import dashscopeProvider from "../providers/dashscope.js";
-import xaiProvider from "../providers/xai.js";
+import * as deepseekProvider from "../providers/deepseek.js";
+import * as geminiProvider from "../providers/gemini.js";
+import * as openaiProvider from "../providers/openai.js";
+import * as dashscopeProvider from "../providers/dashscope.js";
+import * as xaiProvider from "../providers/xai.js";
 import FallbackProvider from "./fallback-provider.js";
 import rateLimiter from "../utils/rate-limiter.js";
 
