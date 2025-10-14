@@ -1,21 +1,23 @@
 #!/usr/bin/env node
-require("dotenv").config({ path: [".env.local", ".env"] });
-const fs = require("fs").promises;
-const fsSync = require("fs");
-const path = require("path");
-const os = require("os");
-const { program } = require("commander");
-const {
+import dotenv from "dotenv";
+dotenv.config({ path: [".env.local", ".env"] });
+
+import { promises as fs } from "fs";
+import fsSync from "fs";
+import path from "path";
+import os from "os";
+import { program } from "commander";
+import {
 	translateFile,
 	findLocaleFiles,
 	validateAndFixExistingTranslations,
-} = require("../src/commands/translator");
-const ProviderFactory = require("../src/core/provider-factory");
-const { FileManager } = require("../src/utils/file-manager");
-const rateLimiter = require("../src/utils/rate-limiter");
-const Orchestrator = require("../src/core/orchestrator");
-const InputValidator = require("../src/utils/input-validator");
-const gracefulShutdown = require("../src/utils/graceful-shutdown");
+} from "../src/commands/translator.js";
+import ProviderFactory from "../src/core/provider-factory.js";
+import { FileManager } from "../src/utils/file-manager.js";
+import rateLimiter from "../src/utils/rate-limiter.js";
+import Orchestrator from "../src/core/orchestrator.js";
+import InputValidator from "../src/utils/input-validator.js";
+import gracefulShutdown from "../src/utils/graceful-shutdown.js";
 
 const loadEnvironmentVariables = async () => {
 	return Promise.resolve();
@@ -48,33 +50,16 @@ const loadConfig = async () => {
 		console.log(`🔍 Loading config from: ${path.relative(process.cwd(), configFile)}`);
 
 		try {
-			try {
-				delete require.cache[require.resolve(configFile)];
-				const config = require(configFile);
+			// Use dynamic import for ESM
+			const configUrl = `file://${configFile.replace(/\\/g, "/")}?t=${Date.now()}`;
+			const configModule = await import(configUrl);
+			const config = configModule.default || configModule;
 
-				if (!config || typeof config !== "object") {
-					throw new Error("Config file does not export a valid configuration object");
-				}
-
-				return config;
-			} catch (requireError) {
-				console.warn(
-					`⚠️ CommonJS require failed, trying ES module import: ${requireError.message}`
-				);
-
-				const configUrl = `file://${configFile.replace(/\\/g, "/")}`;
-
-				const configUrlWithCache = `${configUrl}?t=${Date.now()}`;
-				const configModule = await import(configUrlWithCache);
-
-				const config = configModule.default || configModule;
-
-				if (!config || typeof config !== "object") {
-					throw new Error("Config file does not export a valid configuration object");
-				}
-
-				return config;
+			if (!config || typeof config !== "object") {
+				throw new Error("Config file does not export a valid configuration object");
 			}
+
+			return config;
 		} catch (importError) {
 			console.warn(`⚠️ Both CommonJS and ES module loading failed: ${importError.message}`);
 			throw importError;
@@ -689,18 +674,17 @@ const displayPerformanceTips = async (options) => {
 	}
 };
 
-(async () => {
-	const startTime = Date.now();
+// Top-level await - no IIFE needed in ESM!
+const startTime = Date.now();
 
-	try {
-		await loadEnvironmentVariables();
-		const defaultConfig = await loadConfig();
-		await configureCLI(defaultConfig);
-	} catch (error) {
-		console.error(`\n❌ Error: ${error.message}`);
-		if (error.stack && process.env.DEBUG) {
-			console.error(error.stack);
-		}
-		process.exit(1);
+try {
+	await loadEnvironmentVariables();
+	const defaultConfig = await loadConfig();
+	await configureCLI(defaultConfig);
+} catch (error) {
+	console.error(`\n❌ Error: ${error.message}`);
+	if (error.stack && process.env.DEBUG) {
+		console.error(error.stack);
 	}
-})();
+	process.exit(1);
+}

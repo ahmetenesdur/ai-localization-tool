@@ -3,7 +3,7 @@
  * Controls API providers, performance settings, and quality controls
  */
 
-module.exports = {
+export default {
 	version: "1.0.0",
 	localesDir: "./locales",
 	source: "en",
