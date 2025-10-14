@@ -119,16 +119,23 @@ class DashScopeProvider extends BaseProvider {
 	}
 }
 
-// Create singleton instance
-const dashscopeProvider = new DashScopeProvider();
+// Lazy singleton - created on first use
+let dashscopeProvider = null;
+
+function getProvider() {
+	if (!dashscopeProvider) {
+		dashscopeProvider = new DashScopeProvider();
+	}
+	return dashscopeProvider;
+}
 
 // Export both class and legacy functions
 async function translate(text, sourceLang, targetLang, options) {
-	return dashscopeProvider.translate(text, sourceLang, targetLang, options);
+	return getProvider().translate(text, sourceLang, targetLang, options);
 }
 
 async function analyze(prompt, options = {}) {
-	return dashscopeProvider.analyze(prompt, options);
+	return getProvider().analyze(prompt, options);
 }
 
 export { translate, analyze, DashScopeProvider };

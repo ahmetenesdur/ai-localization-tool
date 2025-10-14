@@ -457,10 +457,7 @@ const getAnalysisPrompt = (provider, text, options = {}) => {
 	try {
 		return promptGenerator(text, options);
 	} catch (error) {
-		console.error(
-			`Error generating analysis prompt for provider ${provider}:`,
-			error.message
-		);
+		console.error(`Error generating analysis prompt for provider ${provider}:`, error.message);
 		return analysisPrompts.default(text, options);
 	}
 };

@@ -63,16 +63,23 @@ class OpenAIProvider extends BaseProvider {
 	}
 }
 
-// Create singleton instance
-const openaiProvider = new OpenAIProvider();
+// Lazy singleton - created on first use
+let openaiProvider = null;
+
+function getProvider() {
+	if (!openaiProvider) {
+		openaiProvider = new OpenAIProvider();
+	}
+	return openaiProvider;
+}
 
 // Export both class and legacy functions
 async function translate(text, sourceLang, targetLang, options) {
-	return openaiProvider.translate(text, sourceLang, targetLang, options);
+	return getProvider().translate(text, sourceLang, targetLang, options);
 }
 
 async function analyze(prompt, options = {}) {
-	return openaiProvider.analyze(prompt, options);
+	return getProvider().analyze(prompt, options);
 }
 
 // Add analyze method to the class

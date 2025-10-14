@@ -97,16 +97,23 @@ class XAIProvider extends BaseProvider {
 	}
 }
 
-// Create singleton instance
-const xaiProvider = new XAIProvider();
+// Lazy singleton - created on first use
+let xaiProvider = null;
+
+function getProvider() {
+	if (!xaiProvider) {
+		xaiProvider = new XAIProvider();
+	}
+	return xaiProvider;
+}
 
 // Export both class and legacy functions
 async function translate(text, sourceLang, targetLang, options) {
-	return xaiProvider.translate(text, sourceLang, targetLang, options);
+	return getProvider().translate(text, sourceLang, targetLang, options);
 }
 
 async function analyze(prompt, options = {}) {
-	return xaiProvider.analyze(prompt, options);
+	return getProvider().analyze(prompt, options);
 }
 
 export { translate, analyze, XAIProvider };

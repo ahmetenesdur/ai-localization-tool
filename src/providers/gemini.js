@@ -136,16 +136,23 @@ class GeminiProvider extends BaseProvider {
 	}
 }
 
-// Create singleton instance
-const geminiProvider = new GeminiProvider();
+// Lazy singleton - created on first use
+let geminiProvider = null;
+
+function getProvider() {
+	if (!geminiProvider) {
+		geminiProvider = new GeminiProvider();
+	}
+	return geminiProvider;
+}
 
 // Export both class and legacy functions
 async function translate(text, sourceLang, targetLang, options) {
-	return geminiProvider.translate(text, sourceLang, targetLang, options);
+	return getProvider().translate(text, sourceLang, targetLang, options);
 }
 
 async function analyze(prompt, options = {}) {
-	return geminiProvider.analyze(prompt, options);
+	return getProvider().analyze(prompt, options);
 }
 
 export { translate, analyze, GeminiProvider };

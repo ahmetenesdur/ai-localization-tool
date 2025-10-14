@@ -97,16 +97,23 @@ class DeepSeekProvider extends BaseProvider {
 	}
 }
 
-// Create singleton instance
-const deepseekProvider = new DeepSeekProvider();
+// Lazy singleton - created on first use
+let deepseekProvider = null;
+
+function getProvider() {
+	if (!deepseekProvider) {
+		deepseekProvider = new DeepSeekProvider();
+	}
+	return deepseekProvider;
+}
 
 // Export both class and legacy functions
 async function translate(text, sourceLang, targetLang, options) {
-	return deepseekProvider.translate(text, sourceLang, targetLang, options);
+	return getProvider().translate(text, sourceLang, targetLang, options);
 }
 
 async function analyze(prompt, options = {}) {
-	return deepseekProvider.analyze(prompt, options);
+	return getProvider().analyze(prompt, options);
 }
 
 export { translate, analyze, DeepSeekProvider };

@@ -1,10 +1,11 @@
 /**
  * Localization Tool Configuration
+ * Version: 2.0.0 - ES Module format
  * Controls API providers, performance settings, and quality controls
  */
 
 export default {
-	version: "1.0.0",
+	version: "2.0.0",
 	localesDir: "./locales",
 	source: "en",
 	targets: ["tr", "de", "es", "fr", "hi", "ja", "pl", "ru", "th", "uk", "vi", "yo", "zh"],

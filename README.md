@@ -2,6 +2,13 @@
 
 **Enterprise-grade AI-powered translation CLI for Next.js projects** with intelligent synchronization, multi-provider support, and context-aware translations.
 
+> **🚀 v2.0 - Now using ES Modules (ESM)** - Modern JavaScript with better performance and tree-shaking support.
+
+## Requirements
+
+- **Node.js** >= 14.13.0 (v18+ recommended for best ESM support)
+- Supports ESM projects out of the box
+
 ## Key Features
 
 - **AI-Powered Translation** - 5 providers with intelligent fallback (OpenAI, DeepSeek, Gemini, Dashscope, XAI)
@@ -28,7 +35,7 @@ npx ai-localization-tool
 Create `localize.config.js` in your project root:
 
 ```javascript
-module.exports = {
+export default {
 	// Basic Settings
 	localesDir: "./locales",
 	source: "en",
@@ -225,13 +232,13 @@ Here's the complete configuration file with all available options and their expl
 ```javascript
 /**
  * Localization Tool Configuration
- * Version: 1.0.0
+ * Version: 2.0.0
  *
  * This configuration file controls all aspects of the localization tool
  * including API providers, performance settings, and quality controls.
  */
 
-module.exports = {
+export default {
 	// ===== BASIC CONFIGURATION =====
 	version: "1.0.0", // Configuration version
 	localesDir: "./locales", // Directory where locale JSON files are stored

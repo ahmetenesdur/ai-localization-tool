@@ -811,8 +811,4 @@ async function removeDeletedKeysFromTargets(sourceFile, deletedKeys, options) {
 	);
 }
 
-export {
-	findLocaleFiles,
-	translateFile,
-	validateAndFixExistingTranslations,
-};
+export { findLocaleFiles, translateFile, validateAndFixExistingTranslations };

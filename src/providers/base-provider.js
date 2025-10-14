@@ -130,6 +130,14 @@ class BaseProvider {
 	}
 
 	extractTranslation(response, providerName) {
+		// Check for error response first
+		if (response.error) {
+			console.error(`${providerName} API error:`, JSON.stringify(response.error, null, 2));
+			const errorMsg =
+				response.error.message || response.error.error || JSON.stringify(response.error);
+			throw new Error(`api: ${providerName} - ${errorMsg}`);
+		}
+
 		if (providerName === "deepseek") {
 			console.log(`DeepSeek response structure:`, JSON.stringify(response, null, 2));
 		}
@@ -177,9 +185,7 @@ class BaseProvider {
 			}
 		);
 
-		throw new Error(
-			`Unable to extract translation from ${providerName} response (after 3 attempts over ${Date.now()}ms)`
-		);
+		throw new Error(`Unable to extract translation from ${providerName} response`);
 	}
 
 	sanitizeTranslation(translation) {
