@@ -261,18 +261,8 @@ class ProgressTracker {
 	}
 
 	_finalReport() {
-		const totalTime = (this.endTime - this.startTime) / 1000;
-		const avgTimePerItem = totalTime / this.total;
-		const successRate = (this.success / this.total) * 100;
-
-		console.log(`\n📊 Translation Summary:`);
-		console.log(`🔤 Language: ${this.language || "Unknown"}`);
-		console.log(`🔢 Total Items: ${this.total}`);
-		console.log(`✅ Successful: ${this.success} (${successRate.toFixed(1)}%)`);
-		console.log(`❌ Failed: ${this.failed}`);
-		console.log(`⏱️ Total Time: ${totalTime.toFixed(2)}s`);
-		console.log(`⚡ Average Speed: ${(this.total / totalTime).toFixed(2)} items/second`);
-		console.log(`📏 Average Time per Item: ${(avgTimePerItem * 1000).toFixed(0)}ms`);
+		// Progress bar already displays the summary visually
+		// Remove duplicate console output to keep it clean
 	}
 
 	getStatus() {

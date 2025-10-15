@@ -194,11 +194,10 @@ class Orchestrator {
 		const results = [];
 		const chunks = this._chunkArray(items, batchSize);
 
-		console.log(
-			`🔄 Processing ${items.length} items in ${chunks.length} batches of max ${batchSize} items each`
-		);
-
 		if (this.advanced.debug) {
+			console.log(
+				`🔄 Processing ${items.length} items in ${chunks.length} batches of max ${batchSize} items each`
+			);
 			console.log(
 				`Processing ${items.length} items in ${chunks.length} chunks of size ${batchSize}`
 			);

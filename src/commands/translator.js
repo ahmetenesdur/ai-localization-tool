@@ -193,10 +193,6 @@ async function processAllLanguages(
 		);
 
 		await logBatchResults(batchResults);
-
-		if (i + languageConcurrency < targetLanguages.length) {
-			await consoleLock.log("");
-		}
 	}
 }
 
@@ -204,23 +200,9 @@ async function processAllLanguages(
  * Log results for a batch of language processing
  */
 async function logBatchResults(batchResults) {
+	// Progress bar already shows the real-time status
+	// Only show saved file confirmation
 	for (const result of batchResults) {
-		if (result && result.status && result.status.completed > 0) {
-			const status = result.status;
-
-			// Progress bar is now handled by ProgressTracker in real-time
-			// No need to log static progress bar here anymore
-
-			// Log summary
-			await consoleLock.log(`\n📊 Translation Summary:`);
-			await consoleLock.log(`🗣️ Language: ${status.language || "Unknown"}`);
-			await consoleLock.log(`🔢 Total Items: ${status.total}`);
-			await consoleLock.log(
-				`✅ Successful: ${status.success} (${((status.success / (status.total || 1)) * 100).toFixed(1)}%)`
-			);
-			await consoleLock.log(`❌ Failed: ${status.failed}`);
-		}
-
 		if (result && result.savedMessage) {
 			await consoleLock.log(result.savedMessage);
 		}
@@ -356,7 +338,7 @@ async function processLanguage(
 
 		const safeTargetLang = InputValidator.validateLanguageCode(targetLang, "target language");
 
-		await consoleLock.log(`\n\ud83c\udf0e Starting translations for ${safeTargetLang}`);
+		await consoleLock.log(`🌎 Starting translations for ${safeTargetLang}`);
 		let finalStatus = null;
 		let savedMessage = null;
 
@@ -689,47 +671,58 @@ async function validateAndFixExistingTranslations(file, options) {
  * Display a summary of the translation results
  */
 async function displayGlobalSummary(stats, totalLanguages) {
-	await consoleLock.log("\n\ud83c\udf0d Global Translation Summary:");
-	await consoleLock.log(`Languages Processed: ${totalLanguages}`);
-	await consoleLock.log(`Total Translations: ${stats.total}`);
-	await consoleLock.log(`\u2705 Success: ${stats.success}`);
-	await consoleLock.log(`\u274c Failed: ${stats.failed}`);
-	await consoleLock.log(`\u23ed\ufe0f Skipped: ${stats.skipped}`);
-	await consoleLock.log(`\u23f3 Total Time: ${stats.totalTime.toFixed(1)}s`);
+	await consoleLock.log("\n" + "=".repeat(60));
+	await consoleLock.log("🌍 Global Translation Summary");
+	await consoleLock.log("=".repeat(60));
+
+	await consoleLock.log(`\n🌐 Languages Processed: ${totalLanguages}`);
+	await consoleLock.log(`🔢 Total Translations: ${stats.total}`);
+	await consoleLock.log(`✅ Success: ${stats.success}`);
+	await consoleLock.log(`❌ Failed: ${stats.failed}`);
+	await consoleLock.log(`⏭️ Skipped: ${stats.skipped}`);
+	await consoleLock.log(`⏱️ Total Time: ${stats.totalTime.toFixed(1)}s`);
 	await consoleLock.log(
-		`\u26a1 Average per language: ${(stats.totalTime / totalLanguages).toFixed(1)}s`
+		`⚡ Average per language: ${(stats.totalTime / totalLanguages).toFixed(1)}s`
 	);
 
 	// Display detailed language stats
-	await consoleLock.log("\n\ud83d\udcca Per-language Performance:");
-	for (const [lang, langStats] of Object.entries(stats.languages)) {
-		const timeSeconds = langStats.timeMs / 1000;
-		await consoleLock.log(
-			`${lang}: ${langStats.added} added, ${langStats.skipped} skipped, ${langStats.failed} failed (${timeSeconds.toFixed(1)}s)`
-		);
+	if (Object.keys(stats.languages).length > 0) {
+		await consoleLock.log("\n" + "-".repeat(60));
+		await consoleLock.log("📊 Per-language Performance:");
+		await consoleLock.log("-".repeat(60));
+		for (const [lang, langStats] of Object.entries(stats.languages)) {
+			const timeSeconds = langStats.timeMs / 1000;
+			await consoleLock.log(
+				`  ${lang.padEnd(4)} | ${String(langStats.added).padStart(3)} added | ${String(langStats.skipped).padStart(3)} skipped | ${String(langStats.failed).padStart(2)} failed | ${timeSeconds.toFixed(1)}s`
+			);
+		}
 	}
 
 	// Only show categories if we have them
 	if (Object.keys(stats.byCategory).length > 0) {
-		await consoleLock.log("\n\ud83d\udcca Context Analysis by Category:");
+		await consoleLock.log("\n" + "-".repeat(60));
+		await consoleLock.log("📊 Context Analysis by Category:");
+		await consoleLock.log("-".repeat(60));
 		for (const [category, count] of Object.entries(stats.byCategory)) {
 			const details = stats.details[category];
 			if (details && details.samples > 0) {
 				const avgConfidence = details.totalConfidence / details.samples;
 				const confidenceStr = `${(avgConfidence * 100).toFixed(1)}%`;
 				await consoleLock.log(
-					`${category}: ${count} items (${confidenceStr} avg confidence)`
+					`  ${category}: ${count} items (${confidenceStr} avg confidence)`
 				);
 			} else {
-				await consoleLock.log(`${category}: ${count} items`);
+				await consoleLock.log(`  ${category}: ${count} items`);
 			}
 		}
 	}
 
-	// Add a clear completion message - just once
+	// Clear completion message - only once
+	await consoleLock.log("\n" + "=".repeat(60));
 	await consoleLock.log(
-		`\nAll operations completed successfully in ${stats.totalDuration.toFixed(1)}s`
+		`✅ All operations completed successfully in ${stats.totalDuration.toFixed(1)}s`
 	);
+	await consoleLock.log("=".repeat(60) + "\n");
 
 	// Exit the process with success code after a short delay
 	// The delay ensures any buffered console output is flushed

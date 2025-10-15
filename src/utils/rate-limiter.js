@@ -98,7 +98,10 @@ class RateLimiter {
 					}
 				}
 			});
-			console.log("🔧 Provider limits updated from config");
+			// Only log in debug mode to avoid cluttering output
+			if (process.env.DEBUG) {
+				console.log("🔧 Provider limits updated from config");
+			}
 		}
 	}
 

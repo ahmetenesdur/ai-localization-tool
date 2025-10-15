@@ -465,10 +465,9 @@ const configureCLI = async (defaultConfig) => {
 					break;
 			}
 
-			const executionTime = (Date.now() - startTime) / 1000;
-			console.log(
-				`\n✅ All operations completed successfully in ${executionTime.toFixed(1)}s`
-			);
+			// Translation command exits within translateFile with process.exit(0),
+			// so this completion message won't be reached for translate mode.
+			// Keep it only for other modes that don't have their own exit handling.
 		} catch (validationError) {
 			console.error(`\n❌ Input validation error: ${validationError.message}`);
 			process.exit(1);
