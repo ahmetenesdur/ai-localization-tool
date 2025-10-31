@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 import dotenv from "dotenv";
-dotenv.config({ path: [".env.local", ".env"] });
 
 import { promises as fs } from "fs";
 import fsSync from "fs";
 import path from "path";
 import os from "os";
+import { createRequire } from "module";
 import { program } from "commander";
 import {
 	translateFile,
@@ -19,8 +19,45 @@ import Orchestrator from "../src/core/orchestrator.js";
 import InputValidator from "../src/utils/input-validator.js";
 import gracefulShutdown from "../src/utils/graceful-shutdown.js";
 
+// Use createRequire to load package.json in ESM context
+const require = createRequire(import.meta.url);
+const { version } = require("../package.json");
+
 const loadEnvironmentVariables = async () => {
-	return Promise.resolve();
+	// Load environment files in priority order
+	// First load .env (base defaults), then .env.local (local overrides)
+	// This ensures .env.local values take precedence over .env values
+	const envFiles = [
+		{ file: ".env", override: false },
+		{ file: ".env.local", override: true },
+	];
+	let loadedCount = 0;
+
+	for (const { file: envFile, override } of envFiles) {
+		const envPath = path.resolve(process.cwd(), envFile);
+		try {
+			await fs.access(envPath);
+			const result = dotenv.config({ path: envPath, override });
+
+			if (!result.error) {
+				loadedCount++;
+				// Only log in verbose/debug mode to reduce noise
+				if (process.env.VERBOSE || process.env.DEBUG) {
+					console.log(`🌱 Loaded environment variables from ${envFile}`);
+				}
+			}
+		} catch (error) {
+			// ENOENT is expected when files don't exist - silently skip
+			if (error.code !== "ENOENT") {
+				console.warn(`⚠️ Could not load ${envFile}: ${error.message}`);
+			}
+		}
+	}
+
+	// Informative message only if verbose/debug and at least one file was loaded
+	if ((process.env.VERBOSE || process.env.DEBUG) && loadedCount > 0) {
+		console.log(`📋 Environment: ${loadedCount} file(s) loaded`);
+	}
 };
 
 const loadConfig = async () => {
@@ -117,7 +154,7 @@ const configureCLI = async (defaultConfig) => {
 	program
 		.name("localize")
 		.description("AI-powered localization tool for Next.js projects")
-		.version("1.0.0");
+		.version(version);
 
 	program
 		.option("-s, --source <lang>", "Source language", defaultConfig.source)
@@ -462,12 +499,14 @@ const configureCLI = async (defaultConfig) => {
 					for (const file of files) {
 						await translateFile(file, finalConfig);
 					}
+
+					// Exit after successful translation in CLI mode
+					// This allows translateFile to be used as library without forcing exit
+					process.exit(0);
 					break;
 			}
 
-			// Translation command exits within translateFile with process.exit(0),
-			// so this completion message won't be reached for translate mode.
-			// Keep it only for other modes that don't have their own exit handling.
+			// Other commands (fix, analyze) handle their own completion
 		} catch (validationError) {
 			console.error(`\n❌ Input validation error: ${validationError.message}`);
 			process.exit(1);

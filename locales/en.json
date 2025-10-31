@@ -10,8 +10,7 @@
 		"buttons": {
 			"submit": "Submit",
 			"cancel": "Cancel",
-			"save": "Save Changes",
-			"text": "{count, plural, one {message} other {messages}}"
+			"save": "Save Changes"
 		},
 		"messages": {
 			"success": "Operation completed successfully!",

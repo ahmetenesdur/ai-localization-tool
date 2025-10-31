@@ -723,12 +723,6 @@ async function displayGlobalSummary(stats, totalLanguages) {
 		`✅ All operations completed successfully in ${stats.totalDuration.toFixed(1)}s`
 	);
 	await consoleLock.log("=".repeat(60) + "\n");
-
-	// Exit the process with success code after a short delay
-	// The delay ensures any buffered console output is flushed
-	setTimeout(() => {
-		process.exit(0);
-	}, 500);
 }
 
 /**
