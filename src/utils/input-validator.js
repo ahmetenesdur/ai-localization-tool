@@ -205,28 +205,407 @@ class InputValidator {
 			throw new Error("Configuration must be an object");
 		}
 
-		const validated = { ...config };
+		// Check config depth to prevent circular references
+		this.validateObjectDepth(config);
 
-		if (validated.source) {
-			validated.source = this.validateLanguageCode(validated.source, "source language");
+		const errors = [];
+		const warnings = [];
+
+		// Required fields validation
+		if (!config.source) {
+			errors.push("Missing required field 'source' (source language)");
+		} else {
+			try {
+				this.validateLanguageCode(config.source, "source language");
+			} catch (error) {
+				errors.push(`Invalid source language: ${error.message}`);
+			}
 		}
 
-		if (validated.targets) {
-			validated.targets = this.validateLanguageCodes(validated.targets, "target languages");
+		if (!config.targets || !Array.isArray(config.targets) || config.targets.length === 0) {
+			errors.push("Missing or empty 'targets' array (target languages)");
+		} else {
+			try {
+				this.validateLanguageCodes(config.targets, "target languages");
+			} catch (error) {
+				errors.push(`Invalid target languages: ${error.message}`);
+			}
 		}
 
-		if (validated.localesDir) {
-			validated.localesDir = this.validateDirectoryPath(
-				validated.localesDir,
-				"locales directory"
-			);
+		if (!config.localesDir) {
+			errors.push("Missing required field 'localesDir' (locales directory path)");
 		}
 
-		if (validated.apiProvider) {
-			validated.apiProvider = this.validateProvider(validated.apiProvider, "API provider");
+		// API Provider validation
+		if (config.apiProvider) {
+			try {
+				this.validateProvider(config.apiProvider, "API provider");
+			} catch (error) {
+				errors.push(`Invalid API provider: ${error.message}`);
+			}
+		} else {
+			warnings.push("No API provider specified, will use first available provider");
 		}
 
-		return validated;
+		// Fallback order validation
+		if (config.fallbackOrder) {
+			if (!Array.isArray(config.fallbackOrder)) {
+				errors.push("'fallbackOrder' must be an array");
+			} else {
+				for (const provider of config.fallbackOrder) {
+					try {
+						this.validateProvider(provider, "fallback provider");
+					} catch (error) {
+						errors.push(`Invalid provider in fallbackOrder: ${error.message}`);
+					}
+				}
+			}
+		}
+
+		// Concurrency validation
+		if (config.concurrencyLimit !== undefined) {
+			const limit = parseInt(config.concurrencyLimit);
+			if (isNaN(limit) || limit < 1 || limit > 50) {
+				errors.push("'concurrencyLimit' must be a number between 1 and 50");
+			}
+		}
+
+		// Cache configuration validation
+		if (config.cacheSize !== undefined) {
+			const size = parseInt(config.cacheSize);
+			if (isNaN(size) || size < 100 || size > 10000) {
+				errors.push("'cacheSize' must be a number between 100 and 10000");
+			}
+		}
+
+		if (config.cacheTTL !== undefined) {
+			const ttl = parseInt(config.cacheTTL);
+			if (isNaN(ttl) || ttl < 0) {
+				errors.push("'cacheTTL' must be a non-negative number (milliseconds)");
+			}
+			if (ttl > 7 * 24 * 60 * 60 * 1000) {
+				warnings.push("'cacheTTL' is very large (>7 days), consider reducing it");
+			}
+		}
+
+		// API Config validation
+		if (config.apiConfig) {
+			if (typeof config.apiConfig !== "object") {
+				errors.push("'apiConfig' must be an object");
+			} else {
+				this.validateApiConfig(config.apiConfig, errors, warnings);
+			}
+		}
+
+		// Rate Limiter validation
+		if (config.rateLimiter) {
+			if (typeof config.rateLimiter !== "object") {
+				errors.push("'rateLimiter' must be an object");
+			} else {
+				this.validateRateLimiterConfig(config.rateLimiter, errors, warnings);
+			}
+		}
+
+		// Retry options validation
+		if (config.retryOptions) {
+			if (typeof config.retryOptions !== "object") {
+				errors.push("'retryOptions' must be an object");
+			} else {
+				this.validateRetryOptions(config.retryOptions, errors, warnings);
+			}
+		}
+
+		// Context configuration validation
+		if (config.context) {
+			if (typeof config.context !== "object") {
+				errors.push("'context' must be an object");
+			} else {
+				this.validateContextConfig(config.context, errors, warnings);
+			}
+		}
+
+		// Quality checks validation
+		if (config.qualityChecks) {
+			if (typeof config.qualityChecks !== "object") {
+				errors.push("'qualityChecks' must be an object");
+			} else {
+				this.validateQualityChecks(config.qualityChecks, errors, warnings);
+			}
+		}
+
+		// Length control validation
+		if (config.lengthControl) {
+			if (typeof config.lengthControl !== "object") {
+				errors.push("'lengthControl' must be an object");
+			} else {
+				this.validateLengthControl(config.lengthControl, errors, warnings);
+			}
+		}
+
+		// Advanced settings validation
+		if (config.advanced) {
+			if (typeof config.advanced !== "object") {
+				errors.push("'advanced' must be an object");
+			} else {
+				this.validateAdvancedConfig(config.advanced, errors, warnings);
+			}
+		}
+
+		// File operations validation
+		if (config.fileOperations) {
+			if (typeof config.fileOperations !== "object") {
+				errors.push("'fileOperations' must be an object");
+			}
+		}
+
+		// Report errors and warnings
+		if (errors.length > 0) {
+			const errorMessage = [
+				"Configuration validation failed:",
+				...errors.map((err, i) => `  ${i + 1}. ${err}`),
+			].join("\n");
+			throw new Error(errorMessage);
+		}
+
+		if (warnings.length > 0 && (config.debug || config.verbose)) {
+			console.warn("⚠️  Configuration warnings:");
+			warnings.forEach((warn, i) => console.warn(`  ${i + 1}. ${warn}`));
+		}
+
+		return config;
+	}
+
+	/**
+	 * Validate API config for each provider
+	 */
+	static validateApiConfig(apiConfig, errors, warnings) {
+		for (const [provider, settings] of Object.entries(apiConfig)) {
+			if (!this.VALID_PROVIDERS.includes(provider)) {
+				warnings.push(`Unknown provider in apiConfig: '${provider}'`);
+				continue;
+			}
+
+			if (typeof settings !== "object") {
+				errors.push(`apiConfig.${provider} must be an object`);
+				continue;
+			}
+
+			// Validate temperature
+			if (settings.temperature !== undefined) {
+				const temp = parseFloat(settings.temperature);
+				if (isNaN(temp) || temp < 0 || temp > 2) {
+					errors.push(`apiConfig.${provider}.temperature must be between 0 and 2`);
+				}
+				if (temp > 0.5) {
+					warnings.push(
+						`apiConfig.${provider}.temperature is high (${temp}), may reduce consistency`
+					);
+				}
+			}
+
+			// Validate maxTokens
+			if (settings.maxTokens !== undefined) {
+				const tokens = parseInt(settings.maxTokens);
+				if (isNaN(tokens) || tokens < 100 || tokens > 8000) {
+					errors.push(`apiConfig.${provider}.maxTokens must be between 100 and 8000`);
+				}
+			}
+
+			// Validate contextWindow
+			if (settings.contextWindow !== undefined) {
+				const window = parseInt(settings.contextWindow);
+				if (isNaN(window) || window < 1000) {
+					errors.push(`apiConfig.${provider}.contextWindow must be at least 1000`);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Validate rate limiter configuration
+	 */
+	static validateRateLimiterConfig(rateLimiter, errors, warnings) {
+		if (rateLimiter.queueStrategy) {
+			const validStrategies = ["fifo", "priority"];
+			if (!validStrategies.includes(rateLimiter.queueStrategy)) {
+				errors.push(
+					`rateLimiter.queueStrategy must be one of: ${validStrategies.join(", ")}`
+				);
+			}
+		}
+
+		if (rateLimiter.queueTimeout !== undefined) {
+			const timeout = parseInt(rateLimiter.queueTimeout);
+			if (isNaN(timeout) || timeout < 1000 || timeout > 120000) {
+				errors.push("rateLimiter.queueTimeout must be between 1000 and 120000 ms");
+			}
+		}
+
+		if (rateLimiter.providerLimits) {
+			if (typeof rateLimiter.providerLimits !== "object") {
+				errors.push("rateLimiter.providerLimits must be an object");
+			} else {
+				for (const [provider, limits] of Object.entries(rateLimiter.providerLimits)) {
+					if (!this.VALID_PROVIDERS.includes(provider)) {
+						warnings.push(`Unknown provider in providerLimits: '${provider}'`);
+						continue;
+					}
+
+					if (limits.rpm !== undefined) {
+						const rpm = parseInt(limits.rpm);
+						if (isNaN(rpm) || rpm < 1 || rpm > 10000) {
+							errors.push(
+								`rateLimiter.providerLimits.${provider}.rpm must be between 1 and 10000`
+							);
+						}
+					}
+
+					if (limits.concurrency !== undefined) {
+						const conc = parseInt(limits.concurrency);
+						if (isNaN(conc) || conc < 1 || conc > 50) {
+							errors.push(
+								`rateLimiter.providerLimits.${provider}.concurrency must be between 1 and 50`
+							);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Validate retry options
+	 */
+	static validateRetryOptions(retryOptions, errors, warnings) {
+		if (retryOptions.maxRetries !== undefined) {
+			const retries = parseInt(retryOptions.maxRetries);
+			if (isNaN(retries) || retries < 0 || retries > 10) {
+				errors.push("retryOptions.maxRetries must be between 0 and 10");
+			}
+		}
+
+		if (retryOptions.initialDelay !== undefined) {
+			const delay = parseInt(retryOptions.initialDelay);
+			if (isNaN(delay) || delay < 100 || delay > 10000) {
+				errors.push("retryOptions.initialDelay must be between 100 and 10000 ms");
+			}
+		}
+
+		if (retryOptions.maxDelay !== undefined) {
+			const delay = parseInt(retryOptions.maxDelay);
+			if (isNaN(delay) || delay < 1000 || delay > 60000) {
+				errors.push("retryOptions.maxDelay must be between 1000 and 60000 ms");
+			}
+		}
+
+		if (
+			retryOptions.initialDelay &&
+			retryOptions.maxDelay &&
+			retryOptions.initialDelay > retryOptions.maxDelay
+		) {
+			errors.push("retryOptions.initialDelay cannot be greater than maxDelay");
+		}
+	}
+
+	/**
+	 * Validate context configuration
+	 */
+	static validateContextConfig(context, errors, warnings) {
+		if (context.aiProvider) {
+			try {
+				this.validateProvider(context.aiProvider, "context.aiProvider");
+			} catch (error) {
+				errors.push(`Invalid context.aiProvider: ${error.message}`);
+			}
+		}
+
+		if (context.minTextLength !== undefined) {
+			const length = parseInt(context.minTextLength);
+			if (isNaN(length) || length < 0 || length > 1000) {
+				errors.push("context.minTextLength must be between 0 and 1000");
+			}
+		}
+
+		if (context.detection) {
+			if (context.detection.threshold !== undefined) {
+				const threshold = parseInt(context.detection.threshold);
+				if (isNaN(threshold) || threshold < 1 || threshold > 20) {
+					errors.push("context.detection.threshold must be between 1 and 20");
+				}
+			}
+
+			if (context.detection.minConfidence !== undefined) {
+				const confidence = parseFloat(context.detection.minConfidence);
+				if (isNaN(confidence) || confidence < 0 || confidence > 1) {
+					errors.push("context.detection.minConfidence must be between 0 and 1");
+				}
+			}
+		}
+
+		if (context.categories) {
+			if (typeof context.categories !== "object") {
+				errors.push("context.categories must be an object");
+			} else if (Object.keys(context.categories).length === 0) {
+				warnings.push("context.categories is empty, context detection may not work");
+			}
+		}
+	}
+
+	/**
+	 * Validate quality checks configuration
+	 */
+	static validateQualityChecks(qualityChecks, errors, warnings) {
+		if (qualityChecks.rules && typeof qualityChecks.rules !== "object") {
+			errors.push("qualityChecks.rules must be an object");
+		}
+
+		if (qualityChecks.enabled === false && qualityChecks.autoFix === true) {
+			warnings.push("qualityChecks.autoFix is enabled but qualityChecks.enabled is false");
+		}
+	}
+
+	/**
+	 * Validate length control configuration
+	 */
+	static validateLengthControl(lengthControl, errors, warnings) {
+		if (lengthControl.mode) {
+			const validModes = ["strict", "flexible", "exact", "relaxed", "smart"];
+			if (!validModes.includes(lengthControl.mode)) {
+				errors.push(`lengthControl.mode must be one of: ${validModes.join(", ")}`);
+			}
+		}
+
+		if (lengthControl.rules) {
+			if (typeof lengthControl.rules !== "object") {
+				errors.push("lengthControl.rules must be an object");
+			}
+		}
+	}
+
+	/**
+	 * Validate advanced configuration
+	 */
+	static validateAdvancedConfig(advanced, errors, warnings) {
+		if (advanced.timeoutMs !== undefined) {
+			const timeout = parseInt(advanced.timeoutMs);
+			if (isNaN(timeout) || timeout < 1000 || timeout > 300000) {
+				errors.push("advanced.timeoutMs must be between 1000 and 300000 ms (5 min)");
+			}
+		}
+
+		if (advanced.maxKeyLength !== undefined) {
+			const length = parseInt(advanced.maxKeyLength);
+			if (isNaN(length) || length < 100 || length > 50000) {
+				errors.push("advanced.maxKeyLength must be between 100 and 50000");
+			}
+		}
+
+		if (advanced.maxBatchSize !== undefined) {
+			const size = parseInt(advanced.maxBatchSize);
+			if (isNaN(size) || size < 1 || size > 100) {
+				errors.push("advanced.maxBatchSize must be between 1 and 100");
+			}
+		}
 	}
 
 	/**

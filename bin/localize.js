@@ -395,8 +395,15 @@ const configureCLI = async (defaultConfig) => {
 
 			try {
 				InputValidator.validateConfig(finalConfig);
+				if (finalConfig.debug || finalConfig.verbose) {
+					console.log("✅ Configuration validated successfully");
+				}
 			} catch (configError) {
-				throw new Error(`Configuration validation failed: ${configError.message}`);
+				console.error("\n❌ Configuration Validation Failed:\n");
+				console.error(configError.message);
+				console.error("\n💡 Tip: Check your localize.config.js file for errors");
+				console.error("    Run with --debug to see detailed configuration\n");
+				process.exit(1);
 			}
 
 			configureComponents(finalConfig);
@@ -508,7 +515,15 @@ const configureCLI = async (defaultConfig) => {
 
 			// Other commands (fix, analyze) handle their own completion
 		} catch (validationError) {
+			if (validationError.message.includes("Configuration validation")) {
+				// Already handled above with better formatting
+				return;
+			}
 			console.error(`\n❌ Input validation error: ${validationError.message}`);
+			if (validationError.stack && process.env.DEBUG) {
+				console.error("\nStack trace:");
+				console.error(validationError.stack);
+			}
 			process.exit(1);
 		}
 	};
@@ -622,6 +637,69 @@ const configureCLI = async (defaultConfig) => {
 				if (error.stack && process.env.DEBUG) {
 					console.error(error.stack);
 				}
+				process.exit(1);
+			}
+		});
+
+	program
+		.command("validate-config")
+		.description("Validate configuration file without running translations")
+		.option("--show-warnings", "Show configuration warnings", false)
+		.action(async (options) => {
+			try {
+				console.log("🔍 Validating configuration...\n");
+
+				// Temporarily enable verbose to show warnings if requested
+				const originalDebug = defaultConfig.debug;
+				const originalVerbose = defaultConfig.verbose;
+				if (options.showWarnings) {
+					defaultConfig.debug = true;
+					defaultConfig.verbose = true;
+				}
+
+				try {
+					InputValidator.validateConfig(defaultConfig);
+					console.log("✅ Configuration is valid!\n");
+
+					// Show summary
+					console.log("📊 Configuration Summary:");
+					console.log(`   🌐 Source: ${defaultConfig.source}`);
+					console.log(
+						`   🎯 Targets: ${defaultConfig.targets.length} languages (${defaultConfig.targets.slice(0, 5).join(", ")}${defaultConfig.targets.length > 5 ? "..." : ""})`
+					);
+					console.log(
+						`   📡 API Provider: ${defaultConfig.apiProvider || "auto-detect"}`
+					);
+					console.log(
+						`   🚀 Concurrency: ${defaultConfig.concurrencyLimit || 5} parallel operations`
+					);
+					console.log(
+						`   💾 Cache: ${defaultConfig.cacheEnabled !== false ? "Enabled" : "Disabled"}`
+					);
+
+					if (defaultConfig.context?.enabled) {
+						console.log(
+							`   🧠 Context Detection: ${defaultConfig.context.useAI ? "AI-powered" : "Keyword-based"}`
+						);
+					}
+
+					if (defaultConfig.useFallback) {
+						const fallbackChain =
+							defaultConfig.fallbackOrder?.slice(0, 3).join(" → ") || "auto";
+						console.log(`   🔄 Fallback Chain: ${fallbackChain}`);
+					}
+
+					console.log("\n✅ Your configuration is ready to use!");
+					console.log("🚀 Run 'localize translate' to start translating\n");
+				} finally {
+					// Restore original values
+					defaultConfig.debug = originalDebug;
+					defaultConfig.verbose = originalVerbose;
+				}
+			} catch (error) {
+				console.error("\n❌ Configuration Validation Failed:\n");
+				console.error(error.message);
+				console.error("\n💡 Fix the errors above and try again\n");
 				process.exit(1);
 			}
 		});

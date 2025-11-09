@@ -20,6 +20,7 @@
 ### 📊 Developer Experience
 
 - **Real-time Progress**: Live progress bars with ETA
+- **Config Validation**: Comprehensive validation with helpful error messages
 - **Detailed Diagnostics**: Debug mode with performance metrics
 - **Graceful Shutdown**: State preservation on interruption
 
@@ -117,6 +118,9 @@ XAI_API_KEY=xai-...
 ### Basic Commands
 
 ```bash
+# Validate configuration
+localize validate-config
+
 # Translate with config settings
 localize
 
@@ -163,6 +167,48 @@ localize
 - 🗑️ **Deleted keys** → Removed from all target files
 - ⏭️ **Unchanged keys** → Skipped for performance
 
+### Config Validation
+
+Validate your configuration before running translations:
+
+```bash
+# Quick validation
+localize validate-config
+
+# Show warnings too
+localize validate-config --show-warnings
+```
+
+**Example Output:**
+
+```
+🔍 Validating configuration...
+
+✅ Configuration is valid!
+
+📊 Configuration Summary:
+   🌐 Source: en
+   🎯 Targets: 13 languages (tr, de, es, fr, hi...)
+   📡 API Provider: openai
+   🚀 Concurrency: 1 parallel operations
+   💾 Cache: Enabled
+   🧠 Context Detection: AI-powered
+   🔄 Fallback Chain: openai → dashscope → deepseek
+
+✅ Your configuration is ready to use!
+```
+
+**Validation covers 60+ settings:**
+
+- ✅ Required fields (source, targets, localesDir)
+- ✅ API provider names and configurations
+- ✅ Performance settings (concurrency, cache, rate limits)
+- ✅ Retry options and timeouts
+- ✅ Context detection settings
+- ✅ Quality check rules
+- ✅ Length control modes
+- ✅ Logical consistency (e.g., initialDelay < maxDelay)
+
 ### Command Reference
 
 <details>
@@ -177,6 +223,16 @@ localize
 | `--localesDir`  | Locales directory    | `config.localesDir` |
 | `--debug`       | Enable debug mode    | `false`             |
 | `--verbose`     | Detailed diagnostics | `false`             |
+
+#### Commands
+
+| Command           | Description                         |
+| ----------------- | ----------------------------------- |
+| `translate`       | Translate missing strings           |
+| `fix`             | Fix issues in existing translations |
+| `analyze`         | Analyze context patterns            |
+| `validate-config` | Validate configuration file         |
+| `advanced`        | Advanced configuration options      |
 
 #### Translation Options
 
