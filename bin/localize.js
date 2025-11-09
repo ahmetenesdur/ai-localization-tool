@@ -18,6 +18,7 @@ import rateLimiter from "../src/utils/rate-limiter.js";
 import Orchestrator from "../src/core/orchestrator.js";
 import InputValidator from "../src/utils/input-validator.js";
 import gracefulShutdown from "../src/utils/graceful-shutdown.js";
+import ErrorHelper from "../src/utils/error-helper.js";
 
 // Use createRequire to load package.json in ESM context
 const require = createRequire(import.meta.url);
@@ -81,7 +82,9 @@ const loadConfig = async () => {
 		}
 
 		if (!configFile) {
-			throw new Error("Config file not found in working directory or parent directories");
+			const error = ErrorHelper.configNotFoundError();
+			console.error(ErrorHelper.formatError(error, { showDebug: false }));
+			throw error;
 		}
 
 		console.log(`🔍 Loading config from: ${path.relative(process.cwd(), configFile)}`);
@@ -399,10 +402,12 @@ const configureCLI = async (defaultConfig) => {
 					console.log("✅ Configuration validated successfully");
 				}
 			} catch (configError) {
-				console.error("\n❌ Configuration Validation Failed:\n");
-				console.error(configError.message);
-				console.error("\n💡 Tip: Check your localize.config.js file for errors");
-				console.error("    Run with --debug to see detailed configuration\n");
+				const error = ErrorHelper.configValidationError(
+					configError.message.includes("validation failed")
+						? configError.message.split("\n").slice(1)
+						: [configError.message]
+				);
+				console.error(ErrorHelper.formatError(error, { showDebug: globalOpts.debug }));
 				process.exit(1);
 			}
 
@@ -447,9 +452,17 @@ const configureCLI = async (defaultConfig) => {
 			const files = await findLocaleFiles(localesDir, finalConfig.source);
 
 			if (!files || !files.length) {
-				throw new Error(
-					`Source language file (${finalConfig.source}.json) not found in: ${localesDir}`
+				const error = ErrorHelper.fileNotFoundError(
+					`${localesDir}/${finalConfig.source}.json`,
+					`${finalConfig.source}.json`
 				);
+				console.error(
+					ErrorHelper.formatError(error, {
+						showDebug: finalConfig.debug,
+						showContext: true,
+					})
+				);
+				process.exit(1);
 			}
 
 			const startTime = Date.now();
@@ -551,9 +564,20 @@ const configureCLI = async (defaultConfig) => {
 			try {
 				await runCommand(program.opts(), options, "translate");
 			} catch (error) {
-				console.error(`\n❌ Error: ${error.message}`);
-				if (error.stack && process.env.DEBUG) {
-					console.error(error.stack);
+				// Handle errors with better formatting
+				if (error.code && error.code.startsWith("ERR_")) {
+					console.error(
+						ErrorHelper.formatError(error, {
+							showDebug: process.env.DEBUG === "true",
+							showSolutions: true,
+							showContext: true,
+						})
+					);
+				} else {
+					console.error(`\n❌ Error: ${error.message}`);
+					if (error.stack && process.env.DEBUG) {
+						console.error(error.stack);
+					}
 				}
 				process.exit(1);
 			}
@@ -567,9 +591,15 @@ const configureCLI = async (defaultConfig) => {
 			try {
 				await runCommand(program.opts(), options, "fix");
 			} catch (error) {
-				console.error(`\n❌ Error: ${error.message}`);
-				if (error.stack && process.env.DEBUG) {
-					console.error(error.stack);
+				if (error.code && error.code.startsWith("ERR_")) {
+					console.error(
+						ErrorHelper.formatError(error, { showDebug: process.env.DEBUG === "true" })
+					);
+				} else {
+					console.error(`\n❌ Error: ${error.message}`);
+					if (error.stack && process.env.DEBUG) {
+						console.error(error.stack);
+					}
 				}
 				process.exit(1);
 			}
@@ -594,9 +624,15 @@ const configureCLI = async (defaultConfig) => {
 			try {
 				await runCommand(program.opts(), options, "analyze");
 			} catch (error) {
-				console.error(`\n❌ Error: ${error.message}`);
-				if (error.stack && process.env.DEBUG) {
-					console.error(error.stack);
+				if (error.code && error.code.startsWith("ERR_")) {
+					console.error(
+						ErrorHelper.formatError(error, { showDebug: process.env.DEBUG === "true" })
+					);
+				} else {
+					console.error(`\n❌ Error: ${error.message}`);
+					if (error.stack && process.env.DEBUG) {
+						console.error(error.stack);
+					}
 				}
 				process.exit(1);
 			}
@@ -633,9 +669,15 @@ const configureCLI = async (defaultConfig) => {
 			try {
 				await runCommand(program.opts(), options, "advanced");
 			} catch (error) {
-				console.error(`\n❌ Error: ${error.message}`);
-				if (error.stack && process.env.DEBUG) {
-					console.error(error.stack);
+				if (error.code && error.code.startsWith("ERR_")) {
+					console.error(
+						ErrorHelper.formatError(error, { showDebug: process.env.DEBUG === "true" })
+					);
+				} else {
+					console.error(`\n❌ Error: ${error.message}`);
+					if (error.stack && process.env.DEBUG) {
+						console.error(error.stack);
+					}
 				}
 				process.exit(1);
 			}

@@ -209,6 +209,10 @@ localize validate-config --show-warnings
 - ✅ Length control modes
 - ✅ Logical consistency (e.g., initialDelay < maxDelay)
 
+### Enhanced Error Messages
+
+Context-aware errors with actionable solutions and error codes (API 1xxx, Config 2xxx, File 3xxx, Validation 4xxx, Translation 5xxx). Use `--debug` for detailed diagnostics.
+
 ### Command Reference
 
 <details>

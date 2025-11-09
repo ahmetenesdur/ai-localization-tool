@@ -1,6 +1,8 @@
 /**
  * Base class for translation providers
  */
+import ErrorHelper from "../utils/error-helper.js";
+
 class BaseProvider {
 	constructor(name, config = {}) {
 		this.name = name;
@@ -56,27 +58,58 @@ class BaseProvider {
 	handleApiError(error, providerName) {
 		if (error.response) {
 			const status = error.response.status;
-			const message =
-				error.response.data?.error?.message ||
-				error.response.data?.message ||
-				"Unknown API error";
+			const apiMessage =
+				error.response.data?.error?.message || error.response.data?.message || null;
 
+			// Rate limit error
 			if (status === 429) {
-				throw new Error(`rate_limit: ${providerName} rate limit exceeded`);
-			} else if (status >= 500) {
-				throw new Error(`server: ${providerName} server error - ${message}`);
-			} else if (status === 401 || status === 403) {
-				throw new Error(`auth: ${providerName} authentication failed - ${message}`);
-			} else {
-				throw new Error(`api: ${providerName} API error (${status}) - ${message}`);
+				const retryAfter = error.response.headers?.["retry-after"] || 60;
+				const limit = error.response.headers?.["x-ratelimit-limit"];
+				const remaining = error.response.headers?.["x-ratelimit-remaining"];
+
+				throw ErrorHelper.rateLimitError(providerName, {
+					limit,
+					current: limit ? limit - remaining : null,
+					retryAfter,
+					statusCode: status,
+				});
 			}
-		} else if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
-			throw new Error(`network: Cannot connect to ${providerName} API`);
-		} else if (error.code === "ECONNABORTED") {
-			throw new Error(`timeout: ${providerName} request timed out`);
-		} else {
-			throw new Error(`unknown: ${providerName} - ${error.message}`);
+
+			// Server error (5xx)
+			if (status >= 500) {
+				throw ErrorHelper.serverError(providerName, status, apiMessage);
+			}
+
+			// Authentication error (401, 403)
+			if (status === 401 || status === 403) {
+				throw ErrorHelper.authError(providerName, status, apiMessage);
+			}
+
+			// Other API errors
+			const apiError = ErrorHelper.createError("API_RESPONSE_ERROR", {
+				provider: providerName,
+				statusCode: status,
+				apiMessage,
+			});
+			apiError.message = `${providerName} API error (${status})${apiMessage ? `: ${apiMessage}` : ""}`;
+			throw apiError;
 		}
+
+		// Network errors
+		if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
+			throw ErrorHelper.networkError(providerName);
+		}
+
+		// Timeout errors
+		if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT") {
+			throw ErrorHelper.timeoutError(providerName, error.config?.timeout);
+		}
+
+		// Unknown errors - preserve original for debugging
+		const unknownError = new Error(`${providerName}: ${error.message}`);
+		unknownError.code = "ERR_UNKNOWN";
+		unknownError.originalError = error;
+		throw unknownError;
 	}
 
 	generatePrompt(text, sourceLang, targetLang, options = {}) {
