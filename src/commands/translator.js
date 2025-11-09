@@ -174,26 +174,38 @@ async function processAllLanguages(
 		`🚀 Processing ${targetLanguages.length} languages with concurrency of ${languageConcurrency}`
 	);
 
+	// Create shared orchestrators array to collect review queues
+	const orchestrators = [];
+
 	for (let i = 0; i < targetLanguages.length; i += languageConcurrency) {
 		const currentBatch = targetLanguages.slice(i, i + languageConcurrency);
 		const progressOptions = { logToConsole: false };
 
 		const batchResults = await Promise.all(
-			currentBatch.map((targetLang) =>
-				processLanguage(
+			currentBatch.map((targetLang) => {
+				const orchestrator = new Orchestrator({
+					...options,
+					concurrencyLimit: 1,
+					progressOptions,
+				});
+				orchestrators.push(orchestrator);
+				return processLanguage(
 					targetLang,
 					resolvedFile,
 					flattenedSource,
-					new Orchestrator({ ...options, concurrencyLimit: 1, progressOptions }),
+					orchestrator,
 					{ ...options, progressOptions },
 					globalStats,
 					comparison
-				)
-			)
+				);
+			})
 		);
 
 		await logBatchResults(batchResults);
 	}
+
+	// Store orchestrators in globalStats for later access
+	globalStats.orchestrators = orchestrators;
 }
 
 /**
@@ -224,6 +236,30 @@ async function finalizeTranslation(
 	globalStats.totalDuration = (Date.now() - startTime) / 1000;
 
 	await displayGlobalSummary(globalStats, options.targets.length);
+
+	// Save review queue if confidence scoring was enabled
+	if (options.saveReviewQueue || options.minConfidence !== undefined) {
+		if (globalStats.orchestrators && globalStats.orchestrators.length > 0) {
+			// Collect all review queues from all orchestrators
+			const allReviewItems = [];
+			globalStats.orchestrators.forEach((orchestrator) => {
+				if (
+					orchestrator.confidenceSettings &&
+					orchestrator.confidenceSettings.reviewQueue
+				) {
+					allReviewItems.push(...orchestrator.confidenceSettings.reviewQueue);
+				}
+			});
+
+			// If we have items to review, save them
+			if (allReviewItems.length > 0) {
+				// Use first orchestrator to save, but update its review queue
+				const orchestrator = globalStats.orchestrators[0];
+				orchestrator.confidenceSettings.reviewQueue = allReviewItems;
+				orchestrator.saveReviewQueue();
+			}
+		}
+	}
 
 	try {
 		await stateManager.saveState(projectRoot, currentState);

@@ -560,6 +560,8 @@ const configureCLI = async (defaultConfig) => {
 		)
 		.option("--auto-optimize", "Auto-optimize system parameters based on hardware", false)
 		.option("--stats", "Show detailed stats after completion", false)
+		.option("--min-confidence <score>", "Minimum confidence threshold (0-1)", parseFloat)
+		.option("--save-review-queue", "Save low-confidence items for manual review", false)
 		.action(async (options) => {
 			try {
 				await runCommand(program.opts(), options, "translate");
@@ -742,6 +744,29 @@ const configureCLI = async (defaultConfig) => {
 				console.error("\n❌ Configuration Validation Failed:\n");
 				console.error(error.message);
 				console.error("\n💡 Fix the errors above and try again\n");
+				process.exit(1);
+			}
+		});
+
+	program
+		.command("review")
+		.description("Interactively review low-confidence translations")
+		.option("--export <format>", "Export review queue (json|csv)")
+		.action(async (options) => {
+			try {
+				const ReviewCommand = (await import("../src/commands/review.js")).default;
+				const review = new ReviewCommand(defaultConfig);
+
+				if (options.export) {
+					review.exportReviewQueue(options.export);
+				} else {
+					await review.startReview();
+				}
+			} catch (error) {
+				console.error(`\n❌ Error: ${error.message}`);
+				if (error.stack && process.env.DEBUG) {
+					console.error(error.stack);
+				}
 				process.exit(1);
 			}
 		});

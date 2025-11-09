@@ -7,6 +7,9 @@ import { LRUCache } from "lru-cache";
 import crypto from "crypto";
 import os from "os";
 import gracefulShutdown from "../utils/graceful-shutdown.js";
+import ConfidenceScorer from "../utils/confidence-scorer.js";
+import fs from "fs";
+import path from "path";
 
 class Orchestrator {
 	constructor(options) {
@@ -61,6 +64,14 @@ class Orchestrator {
 			staleHits: 0,
 			stored: 0,
 			refreshes: 0,
+		};
+
+		// Confidence scoring settings
+		this.confidenceSettings = {
+			enabled: options.minConfidence !== undefined || options.saveReviewQueue,
+			minConfidence: options.minConfidence || 0.0,
+			saveReviewQueue: options.saveReviewQueue || false,
+			reviewQueue: [],
 		};
 
 		this.concurrencyLimit = options.concurrencyLimit || 5;
@@ -148,10 +159,45 @@ class Orchestrator {
 				existingTranslation: existingTranslation || null,
 			};
 
-			let translated = await provider.translate(text, this.options.source, targetLang, {
-				...this.options,
-				detectedContext: translationContext,
-			});
+			let translated;
+			let confidence = null;
+
+			// If confidence scoring is enabled, use extended method
+			if (
+				this.confidenceSettings.enabled &&
+				typeof provider.extractTranslationWithConfidence === "function"
+			) {
+				// Get raw API response
+				const rawResponse = await provider.translate(
+					text,
+					this.options.source,
+					targetLang,
+					{
+						...this.options,
+						detectedContext: translationContext,
+						returnRawResponse: true,
+					}
+				);
+
+				// Extract translation with confidence
+				const result = provider.extractTranslationWithConfidence(
+					rawResponse,
+					provider.name,
+					text,
+					this.options.source,
+					targetLang,
+					contextData?.category
+				);
+
+				translated = result.translation;
+				confidence = result.confidence;
+			} else {
+				// Standard translation without confidence
+				translated = await provider.translate(text, this.options.source, targetLang, {
+					...this.options,
+					detectedContext: translationContext,
+				});
+			}
 
 			const qualityResult = this.qualityChecker.validateAndFix(text, translated);
 			translated = qualityResult.fixedText;
@@ -163,6 +209,28 @@ class Orchestrator {
 				success: true,
 				qualityChecks: qualityResult,
 			};
+
+			// Add confidence if available
+			if (confidence) {
+				result.confidence = confidence;
+
+				// Add to review queue if below threshold
+				if (
+					this.confidenceSettings.saveReviewQueue &&
+					confidence.score < this.confidenceSettings.minConfidence
+				) {
+					this.confidenceSettings.reviewQueue.push({
+						key,
+						source: text,
+						translation: translated,
+						confidence,
+						language: targetLang,
+						sourceLang: this.options.source,
+						category: contextData?.category || "general",
+						timestamp: new Date().toISOString(),
+					});
+				}
+			}
 
 			if (this.options.cacheEnabled !== false) {
 				this.translationCache.set(cacheKey, result, {
@@ -374,7 +442,74 @@ class Orchestrator {
 			rateLimiter: rateLimiter.getStatus(),
 			concurrency: this.concurrencyLimit,
 			advanced: this.advanced,
+			confidence: this.confidenceSettings.enabled
+				? {
+						minThreshold: this.confidenceSettings.minConfidence,
+						reviewQueueSize: this.confidenceSettings.reviewQueue.length,
+					}
+				: null,
 		};
+	}
+
+	/**
+	 * Save review queue to file
+	 */
+	saveReviewQueue() {
+		if (
+			!this.confidenceSettings.saveReviewQueue ||
+			this.confidenceSettings.reviewQueue.length === 0
+		) {
+			return;
+		}
+
+		try {
+			const cacheDir = path.join(process.cwd(), ".localize-cache");
+			if (!fs.existsSync(cacheDir)) {
+				fs.mkdirSync(cacheDir, { recursive: true });
+			}
+
+			const reviewFile = path.join(cacheDir, "review-queue.json");
+			const data = {
+				timestamp: new Date().toISOString(),
+				minConfidence: this.confidenceSettings.minConfidence,
+				items: this.confidenceSettings.reviewQueue,
+				stats: {
+					total: this.confidenceSettings.reviewQueue.length,
+					byLanguage: this._groupByLanguage(this.confidenceSettings.reviewQueue),
+					byConfidenceLevel: this._groupByConfidenceLevel(
+						this.confidenceSettings.reviewQueue
+					),
+				},
+			};
+
+			fs.writeFileSync(reviewFile, JSON.stringify(data, null, 2));
+			console.log(
+				`\n📋 Review queue saved: ${this.confidenceSettings.reviewQueue.length} items need review`
+			);
+			console.log(`   File: ${reviewFile}`);
+			console.log(`   Run 'localize review' to start interactive review\n`);
+		} catch (error) {
+			console.warn(`⚠️  Failed to save review queue: ${error.message}`);
+		}
+	}
+
+	_groupByLanguage(items) {
+		const grouped = {};
+		items.forEach((item) => {
+			if (!grouped[item.language]) {
+				grouped[item.language] = 0;
+			}
+			grouped[item.language]++;
+		});
+		return grouped;
+	}
+
+	_groupByConfidenceLevel(items) {
+		const grouped = { high: 0, medium: 0, low: 0, very_low: 0 };
+		items.forEach((item) => {
+			grouped[item.confidence.level]++;
+		});
+		return grouped;
 	}
 
 	/**

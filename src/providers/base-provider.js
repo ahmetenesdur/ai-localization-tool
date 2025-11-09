@@ -2,6 +2,7 @@
  * Base class for translation providers
  */
 import ErrorHelper from "../utils/error-helper.js";
+import ConfidenceScorer from "../utils/confidence-scorer.js";
 
 class BaseProvider {
 	constructor(name, config = {}) {
@@ -170,51 +171,82 @@ class BaseProvider {
 			throw new Error(`api: ${providerName} - ${errorMsg}`);
 		}
 
+		let translation = null;
+
 		if (response.choices && response.choices[0]?.message?.content) {
-			return response.choices[0].message.content.trim();
+			translation = response.choices[0].message.content.trim();
+		} else if (response.choices && response.choices[0]?.text) {
+			translation = response.choices[0].text.trim();
+		} else if (response.choices && response.choices[0]?.delta?.content) {
+			translation = response.choices[0].delta.content.trim();
+		} else if (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {
+			translation = response.candidates[0].content.parts[0].text.trim();
+		} else if (response.output && response.output.text) {
+			translation = response.output.text.trim();
+		} else if (response.text) {
+			translation = response.text.trim();
+		} else if (response.content) {
+			translation = response.content.trim();
+		} else if (
+			response.data &&
+			response.data.choices &&
+			response.data.choices[0]?.message?.content
+		) {
+			translation = response.data.choices[0].message.content.trim();
 		}
 
-		if (response.choices && response.choices[0]?.text) {
-			return response.choices[0].text.trim();
+		if (!translation) {
+			console.error(
+				`Unable to extract translation from ${providerName} response. Response structure:`,
+				{
+					keys: Object.keys(response),
+					choices: response.choices ? `Array(${response.choices.length})` : "undefined",
+					choicesStructure:
+						response.choices && response.choices[0]
+							? Object.keys(response.choices[0])
+							: "undefined",
+				}
+			);
+
+			throw new Error(`Unable to extract translation from ${providerName} response`);
 		}
 
-		if (response.choices && response.choices[0]?.delta?.content) {
-			return response.choices[0].delta.content.trim();
-		}
+		return translation;
+	}
 
-		if (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {
-			return response.candidates[0].content.parts[0].text.trim();
-		}
+	/**
+	 * Extract translation with confidence score
+	 * @returns {Object} { translation, confidence, rawResponse }
+	 */
+	extractTranslationWithConfidence(
+		response,
+		providerName,
+		sourceText,
+		sourceLang,
+		targetLang,
+		category = "general"
+	) {
+		const translation = this.extractTranslation(response, providerName);
 
-		if (response.output && response.output.text) {
-			return response.output.text.trim();
-		}
+		// Extract AI confidence from response
+		const aiConfidence = ConfidenceScorer.extractAIConfidence(response, providerName);
 
-		if (response.text) {
-			return response.text.trim();
-		}
+		// Calculate comprehensive confidence score
+		const confidenceResult = ConfidenceScorer.calculateConfidence({
+			aiConfidence,
+			sourceText,
+			translation,
+			sourceLang,
+			targetLang,
+			provider: providerName,
+			category,
+		});
 
-		if (response.content) {
-			return response.content.trim();
-		}
-
-		if (response.data && response.data.choices && response.data.choices[0]?.message?.content) {
-			return response.data.choices[0].message.content.trim();
-		}
-
-		console.error(
-			`Unable to extract translation from ${providerName} response. Response structure:`,
-			{
-				keys: Object.keys(response),
-				choices: response.choices ? `Array(${response.choices.length})` : "undefined",
-				choicesStructure:
-					response.choices && response.choices[0]
-						? Object.keys(response.choices[0])
-						: "undefined",
-			}
-		);
-
-		throw new Error(`Unable to extract translation from ${providerName} response`);
+		return {
+			translation,
+			confidence: confidenceResult,
+			rawResponse: response,
+		};
 	}
 
 	sanitizeTranslation(translation) {

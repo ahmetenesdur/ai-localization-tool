@@ -281,4 +281,14 @@ export default {
 		autoOptimize: true,
 		debug: false,
 	},
+
+	// Quality Confidence Scoring
+	confidenceScoring: {
+		enabled: false, // Enable confidence scoring for translations
+		minConfidence: 0.7, // Minimum confidence threshold (0-1)
+		saveReviewQueue: false, // Save low-confidence items for manual review
+		autoApproveThreshold: 0.9, // Auto-approve translations above this score
+		reviewThreshold: 0.7, // Flag for review below this score
+		rejectThreshold: 0.5, // Auto-reject translations below this score
+	},
 };
