@@ -16,6 +16,7 @@
 - **Parallel Processing**: Concurrent translations with rate limiting
 - **LRU Cache**: Reduces API calls with stale-while-revalidate pattern
 - **Quality Assurance**: Auto-validation and fixing of placeholders, HTML tags, length
+- **Confidence Scoring**: AI-powered quality scoring with interactive review for low-confidence translations
 
 ### 📊 Developer Experience
 
@@ -23,6 +24,7 @@
 - **Config Validation**: Comprehensive validation with helpful error messages
 - **Detailed Diagnostics**: Debug mode with performance metrics
 - **Graceful Shutdown**: State preservation on interruption
+- **Interactive Review**: Terminal-based UI for reviewing low-confidence translations
 
 ## 🚀 Quick Start
 
@@ -62,6 +64,13 @@ export default {
 	// Performance
 	concurrencyLimit: 1,
 	cacheEnabled: true,
+
+	// Quality Confidence Scoring
+	confidenceScoring: {
+		enabled: false,
+		minConfidence: 0.7,
+		saveReviewQueue: false,
+	},
 
 	// Context Detection
 	context: {
@@ -132,6 +141,16 @@ localize translate --force
 
 # Fix translation issues
 localize fix
+
+# Enable confidence scoring (0-1 scale)
+localize translate --min-confidence 0.8 --save-review-queue
+
+# Interactive review of low-confidence translations
+localize review
+
+# Export review queue
+localize review --export json
+localize review --export csv
 
 # Debug mode
 localize --debug
@@ -230,23 +249,32 @@ Context-aware errors with actionable solutions and error codes (API 1xxx, Config
 
 #### Commands
 
-| Command           | Description                         |
-| ----------------- | ----------------------------------- |
-| `translate`       | Translate missing strings           |
-| `fix`             | Fix issues in existing translations |
-| `analyze`         | Analyze context patterns            |
-| `validate-config` | Validate configuration file         |
-| `advanced`        | Advanced configuration options      |
+| Command           | Description                                |
+| ----------------- | ------------------------------------------ |
+| `translate`       | Translate missing strings                  |
+| `fix`             | Fix issues in existing translations        |
+| `review`          | Interactive review of low-confidence items |
+| `analyze`         | Analyze context patterns                   |
+| `validate-config` | Validate configuration file                |
+| `advanced`        | Advanced configuration options             |
 
 #### Translation Options
 
-| Option          | Description             | Default  |
-| --------------- | ----------------------- | -------- |
-| `--provider`    | AI provider             | `openai` |
-| `--concurrency` | Concurrent translations | `1`      |
-| `--force`       | Update existing         | `false`  |
-| `--length`      | Length control mode     | `smart`  |
-| `--stats`       | Show detailed stats     | `false`  |
+| Option                | Description                      | Default  |
+| --------------------- | -------------------------------- | -------- |
+| `--provider`          | AI provider                      | `openai` |
+| `--concurrency`       | Concurrent translations          | `1`      |
+| `--force`             | Update existing                  | `false`  |
+| `--length`            | Length control mode              | `smart`  |
+| `--stats`             | Show detailed stats              | `false`  |
+| `--min-confidence`    | Minimum confidence threshold 0-1 | `0.0`    |
+| `--save-review-queue` | Save low-confidence items        | `false`  |
+
+#### Review Options
+
+| Option     | Description                        | Values      |
+| ---------- | ---------------------------------- | ----------- |
+| `--export` | Export review queue to file format | `json, csv` |
 
 </details>
 
@@ -268,7 +296,68 @@ Context-aware errors with actionable solutions and error codes (API 1xxx, Config
 | **HTML Preservation**      | Maintains `<tag>` structure and attributes                        |
 | **Length Control**         | 5 modes with language-specific rules                              |
 | **Context Detection**      | AI-powered categorization (technical, marketing, legal, DeFi, UI) |
+| **Confidence Scoring**     | Multi-factor quality scoring (0-1 scale) with review queue        |
 | **Auto-Fix**               | Corrects common issues automatically                              |
+
+### Confidence Scoring System
+
+**Multi-Factor Quality Assessment:**
+
+- **AI Confidence** (40%): Provider's confidence in translation
+- **Quality Checks** (30%): Placeholder, HTML, length, punctuation validation
+- **Category Weight** (15%): Context-specific adjustments
+- **Language Pair** (10%): Source-target language complexity
+- **Provider Reliability** (5%): Historical provider performance
+
+**Confidence Levels:**
+
+- 🟢 **High** (≥0.9): Auto-approved, production-ready
+- 🟡 **Medium** (≥0.7): Acceptable, minor review recommended
+- 🟠 **Low** (≥0.5): Needs review before deployment
+- 🔴 **Very Low** (<0.5): Manual review required
+
+**Interactive Review Mode:**
+
+```bash
+# Enable confidence scoring
+localize translate --min-confidence 0.8 --save-review-queue
+
+# Start interactive review
+localize review
+```
+
+**Review Interface:**
+
+```
+[1/3] Translation Review
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Key:        app.navigation.home
+Language:   tr
+Confidence: 0.82 (medium)
+Category:   ui
+
+Source:
+  "Home"
+
+Translation:
+  "Ana Sayfa"
+
+Actions:
+  [A] Accept    [E] Edit    [R] Reject    [S] Skip
+  [N] Next      [Q] Quit    [?] Help
+
+Your choice:
+```
+
+**Export Review Queue:**
+
+```bash
+# Export to JSON
+localize review --export json
+
+# Export to CSV for spreadsheet tools
+localize review --export csv
+```
 
 ### Progress Tracking
 
@@ -301,16 +390,21 @@ pnpm format:check
 
 ```
 src/
-├── commands/        # CLI commands (translate, fix, analyze)
+├── commands/        # CLI commands (translate, fix, review, analyze)
+│   ├── translator.js         # Translation command
+│   └── review.js             # Interactive review TUI
 ├── core/           # Core orchestration and processing
 │   ├── orchestrator.js       # Main translation engine
 │   ├── provider-factory.js   # AI provider management
 │   └── context-processor.js  # Context detection
 ├── providers/      # AI provider implementations
+│   ├── base-provider.js      # Base with confidence extraction
 │   ├── openai.js
 │   ├── gemini.js
 │   └── ...
 └── utils/          # Utilities (cache, rate-limit, quality)
+    ├── confidence-scorer.js  # Quality confidence scoring
+    └── quality/              # Quality validation modules
 ```
 
 ## 📚 Advanced Configuration
@@ -618,6 +712,16 @@ export default {
 		maxBatchSize: 30, // Maximum batch size for operations
 		autoOptimize: true, // Auto-optimize settings for hardware
 		debug: false, // Enable debug mode
+	},
+
+	// ===== QUALITY CONFIDENCE SCORING =====
+	confidenceScoring: {
+		enabled: false, // Enable confidence scoring for translations
+		minConfidence: 0.7, // Minimum confidence threshold (0-1)
+		saveReviewQueue: false, // Save low-confidence items for manual review
+		autoApproveThreshold: 0.9, // Auto-approve translations above this score
+		reviewThreshold: 0.7, // Flag for review below this score
+		rejectThreshold: 0.5, // Auto-reject translations below this score
 	},
 };
 ```
