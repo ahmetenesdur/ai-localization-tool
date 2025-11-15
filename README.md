@@ -65,6 +65,8 @@ export default {
 	// Performance
 	concurrencyLimit: 1,
 	cacheEnabled: true,
+	cacheTTL: 24 * 60 * 60 * 1000,
+	cacheSize: 2000,
 
 	// Quality Confidence Scoring
 	confidenceScoring: {
@@ -76,9 +78,12 @@ export default {
 	// Glossary/Terminology Management
 	glossary: {
 		enabled: true,
+		caseSensitive: false,
+		preserveFormatting: true,
 		glossary: {
 			API: "API",
 			SDK: "SDK",
+			OAuth: "OAuth",
 			DeFi: { translation: "DeFi", caseSensitive: true },
 			Dashboard: {
 				en: "Dashboard",
@@ -93,6 +98,12 @@ export default {
 		enabled: true,
 		useAI: true,
 		aiProvider: "openai",
+		minTextLength: 200,
+		analysisOptions: {
+			model: "gpt-4o",
+			temperature: 0.2,
+			maxTokens: 1000,
+		},
 		categories: {
 			technical: {
 				keywords: ["API", "backend", "database", "server", "endpoint"],
@@ -100,26 +111,47 @@ export default {
 				weight: 1.3,
 			},
 			defi: {
-				keywords: ["DeFi", "staking", "yield", "liquidity", "token", "blockchain"],
+				keywords: ["DeFi", "staking", "yield", "liquidity", "token"],
 				prompt: "Keep DeFi terms in English",
 				weight: 1.2,
 			},
 			marketing: {
-				keywords: ["brand", "campaign", "customer", "audience", "promotion"],
+				keywords: ["brand", "campaign", "customer", "audience"],
 				prompt: "Use persuasive and engaging language",
 				weight: 1.1,
 			},
 			legal: {
-				keywords: ["terms", "conditions", "privacy", "policy", "agreement"],
+				keywords: ["terms", "conditions", "privacy", "policy"],
 				prompt: "Maintain formal tone and precise legal terminology",
 				weight: 1.4,
 			},
 			ui: {
-				keywords: ["button", "click", "menu", "screen", "page", "view"],
+				keywords: ["button", "click", "menu", "screen", "page"],
 				prompt: "Keep UI terms consistent and clear",
 				weight: 1.2,
 			},
 		},
+	},
+
+	// Quality Checks
+	qualityChecks: {
+		enabled: true,
+		rules: {
+			placeholderConsistency: true,
+			htmlTagsConsistency: true,
+			punctuationCheck: true,
+			lengthValidation: true,
+		},
+		autoFix: true,
+	},
+
+	// Advanced Settings
+	advanced: {
+		timeoutMs: 15000,
+		maxKeyLength: 10000,
+		maxBatchSize: 30,
+		autoOptimize: true,
+		debug: false,
 	},
 };
 ```
@@ -488,15 +520,17 @@ localize review --export csv
 ### Progress Tracking
 
 ```bash
-⠋ [tr] [█████═════════] 50.0% | 250/500 | ✅ 240 | ❌ 10 | ETA: 25s
-
-📊 Translation Summary:
-🔤 Language: tr
-✅ Successful: 450 (90.0%)
-❌ Failed: 50
-⏱️ Total Time: 52.4s
-⚡ Speed: 9.54 items/second
+⠋ [tr] [█████═════════] 50.0% | 250/500 items | OK 240 | ERR 10 | ETA: 25s
 ```
+
+**Progress Bar Features:**
+
+- Real-time spinner animation
+- Visual progress bar with completion percentage
+- Success/error counters (OK/ERR)
+- Estimated time remaining (ETA)
+- Language indicator for current target
+- Items per second processing speed
 
 ## Development
 
