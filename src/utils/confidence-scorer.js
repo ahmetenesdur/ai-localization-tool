@@ -277,10 +277,10 @@ class ConfidenceScorer {
 	 * Get confidence color for terminal display
 	 */
 	static getConfidenceColor(score) {
-		if (score >= 0.9) return "🟢"; // Green - High
-		if (score >= 0.7) return "🟡"; // Yellow - Medium
-		if (score >= 0.5) return "🟠"; // Orange - Low
-		return "🔴"; // Red - Very Low
+		if (score >= 0.9) return "[HIGH]"; // High
+		if (score >= 0.7) return "[MED]"; // Medium
+		if (score >= 0.5) return "[LOW]"; // Low
+		return "[VLOW]"; // Very Low
 	}
 
 	/**

@@ -105,7 +105,7 @@ class ContextProcessor {
 				// Log batch AI analysis summary
 				if (aiResults.some((r) => r)) {
 					console.log(
-						`🧠 Batch AI Context Analysis: ${aiResults.filter((r) => r).length}/${aiTexts.length} analyzed`
+						`Batch AI Context Analysis: ${aiResults.filter((r) => r).length}/${aiTexts.length} analyzed`
 					);
 				}
 			} catch (error) {

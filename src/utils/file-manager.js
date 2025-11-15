@@ -316,7 +316,7 @@ class SyncFileManager {
 	 */
 	static configure(options) {
 		console.warn(
-			"⚠️ DEPRECATION WARNING: SyncFileManager is deprecated. Use async FileManager for better performance."
+			"DEPRECATION WARNING: SyncFileManager is deprecated. Use async FileManager for better performance."
 		);
 
 		if (!options) return;
@@ -335,7 +335,7 @@ class SyncFileManager {
 	 */
 	static getConfig() {
 		console.warn(
-			"⚠️ DEPRECATION WARNING: SyncFileManager is deprecated. Use async FileManager for better performance."
+			"DEPRECATION WARNING: SyncFileManager is deprecated. Use async FileManager for better performance."
 		);
 		return this.options || this.defaultOptions;
 	}
@@ -349,7 +349,7 @@ class SyncFileManager {
 	 */
 	static findLocaleFiles(localesDir, sourceLang) {
 		console.warn(
-			"⚠️ DEPRECATION WARNING: SyncFileManager.findLocaleFiles() is deprecated. Use async FileManager.findLocaleFiles() for better performance."
+			"DEPRECATION WARNING: SyncFileManager.findLocaleFiles() is deprecated. Use async FileManager.findLocaleFiles() for better performance."
 		);
 
 		const sourceFile = path.join(localesDir, `${sourceLang}.json`);
@@ -370,7 +370,7 @@ class SyncFileManager {
 	 */
 	static readJSON(filePath, options = {}) {
 		console.warn(
-			"⚠️ DEPRECATION WARNING: SyncFileManager.readJSON() is deprecated. Use async FileManager.readJSON() for better performance."
+			"DEPRECATION WARNING: SyncFileManager.readJSON() is deprecated. Use async FileManager.readJSON() for better performance."
 		);
 
 		const config = { ...this.getConfig(), ...options };
@@ -392,7 +392,7 @@ class SyncFileManager {
 	 */
 	static writeJSON(filePath, data, options = {}) {
 		console.warn(
-			"⚠️ DEPRECATION WARNING: SyncFileManager.writeJSON() is deprecated. Use async FileManager.writeJSON() for better performance."
+			"DEPRECATION WARNING: SyncFileManager.writeJSON() is deprecated. Use async FileManager.writeJSON() for better performance."
 		);
 
 		const config = { ...this.getConfig(), ...options };
@@ -451,7 +451,7 @@ class SyncFileManager {
 	 */
 	static deleteFile(filePath, options = {}) {
 		console.warn(
-			"⚠️ DEPRECATION WARNING: SyncFileManager.deleteFile() is deprecated. Use async FileManager.deleteFile() for better performance."
+			"DEPRECATION WARNING: SyncFileManager.deleteFile() is deprecated. Use async FileManager.deleteFile() for better performance."
 		);
 
 		const config = { ...this.getConfig(), ...options };

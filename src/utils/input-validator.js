@@ -368,7 +368,7 @@ class InputValidator {
 		}
 
 		if (warnings.length > 0 && (config.debug || config.verbose)) {
-			console.warn("⚠️  Configuration warnings:");
+			console.warn("Configuration warnings:");
 			warnings.forEach((warn, i) => console.warn(`  ${i + 1}. ${warn}`));
 		}
 

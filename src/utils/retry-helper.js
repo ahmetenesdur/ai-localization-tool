@@ -27,7 +27,7 @@ class RetryHelper {
 					const delay = this.calculateBackoff(attempts, initialDelay, maxDelay);
 					if (process.env.DEBUG) {
 						console.log(
-							`🔄 ${context}: Retrying attempt ${attempts}/${maxRetries} after ${delay}ms delay`
+							`${context}: Retrying attempt ${attempts}/${maxRetries} after ${delay}ms delay`
 						);
 					}
 					await this.delay(delay);
@@ -42,7 +42,7 @@ class RetryHelper {
 
 					if (process.env.DEBUG) {
 						console.log(
-							`✅ ${context}: Succeeded after ${attempts} retries (${retryStats.totalTime}ms)`
+							`${context}: Succeeded after ${attempts} retries (${retryStats.totalTime}ms)`
 						);
 					}
 				}
@@ -66,7 +66,7 @@ class RetryHelper {
 
 				if (process.env.DEBUG) {
 					console.warn(
-						`⚠️ ${context}: Error on attempt ${attempts}/${maxRetries + 1}: ${error.message}` +
+						`Warning: ${context}: Error on attempt ${attempts}/${maxRetries + 1}: ${error.message}` +
 							(error.code ? ` [${error.code}]` : "")
 					);
 				}

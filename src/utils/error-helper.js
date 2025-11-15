@@ -65,7 +65,7 @@ class ErrorHelper {
 		// Error header
 		const code = error.code || "ERR_UNKNOWN";
 		const title = error.type || "Error";
-		output.push(`\n❌ ${title} [${code}]`);
+		output.push(`\n${title} [${code}]`);
 		output.push("");
 
 		// Problem description

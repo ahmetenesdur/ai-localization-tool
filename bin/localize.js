@@ -44,20 +44,20 @@ const loadEnvironmentVariables = async () => {
 				loadedCount++;
 				// Only log in verbose/debug mode to reduce noise
 				if (process.env.VERBOSE || process.env.DEBUG) {
-					console.log(`🌱 Loaded environment variables from ${envFile}`);
+					console.log(`Loaded environment variables from ${envFile}`);
 				}
 			}
 		} catch (error) {
 			// ENOENT is expected when files don't exist - silently skip
 			if (error.code !== "ENOENT") {
-				console.warn(`⚠️ Could not load ${envFile}: ${error.message}`);
+				console.warn(`Warning: Could not load ${envFile}: ${error.message}`);
 			}
 		}
 	}
 
 	// Informative message only if verbose/debug and at least one file was loaded
 	if ((process.env.VERBOSE || process.env.DEBUG) && loadedCount > 0) {
-		console.log(`📋 Environment: ${loadedCount} file(s) loaded`);
+		console.log(`Environment: ${loadedCount} file(s) loaded`);
 	}
 };
 
@@ -87,7 +87,7 @@ const loadConfig = async () => {
 			throw error;
 		}
 
-		console.log(`🔍 Loading config from: ${path.relative(process.cwd(), configFile)}`);
+		console.log(`Loading config from: ${path.relative(process.cwd(), configFile)}`);
 
 		try {
 			// Use dynamic import for ESM
@@ -101,11 +101,13 @@ const loadConfig = async () => {
 
 			return config;
 		} catch (importError) {
-			console.warn(`⚠️ Both CommonJS and ES module loading failed: ${importError.message}`);
+			console.warn(
+				`Warning: Both CommonJS and ES module loading failed: ${importError.message}`
+			);
 			throw importError;
 		}
 	} catch (error) {
-		console.warn(`⚠️ Could not load config file: ${error.message}`);
+		console.warn(`Warning: Could not load config file: ${error.message}`);
 		return {
 			source: "en",
 			targets: [],
@@ -173,12 +175,12 @@ const configureCLI = async (defaultConfig) => {
 
 	program.on("option:debug", function () {
 		process.env.DEBUG = "true";
-		console.log("🔍 Debug mode: ENABLED (verbose logging)");
+		console.log("Debug mode: ENABLED (verbose logging)");
 	});
 
 	program.on("option:verbose", function () {
 		process.env.VERBOSE = "true";
-		console.log("🔍 Verbose mode: ENABLED (detailed diagnostics)");
+		console.log("Verbose mode: ENABLED (detailed diagnostics)");
 	});
 
 	const runCommand = async (options, commandOptions, commandName) => {
@@ -302,7 +304,7 @@ const configureCLI = async (defaultConfig) => {
 				}
 
 				console.log(
-					`🔧 Auto-optimized settings for your system (${cpuCount} CPUs, ${memoryGB}GB RAM):`
+					`Auto-optimized settings for your system (${cpuCount} CPUs, ${memoryGB}GB RAM):`
 				);
 				console.log(`   - Concurrency: ${concurrencyLimit}`);
 			}
@@ -399,7 +401,7 @@ const configureCLI = async (defaultConfig) => {
 			try {
 				InputValidator.validateConfig(finalConfig);
 				if (finalConfig.debug || finalConfig.verbose) {
-					console.log("✅ Configuration validated successfully");
+					console.log("Configuration validated successfully");
 				}
 			} catch (configError) {
 				const error = ErrorHelper.configValidationError(
@@ -416,7 +418,7 @@ const configureCLI = async (defaultConfig) => {
 			validateEnvironment();
 
 			if (finalConfig.debug) {
-				console.log("\n📋 Configuration details:");
+				console.log("\nConfiguration details:");
 
 				const safeConfig = {
 					...finalConfig,
@@ -447,7 +449,7 @@ const configureCLI = async (defaultConfig) => {
 			await displayPerformanceTips(finalConfig);
 
 			const localesDir = path.resolve(finalConfig.localesDir);
-			console.log(`\n📁 Looking for source files in: ${localesDir}`);
+			console.log(`\nLooking for source files in: ${localesDir}`);
 
 			const files = await findLocaleFiles(localesDir, finalConfig.source);
 
@@ -469,35 +471,35 @@ const configureCLI = async (defaultConfig) => {
 
 			switch (commandName) {
 				case "fix":
-					console.log("\n🔧 Running in FIX mode");
+					console.log("\nRunning in FIX mode");
 					await Promise.all(
 						files.map((file) => validateAndFixExistingTranslations(file, finalConfig))
 					);
 					break;
 
 				case "analyze":
-					console.log("\n🔍 Running in ANALYZE mode");
+					console.log("\nRunning in ANALYZE mode");
 					console.log("Context analysis mode is not fully implemented yet.");
 					break;
 
 				case "advanced":
-					console.log("\n⚙️ Running ADVANCED configuration");
+					console.log("\nRunning ADVANCED configuration");
 				// Fall through to translate
 
 				case "translate":
 				default:
-					console.log("\n🚀 Running in TRANSLATION mode");
+					console.log("\nRunning in TRANSLATION mode");
 
 					if (finalConfig.context.useAI) {
 						console.log(
-							`🧠 AI Context Analysis: ENABLED (Provider: ${finalConfig.context.aiProvider || finalConfig.apiProvider})`
+							`AI Context Analysis: ENABLED (Provider: ${finalConfig.context.aiProvider || finalConfig.apiProvider})`
 						);
 						if (finalConfig.context.allowNewCategories) {
-							console.log("🔄 New category suggestions: ENABLED");
+							console.log("New category suggestions: ENABLED");
 						}
 					}
 
-					console.log(`⚙️ Performance settings:`);
+					console.log(`Performance settings:`);
 					console.log(
 						`   - Concurrency: ${finalConfig.concurrencyLimit} parallel operations`
 					);
@@ -512,7 +514,7 @@ const configureCLI = async (defaultConfig) => {
 
 					if (finalConfig.forceUpdate) {
 						console.log(
-							`⚠️ Force update mode: ENABLED (will update existing translations)`
+							`Warning: Force update mode ENABLED (will update existing translations)`
 						);
 					}
 
@@ -532,7 +534,7 @@ const configureCLI = async (defaultConfig) => {
 				// Already handled above with better formatting
 				return;
 			}
-			console.error(`\n❌ Input validation error: ${validationError.message}`);
+			console.error(`\nInput validation error: ${validationError.message}`);
 			if (validationError.stack && process.env.DEBUG) {
 				console.error("\nStack trace:");
 				console.error(validationError.stack);
@@ -576,7 +578,7 @@ const configureCLI = async (defaultConfig) => {
 						})
 					);
 				} else {
-					console.error(`\n❌ Error: ${error.message}`);
+					console.error(`\nError: ${error.message}`);
 					if (error.stack && process.env.DEBUG) {
 						console.error(error.stack);
 					}
@@ -598,7 +600,7 @@ const configureCLI = async (defaultConfig) => {
 						ErrorHelper.formatError(error, { showDebug: process.env.DEBUG === "true" })
 					);
 				} else {
-					console.error(`\n❌ Error: ${error.message}`);
+					console.error(`\nError: ${error.message}`);
 					if (error.stack && process.env.DEBUG) {
 						console.error(error.stack);
 					}
@@ -631,7 +633,7 @@ const configureCLI = async (defaultConfig) => {
 						ErrorHelper.formatError(error, { showDebug: process.env.DEBUG === "true" })
 					);
 				} else {
-					console.error(`\n❌ Error: ${error.message}`);
+					console.error(`\nError: ${error.message}`);
 					if (error.stack && process.env.DEBUG) {
 						console.error(error.stack);
 					}
@@ -676,7 +678,7 @@ const configureCLI = async (defaultConfig) => {
 						ErrorHelper.formatError(error, { showDebug: process.env.DEBUG === "true" })
 					);
 				} else {
-					console.error(`\n❌ Error: ${error.message}`);
+					console.error(`\nError: ${error.message}`);
 					if (error.stack && process.env.DEBUG) {
 						console.error(error.stack);
 					}
@@ -691,7 +693,7 @@ const configureCLI = async (defaultConfig) => {
 		.option("--show-warnings", "Show configuration warnings", false)
 		.action(async (options) => {
 			try {
-				console.log("🔍 Validating configuration...\n");
+				console.log("Validating configuration...\n");
 
 				// Temporarily enable verbose to show warnings if requested
 				const originalDebug = defaultConfig.debug;
@@ -703,47 +705,45 @@ const configureCLI = async (defaultConfig) => {
 
 				try {
 					InputValidator.validateConfig(defaultConfig);
-					console.log("✅ Configuration is valid!\n");
+					console.log("Configuration is valid!\n");
 
 					// Show summary
-					console.log("📊 Configuration Summary:");
-					console.log(`   🌐 Source: ${defaultConfig.source}`);
+					console.log("Configuration Summary:");
+					console.log(`   Source: ${defaultConfig.source}`);
 					console.log(
-						`   🎯 Targets: ${defaultConfig.targets.length} languages (${defaultConfig.targets.slice(0, 5).join(", ")}${defaultConfig.targets.length > 5 ? "..." : ""})`
+						`   Targets: ${defaultConfig.targets.length} languages (${defaultConfig.targets.slice(0, 5).join(", ")}${defaultConfig.targets.length > 5 ? "..." : ""})`
+					);
+					console.log(`   API Provider: ${defaultConfig.apiProvider || "auto-detect"}`);
+					console.log(
+						`   Concurrency: ${defaultConfig.concurrencyLimit || 5} parallel operations`
 					);
 					console.log(
-						`   📡 API Provider: ${defaultConfig.apiProvider || "auto-detect"}`
-					);
-					console.log(
-						`   🚀 Concurrency: ${defaultConfig.concurrencyLimit || 5} parallel operations`
-					);
-					console.log(
-						`   💾 Cache: ${defaultConfig.cacheEnabled !== false ? "Enabled" : "Disabled"}`
+						`   Cache: ${defaultConfig.cacheEnabled !== false ? "Enabled" : "Disabled"}`
 					);
 
 					if (defaultConfig.context?.enabled) {
 						console.log(
-							`   🧠 Context Detection: ${defaultConfig.context.useAI ? "AI-powered" : "Keyword-based"}`
+							`   Context Detection: ${defaultConfig.context.useAI ? "AI-powered" : "Keyword-based"}`
 						);
 					}
 
 					if (defaultConfig.useFallback) {
 						const fallbackChain =
 							defaultConfig.fallbackOrder?.slice(0, 3).join(" → ") || "auto";
-						console.log(`   🔄 Fallback Chain: ${fallbackChain}`);
+						console.log(`   Fallback Chain: ${fallbackChain}`);
 					}
 
-					console.log("\n✅ Your configuration is ready to use!");
-					console.log("🚀 Run 'localize translate' to start translating\n");
+					console.log("\nYour configuration is ready to use!");
+					console.log("Run 'localize translate' to start translating\n");
 				} finally {
 					// Restore original values
 					defaultConfig.debug = originalDebug;
 					defaultConfig.verbose = originalVerbose;
 				}
 			} catch (error) {
-				console.error("\n❌ Configuration Validation Failed:\n");
+				console.error("\nConfiguration Validation Failed:\n");
 				console.error(error.message);
-				console.error("\n💡 Fix the errors above and try again\n");
+				console.error("\nFix the errors above and try again\n");
 				process.exit(1);
 			}
 		});
@@ -763,7 +763,7 @@ const configureCLI = async (defaultConfig) => {
 					await review.startReview();
 				}
 			} catch (error) {
-				console.error(`\n❌ Error: ${error.message}`);
+				console.error(`\nError: ${error.message}`);
 				if (error.stack && process.env.DEBUG) {
 					console.error(error.stack);
 				}
@@ -775,7 +775,7 @@ const configureCLI = async (defaultConfig) => {
 		try {
 			await runCommand(program.opts(), {}, "translate");
 		} catch (error) {
-			console.error(`\n❌ Error: ${error.message}`);
+			console.error(`\nError: ${error.message}`);
 			if (error.stack && process.env.DEBUG) {
 				console.error(error.stack);
 			}
@@ -793,11 +793,11 @@ const validateEnvironment = () => {
 		// Check that ProviderFactory can validate providers
 		const availableProviders = ProviderFactory.validateProviders();
 
-		console.log(`\n🔑 Available API providers: ${availableProviders.join(", ")}`);
+		console.log(`\nAvailable API providers: ${availableProviders.join(", ")}`);
 
 		return availableProviders;
 	} catch (error) {
-		console.error("\n❌ Error: " + error.message);
+		console.error("\nError: " + error.message);
 		console.error("Please set at least one of the following environment variables:");
 
 		const possibleProviders = [
@@ -826,7 +826,7 @@ const displayPerformanceTips = async (options) => {
 		const orchestrator = new Orchestrator(options);
 		const cacheStats = orchestrator.getCacheStats();
 
-		console.log("\n🚀 Performance Information:");
+		console.log("\nPerformance Information:");
 		console.log(`   - CPU: ${cpuModel} (${cpuCount} cores)`);
 		console.log(`   - Memory: ${freememGB}GB free of ${memoryGB}GB total`);
 		console.log(`   - Concurrency: ${options.concurrencyLimit} parallel operations`);
@@ -835,7 +835,7 @@ const displayPerformanceTips = async (options) => {
 		);
 
 		// Provide tips
-		console.log("\n💡 Performance Tips:");
+		console.log("\nPerformance Tips:");
 
 		if (cpuCount > options.concurrencyLimit * 2) {
 			console.log(
@@ -853,7 +853,7 @@ const displayPerformanceTips = async (options) => {
 			);
 		}
 	} catch (error) {
-		console.log("⚠️ Could not calculate performance tips");
+		console.log("Warning: Could not calculate performance tips");
 	}
 };
 
@@ -865,7 +865,7 @@ try {
 	const defaultConfig = await loadConfig();
 	await configureCLI(defaultConfig);
 } catch (error) {
-	console.error(`\n❌ Error: ${error.message}`);
+	console.error(`\nError: ${error.message}`);
 	if (error.stack && process.env.DEBUG) {
 		console.error(error.stack);
 	}

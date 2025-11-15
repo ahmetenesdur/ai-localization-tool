@@ -28,7 +28,7 @@ class ReviewCommand {
 		const reviewFile = path.join(process.cwd(), ".localize-cache", "review-queue.json");
 
 		if (!fs.existsSync(reviewFile)) {
-			console.log("\n❌ No review queue found.");
+			console.log("\nNo review queue found.");
 			console.log(
 				"   Run translation with confidence scoring first: localize translate --min-confidence 0.8"
 			);
@@ -38,10 +38,10 @@ class ReviewCommand {
 		try {
 			const data = JSON.parse(fs.readFileSync(reviewFile, "utf8"));
 			this.reviewQueue = data.items || [];
-			console.log(`\n📋 Loaded ${this.reviewQueue.length} items for review\n`);
+			console.log(`\nLoaded ${this.reviewQueue.length} items for review\n`);
 			return true;
 		} catch (error) {
-			console.error(`❌ Error loading review queue: ${error.message}`);
+			console.error(`Error loading review queue: ${error.message}`);
 			return false;
 		}
 	}
@@ -55,12 +55,12 @@ class ReviewCommand {
 		}
 
 		if (this.reviewQueue.length === 0) {
-			console.log("\n✅ No items need review. All translations meet quality threshold!\n");
+			console.log("\nNo items need review. All translations meet quality threshold!\n");
 			return;
 		}
 
 		console.log("━".repeat(70));
-		console.log(`📝 Review Queue: ${this.reviewQueue.length} translations need attention`);
+		console.log(`Review Queue: ${this.reviewQueue.length} translations need attention`);
 		console.log("━".repeat(70));
 
 		for (let i = 0; i < this.reviewQueue.length; i++) {
@@ -101,7 +101,7 @@ class ReviewCommand {
 		if (item.confidence.issues && item.confidence.issues.length > 0) {
 			console.log(`\nIssues Detected:`);
 			item.confidence.issues.forEach((issue) => {
-				const icon = issue.severity === "critical" ? "⛔" : "⚠️ ";
+				const icon = issue.severity === "critical" ? "[!]" : "[*]";
 				console.log(`  ${icon} ${issue.message}`);
 			});
 		}
@@ -123,26 +123,26 @@ class ReviewCommand {
 			case "a":
 			case "accept":
 				this.decisions.accepted.push(item);
-				console.log("✅ Accepted");
+				console.log("Accepted");
 				return "continue";
 
 			case "e":
 			case "edit":
 				const edited = await this.editTranslation(item);
 				this.decisions.edited.push(edited);
-				console.log("✅ Edited and saved");
+				console.log("Edited and saved");
 				return "continue";
 
 			case "r":
 			case "reject":
 				this.decisions.rejected.push(item);
-				console.log("❌ Rejected - will be retranslated");
+				console.log("Rejected - will be retranslated");
 				return "continue";
 
 			case "s":
 			case "skip":
 				this.decisions.skipped.push(item);
-				console.log("⏭️  Skipped");
+				console.log("Skipped");
 				return "continue";
 
 			case "n":
@@ -160,7 +160,7 @@ class ReviewCommand {
 				return this.handleAction(await this.getUserInput("\nYour choice: "), item);
 
 			default:
-				console.log("❌ Invalid action. Try again.");
+				console.log("Invalid action. Try again.");
 				return this.handleAction(await this.getUserInput("\nYour choice: "), item);
 		}
 	}
@@ -173,7 +173,7 @@ class ReviewCommand {
 		const newTranslation = await this.getUserInput("New translation: ");
 
 		if (newTranslation.trim() === "") {
-			console.log("⚠️  Empty translation, keeping original");
+			console.log("Warning: Empty translation, keeping original");
 			return item;
 		}
 
@@ -217,14 +217,14 @@ class ReviewCommand {
 	 */
 	showSummary() {
 		console.log("\n━".repeat(70));
-		console.log("📊 Review Summary");
+		console.log("Review Summary");
 		console.log("━".repeat(70));
-		console.log(`✅ Accepted:  ${this.decisions.accepted.length}`);
-		console.log(`✏️  Edited:    ${this.decisions.edited.length}`);
-		console.log(`❌ Rejected:  ${this.decisions.rejected.length}`);
-		console.log(`⏭️  Skipped:   ${this.decisions.skipped.length}`);
+		console.log(`Accepted:  ${this.decisions.accepted.length}`);
+		console.log(`Edited:    ${this.decisions.edited.length}`);
+		console.log(`Rejected:  ${this.decisions.rejected.length}`);
+		console.log(`Skipped:   ${this.decisions.skipped.length}`);
 		console.log(
-			`📝 Total:     ${this.decisions.accepted.length + this.decisions.edited.length + this.decisions.rejected.length + this.decisions.skipped.length}/${this.reviewQueue.length}`
+			`Total:     ${this.decisions.accepted.length + this.decisions.edited.length + this.decisions.rejected.length + this.decisions.skipped.length}/${this.reviewQueue.length}`
 		);
 		console.log("━".repeat(70));
 	}
@@ -252,7 +252,7 @@ class ReviewCommand {
 		};
 
 		fs.writeFileSync(decisionsFile, JSON.stringify(data, null, 2));
-		console.log(`\n💾 Decisions saved to: ${decisionsFile}`);
+		console.log(`\nDecisions saved to: ${decisionsFile}`);
 
 		// Apply accepted and edited translations
 		this.applyDecisions();
@@ -269,7 +269,7 @@ class ReviewCommand {
 			return;
 		}
 
-		console.log(`\n📝 Applying ${toApply.length} approved translations...`);
+		console.log(`\nApplying ${toApply.length} approved translations...`);
 
 		const byLanguage = {};
 		toApply.forEach((item) => {
@@ -292,10 +292,10 @@ class ReviewCommand {
 			});
 
 			fs.writeFileSync(localeFile, JSON.stringify(localeData, null, 2) + "\n");
-			console.log(`   ✅ Updated ${lang}.json (${items.length} translations)`);
+			console.log(`   Updated ${lang}.json (${items.length} translations)`);
 		});
 
-		console.log("\n✅ All approved translations applied!");
+		console.log("\nAll approved translations applied!");
 	}
 
 	/**
@@ -345,11 +345,11 @@ class ReviewCommand {
 
 		if (format === "json") {
 			fs.writeFileSync(filename, JSON.stringify(this.reviewQueue, null, 2));
-			console.log(`\n📄 Review queue exported to: ${filename}`);
+			console.log(`\nReview queue exported to: ${filename}`);
 		} else if (format === "csv") {
 			const csv = this.convertToCSV(this.reviewQueue);
 			fs.writeFileSync(filename, csv);
-			console.log(`\n📄 Review queue exported to: ${filename}`);
+			console.log(`\nReview queue exported to: ${filename}`);
 		}
 	}
 

@@ -1,32 +1,32 @@
 # AI Localization Tool
 
-> **Enterprise-grade AI translation CLI for Next.js** — Intelligent synchronization, multi-provider support, and context-aware translations.
+Enterprise-grade translation CLI for Next.js applications with intelligent synchronization, multi-provider support, and context-aware translations.
 
-## ✨ Features
+## Features
 
-### 🤖 AI-Powered Translation
+**AI-Powered Translation**
 
-- **5 AI Providers**: OpenAI (GPT-4o), Gemini, DeepSeek, Dashscope, XAI
-- **Intelligent Fallback**: Automatic provider switching on failures
-- **Context Detection**: Auto-detects technical, marketing, legal, DeFi, and UI content
+- Support for 5 AI providers: OpenAI (GPT-4o), Gemini, DeepSeek, Dashscope, XAI
+- Automatic provider fallback on failures
+- Context detection for technical, marketing, legal, DeFi, and UI content
 
-### ⚡ Performance & Quality
+**Performance & Quality**
 
-- **Smart Sync**: SHA-256 change detection for incremental updates
-- **Parallel Processing**: Concurrent translations with rate limiting
-- **LRU Cache**: Reduces API calls with stale-while-revalidate pattern
-- **Quality Assurance**: Auto-validation and fixing of placeholders, HTML tags, length
-- **Confidence Scoring**: AI-powered quality scoring with interactive review for low-confidence translations
+- Smart sync with SHA-256 change detection for incremental updates
+- Parallel processing with configurable rate limiting
+- LRU cache with stale-while-revalidate pattern
+- Automated validation and fixing of placeholders, HTML tags, and length
+- Quality confidence scoring with interactive review workflow
 
-### 📊 Developer Experience
+**Developer Experience**
 
-- **Real-time Progress**: Live progress bars with ETA
-- **Config Validation**: Comprehensive validation with helpful error messages
-- **Detailed Diagnostics**: Debug mode with performance metrics
-- **Graceful Shutdown**: State preservation on interruption
-- **Interactive Review**: Terminal-based UI for reviewing low-confidence translations
+- Real-time progress tracking with ETA
+- Comprehensive configuration validation
+- Debug mode with performance diagnostics
+- Graceful shutdown with state preservation
+- Interactive terminal UI for translation review
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -43,7 +43,7 @@ npx ai-localization-tool
 - **Node.js** >= 14.13.0 (v18+ recommended for ESM)
 - At least one AI provider API key
 
-## ⚙️ Configuration
+## Configuration
 
 ### Step 1: Create Config File
 
@@ -120,9 +120,9 @@ DASHSCOPE_API_KEY=sk-...
 XAI_API_KEY=xai-...
 ```
 
-> **Note**: You only need one provider to get started. The tool will use the available providers.
+**Note:** You only need one provider to get started. The tool will use the available providers.
 
-## 📖 Usage
+## Usage
 
 ### Basic Commands
 
@@ -164,7 +164,7 @@ The tool uses SHA-256 hashing to detect changes:
 
 ```bash
 localize
-# 🎉 First run - will process all keys
+# First run - will process all keys
 # Translates all 500 keys across 13 languages
 ```
 
@@ -172,19 +172,19 @@ localize
 
 ```bash
 localize
-# 🔄 Sync Analysis:
-#    📝 New keys: 3
-#    ✏️ Modified keys: 1
-#    🗑️ Deleted keys: 2
-# Only processes 4 keys instead of 500!
+# Sync Analysis:
+#    New keys: 3
+#    Modified keys: 1
+#    Deleted keys: 2
+# Only processes 4 keys instead of 500
 ```
 
 **Smart Behavior:**
 
-- ✅ **New keys** → Translated automatically
-- 🔄 **Modified keys** → Re-translated with context
-- 🗑️ **Deleted keys** → Removed from all target files
-- ⏭️ **Unchanged keys** → Skipped for performance
+- **New keys** - Translated automatically
+- **Modified keys** - Re-translated with context
+- **Deleted keys** - Removed from all target files
+- **Unchanged keys** - Skipped for performance
 
 ### Config Validation
 
@@ -201,32 +201,32 @@ localize validate-config --show-warnings
 **Example Output:**
 
 ```
-🔍 Validating configuration...
+Validating configuration...
 
-✅ Configuration is valid!
+Configuration is valid!
 
-📊 Configuration Summary:
-   🌐 Source: en
-   🎯 Targets: 13 languages (tr, de, es, fr, hi...)
-   📡 API Provider: openai
-   🚀 Concurrency: 1 parallel operations
-   💾 Cache: Enabled
-   🧠 Context Detection: AI-powered
-   🔄 Fallback Chain: openai → dashscope → deepseek
+Configuration Summary:
+   Source: en
+   Targets: 13 languages (tr, de, es, fr, hi...)
+   API Provider: openai
+   Concurrency: 1 parallel operations
+   Cache: Enabled
+   Context Detection: AI-powered
+   Fallback Chain: openai → dashscope → deepseek
 
-✅ Your configuration is ready to use!
+Your configuration is ready to use.
 ```
 
 **Validation covers 60+ settings:**
 
-- ✅ Required fields (source, targets, localesDir)
-- ✅ API provider names and configurations
-- ✅ Performance settings (concurrency, cache, rate limits)
-- ✅ Retry options and timeouts
-- ✅ Context detection settings
-- ✅ Quality check rules
-- ✅ Length control modes
-- ✅ Logical consistency (e.g., initialDelay < maxDelay)
+- Required fields (source, targets, localesDir)
+- API provider names and configurations
+- Performance settings (concurrency, cache, rate limits)
+- Retry options and timeouts
+- Context detection settings
+- Quality check rules
+- Length control modes
+- Logical consistency (e.g., initialDelay < maxDelay)
 
 ### Enhanced Error Messages
 
@@ -235,7 +235,7 @@ Context-aware errors with actionable solutions and error codes (API 1xxx, Config
 ### Command Reference
 
 <details>
-<summary>📋 All Options</summary>
+<summary>All Options</summary>
 
 #### Global Options
 
@@ -278,7 +278,7 @@ Context-aware errors with actionable solutions and error codes (API 1xxx, Config
 
 </details>
 
-## 🔧 Providers & Performance
+## Providers & Performance
 
 | Provider      | Model                | RPM  | Concurrency | Context Window |
 | ------------- | -------------------- | ---- | ----------- | -------------- |
@@ -311,10 +311,10 @@ Context-aware errors with actionable solutions and error codes (API 1xxx, Config
 
 **Confidence Levels:**
 
-- 🟢 **High** (≥0.9): Auto-approved, production-ready
-- 🟡 **Medium** (≥0.7): Acceptable, minor review recommended
-- 🟠 **Low** (≥0.5): Needs review before deployment
-- 🔴 **Very Low** (<0.5): Manual review required
+- **High** (≥0.9): Auto-approved, production-ready
+- **Medium** (≥0.7): Acceptable, minor review recommended
+- **Low** (≥0.5): Needs review before deployment
+- **Very Low** (<0.5): Manual review required
 
 **Interactive Review Mode:**
 
@@ -372,7 +372,7 @@ localize review --export csv
 ⚡ Speed: 9.54 items/second
 ```
 
-## 🛠️ Development
+## Development
 
 ```bash
 # Install dependencies
@@ -407,10 +407,10 @@ src/
     └── quality/              # Quality validation modules
 ```
 
-## 📚 Advanced Configuration
+## Advanced Configuration
 
 <details>
-<summary>🔍 Complete Configuration Reference</summary>
+<summary>Complete Configuration Reference</summary>
 
 ### Full Options
 
@@ -738,9 +738,9 @@ export default {
 
 </details>
 
-## 🤝 Contributing
+## Contributing
 
-## Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome. Please feel free to submit a Pull Request.
 
 ---
 

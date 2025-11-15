@@ -264,7 +264,7 @@ class Orchestrator {
 
 		if (this.advanced.debug) {
 			console.log(
-				`🔄 Processing ${items.length} items in ${chunks.length} batches of max ${batchSize} items each`
+				`Processing ${items.length} items in ${chunks.length} batches of max ${batchSize} items each`
 			);
 			console.log(
 				`Processing ${items.length} items in ${chunks.length} chunks of size ${batchSize}`
@@ -276,9 +276,7 @@ class Orchestrator {
 		for (let i = 0; i < chunks.length; i++) {
 			const chunk = chunks[i];
 			if (this.advanced.debug) {
-				console.log(
-					`📦 Processing batch ${i + 1}/${chunks.length} (${chunk.length} items)`
-				);
+				console.log(`Processing batch ${i + 1}/${chunks.length} (${chunk.length} items)`);
 			}
 
 			const texts = chunk.map((item) => item.text);
@@ -484,12 +482,12 @@ class Orchestrator {
 
 			fs.writeFileSync(reviewFile, JSON.stringify(data, null, 2));
 			console.log(
-				`\n📋 Review queue saved: ${this.confidenceSettings.reviewQueue.length} items need review`
+				`\nReview queue saved: ${this.confidenceSettings.reviewQueue.length} items need review`
 			);
 			console.log(`   File: ${reviewFile}`);
 			console.log(`   Run 'localize review' to start interactive review\n`);
 		} catch (error) {
-			console.warn(`⚠️  Failed to save review queue: ${error.message}`);
+			console.warn(`Warning: Failed to save review queue: ${error.message}`);
 		}
 	}
 

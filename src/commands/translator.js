@@ -106,10 +106,10 @@ async function initializeTranslationState(resolvedFile, flattenedSource, options
 	const stats = stateManager.getComparisonStats(comparison);
 
 	if (stats.hasChanges) {
-		await consoleLock.log(`\n🔄 Sync Analysis:`);
-		await consoleLock.log(`   📝 New keys: ${stats.newCount}`);
-		await consoleLock.log(`   ✏️ Modified keys: ${stats.modifiedCount}`);
-		await consoleLock.log(`   🗑️ Deleted keys: ${stats.deletedCount}`);
+		await consoleLock.log(`\nSync Analysis:`);
+		await consoleLock.log(`   New keys: ${stats.newCount}`);
+		await consoleLock.log(`   Modified keys: ${stats.modifiedCount}`);
+		await consoleLock.log(`   Deleted keys: ${stats.deletedCount}`);
 
 		// Handle deleted keys - remove them from all target files
 		const syncEnabled = options.syncOptions?.enabled !== false;
@@ -123,7 +123,7 @@ async function initializeTranslationState(resolvedFile, flattenedSource, options
 			removeDeletedEnabled
 		) {
 			await consoleLock.log(
-				`\n🗑️ Removing ${comparison.deletedKeys.length} deleted keys from target files...`
+				`\nRemoving ${comparison.deletedKeys.length} deleted keys from target files...`
 			);
 			await removeDeletedKeysFromTargets(resolvedFile, comparison.deletedKeys, options);
 		}
@@ -132,9 +132,9 @@ async function initializeTranslationState(resolvedFile, flattenedSource, options
 		typeof previousState === "object" &&
 		Object.keys(previousState).length > 0
 	) {
-		await consoleLock.log(`✅ No changes detected in source file`);
+		await consoleLock.log(`No changes detected in source file`);
 	} else {
-		await consoleLock.log(`🎉 First run - will process all keys`);
+		await consoleLock.log(`First run - will process all keys`);
 	}
 
 	return { stateManager, projectRoot, currentState, comparison };
@@ -171,7 +171,7 @@ async function processAllLanguages(
 	const targetLanguages = [...options.targets];
 
 	await consoleLock.log(
-		`🚀 Processing ${targetLanguages.length} languages with concurrency of ${languageConcurrency}`
+		`Processing ${targetLanguages.length} languages with concurrency of ${languageConcurrency}`
 	);
 
 	// Create shared orchestrators array to collect review queues
@@ -264,10 +264,10 @@ async function finalizeTranslation(
 	try {
 		await stateManager.saveState(projectRoot, currentState);
 		if (options.debug) {
-			await consoleLock.log(`💾 State saved for future sync operations`);
+			await consoleLock.log(`State saved for future sync operations`);
 		}
 	} catch (error) {
-		await consoleLock.log(`⚠️ Warning: Could not save state: ${error.message}`);
+		await consoleLock.log(`Warning: Could not save state: ${error.message}`);
 	}
 }
 
@@ -374,7 +374,7 @@ async function processLanguage(
 
 		const safeTargetLang = InputValidator.validateLanguageCode(targetLang, "target language");
 
-		await consoleLock.log(`🌎 Starting translations for ${safeTargetLang}`);
+		await consoleLock.log(`Starting translations for ${safeTargetLang}`);
 		let finalStatus = null;
 		let savedMessage = null;
 
@@ -446,9 +446,7 @@ async function processLanguage(
 					flattenedTarget[key] = sourceText;
 					hasPlaceholderOnlyChanges = true;
 					if (options.debug) {
-						await consoleLock.log(
-							`   ✅ Copying placeholder-only text: "${sourceText}"`
-						);
+						await consoleLock.log(`   Copying placeholder-only text: "${sourceText}"`);
 					}
 				}
 				globalStats.languages[safeTargetLang].skipped++;
@@ -477,7 +475,7 @@ async function processLanguage(
 		}
 
 		if (missingKeys.length === 0 && !hasPlaceholderOnlyChanges) {
-			await consoleLock.log(`✅ All translations exist for ${safeTargetLang}`);
+			await consoleLock.log(`All translations exist for ${safeTargetLang}`);
 			globalStats.languages[safeTargetLang].timeMs = Date.now() - langStartTime;
 			return { status: { completed: 0, total: 0, language: safeTargetLang } };
 		}
@@ -510,7 +508,7 @@ async function processLanguage(
 			}
 		} else {
 			if (hasPlaceholderOnlyChanges) {
-				await consoleLock.log(`✅ Found placeholder-only changes for ${safeTargetLang}`);
+				await consoleLock.log(`Found placeholder-only changes for ${safeTargetLang}`);
 			}
 		}
 
@@ -708,23 +706,23 @@ async function validateAndFixExistingTranslations(file, options) {
  */
 async function displayGlobalSummary(stats, totalLanguages) {
 	await consoleLock.log("\n" + "=".repeat(60));
-	await consoleLock.log("🌍 Global Translation Summary");
+	await consoleLock.log("Global Translation Summary");
 	await consoleLock.log("=".repeat(60));
 
-	await consoleLock.log(`\n🌐 Languages Processed: ${totalLanguages}`);
-	await consoleLock.log(`🔢 Total Translations: ${stats.total}`);
-	await consoleLock.log(`✅ Success: ${stats.success}`);
-	await consoleLock.log(`❌ Failed: ${stats.failed}`);
-	await consoleLock.log(`⏭️ Skipped: ${stats.skipped}`);
-	await consoleLock.log(`⏱️ Total Time: ${stats.totalTime.toFixed(1)}s`);
+	await consoleLock.log(`\nLanguages Processed: ${totalLanguages}`);
+	await consoleLock.log(`Total Translations: ${stats.total}`);
+	await consoleLock.log(`Success: ${stats.success}`);
+	await consoleLock.log(`Failed: ${stats.failed}`);
+	await consoleLock.log(`Skipped: ${stats.skipped}`);
+	await consoleLock.log(`Total Time: ${stats.totalTime.toFixed(1)}s`);
 	await consoleLock.log(
-		`⚡ Average per language: ${(stats.totalTime / totalLanguages).toFixed(1)}s`
+		`Average per language: ${(stats.totalTime / totalLanguages).toFixed(1)}s`
 	);
 
 	// Display detailed language stats
 	if (Object.keys(stats.languages).length > 0) {
 		await consoleLock.log("\n" + "-".repeat(60));
-		await consoleLock.log("📊 Per-language Performance:");
+		await consoleLock.log("Per-language Performance:");
 		await consoleLock.log("-".repeat(60));
 		for (const [lang, langStats] of Object.entries(stats.languages)) {
 			const timeSeconds = langStats.timeMs / 1000;
@@ -737,7 +735,7 @@ async function displayGlobalSummary(stats, totalLanguages) {
 	// Only show categories if we have them
 	if (Object.keys(stats.byCategory).length > 0) {
 		await consoleLock.log("\n" + "-".repeat(60));
-		await consoleLock.log("📊 Context Analysis by Category:");
+		await consoleLock.log("Context Analysis by Category:");
 		await consoleLock.log("-".repeat(60));
 		for (const [category, count] of Object.entries(stats.byCategory)) {
 			const details = stats.details[category];
@@ -756,7 +754,7 @@ async function displayGlobalSummary(stats, totalLanguages) {
 	// Clear completion message - only once
 	await consoleLock.log("\n" + "=".repeat(60));
 	await consoleLock.log(
-		`✅ All operations completed successfully in ${stats.totalDuration.toFixed(1)}s`
+		`All operations completed successfully in ${stats.totalDuration.toFixed(1)}s`
 	);
 	await consoleLock.log("=".repeat(60) + "\n");
 }
@@ -814,9 +812,7 @@ async function removeDeletedKeysFromTargets(sourceFile, deletedKeys, options) {
 			if (removedFromThisFile > 0) {
 				const unflattened = ObjectTransformer.unflatten(flattenedTarget);
 				await FileManager.writeJSON(targetPath, unflattened);
-				await consoleLock.log(
-					`   ✅ ${targetLang}.json: Removed ${removedFromThisFile} keys`
-				);
+				await consoleLock.log(`   ${targetLang}.json: Removed ${removedFromThisFile} keys`);
 			} else {
 				await consoleLock.log(`   No keys to remove from ${targetLang}.json`);
 			}
