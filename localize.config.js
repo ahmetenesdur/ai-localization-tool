@@ -291,4 +291,47 @@ export default {
 		reviewThreshold: 0.7, // Flag for review below this score
 		rejectThreshold: 0.5, // Auto-reject translations below this score
 	},
+
+	// Glossary/Terminology Management
+	// Ensures consistent brand terminology across all translations
+	glossary: {
+		enabled: true,
+		caseSensitive: false, // Match terms regardless of case
+		preserveFormatting: true, // Maintain capitalization from source
+		glossary: {
+			// Simple format: term stays the same in all languages
+			API: "API",
+			SDK: "SDK",
+			OAuth: "OAuth",
+			JSON: "JSON",
+			REST: "REST",
+			GraphQL: "GraphQL",
+			WebSocket: "WebSocket",
+
+			// Advanced format: specify case sensitivity and other options
+			DeFi: {
+				translation: "DeFi",
+				caseSensitive: true, // Must match exact case
+			},
+			NFT: {
+				translation: "NFT",
+				caseSensitive: true,
+			},
+
+			// Language-specific translations
+			Dashboard: {
+				en: "Dashboard",
+				tr: "Kontrol Paneli",
+				de: "Dashboard",
+				es: "Panel de Control",
+				fr: "Tableau de Bord",
+				ja: "ダッシュボード",
+				zh: "仪表板",
+			},
+
+			// Brand names (always keep in English)
+			// Add your product/company names here
+			// Example: "YourProduct": "YourProduct",
+		},
+	},
 };

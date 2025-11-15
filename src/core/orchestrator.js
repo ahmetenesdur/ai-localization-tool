@@ -8,6 +8,7 @@ import crypto from "crypto";
 import os from "os";
 import gracefulShutdown from "../utils/graceful-shutdown.js";
 import ConfidenceScorer from "../utils/confidence-scorer.js";
+import GlossaryManager from "../utils/glossary-manager.js";
 import fs from "fs";
 import path from "path";
 
@@ -24,6 +25,13 @@ class Orchestrator {
 			context: options.context,
 			lengthControl: options.lengthControl,
 		});
+
+		// Initialize glossary manager
+		this.glossaryManager = new GlossaryManager(options.glossary || {});
+		if (this.glossaryManager.enabled && this.advanced.debug) {
+			const stats = this.glossaryManager.getStats();
+			console.log(`Glossary enabled: ${stats.totalTerms} terms loaded`);
+		}
 
 		this.advanced = {
 			timeoutMs: options.advanced?.timeoutMs || 30000,
@@ -159,6 +167,13 @@ class Orchestrator {
 				existingTranslation: existingTranslation || null,
 			};
 
+			// Step 1: Protect glossary terms
+			const { protectedText, termMap } = this.glossaryManager.protectTerms(
+				text,
+				this.options.source,
+				targetLang
+			);
+
 			let translated;
 			let confidence = null;
 
@@ -167,9 +182,9 @@ class Orchestrator {
 				this.confidenceSettings.enabled &&
 				typeof provider.extractTranslationWithConfidence === "function"
 			) {
-				// Get raw API response
+				// Get raw API response (translate protected text)
 				const rawResponse = await provider.translate(
-					text,
+					protectedText,
 					this.options.source,
 					targetLang,
 					{
@@ -183,7 +198,7 @@ class Orchestrator {
 				const result = provider.extractTranslationWithConfidence(
 					rawResponse,
 					provider.name,
-					text,
+					protectedText,
 					this.options.source,
 					targetLang,
 					contextData?.category
@@ -192,12 +207,20 @@ class Orchestrator {
 				translated = result.translation;
 				confidence = result.confidence;
 			} else {
-				// Standard translation without confidence
-				translated = await provider.translate(text, this.options.source, targetLang, {
-					...this.options,
-					detectedContext: translationContext,
-				});
+				// Standard translation without confidence (translate protected text)
+				translated = await provider.translate(
+					protectedText,
+					this.options.source,
+					targetLang,
+					{
+						...this.options,
+						detectedContext: translationContext,
+					}
+				);
 			}
+
+			// Step 2: Restore glossary terms
+			translated = this.glossaryManager.restoreTerms(translated, termMap);
 
 			const qualityResult = this.qualityChecker.validateAndFix(text, translated);
 			translated = qualityResult.fixedText;
@@ -529,6 +552,7 @@ class Orchestrator {
 		this.contextProcessor = null;
 		this.progress = null;
 		this.qualityChecker = null;
+		this.glossaryManager = null;
 	}
 }
 
