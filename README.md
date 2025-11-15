@@ -17,6 +17,7 @@ Enterprise-grade translation CLI for Next.js applications with intelligent synch
 - LRU cache with stale-while-revalidate pattern
 - Automated validation and fixing of placeholders, HTML tags, and length
 - Quality confidence scoring with interactive review workflow
+- Glossary management for consistent brand terminology
 
 **Developer Experience**
 
@@ -70,6 +71,21 @@ export default {
 		enabled: false,
 		minConfidence: 0.7,
 		saveReviewQueue: false,
+	},
+
+	// Glossary/Terminology Management
+	glossary: {
+		enabled: true,
+		glossary: {
+			API: "API",
+			SDK: "SDK",
+			DeFi: { translation: "DeFi", caseSensitive: true },
+			Dashboard: {
+				en: "Dashboard",
+				tr: "Kontrol Paneli",
+				de: "Dashboard",
+			},
+		},
 	},
 
 	// Context Detection
@@ -297,7 +313,117 @@ Context-aware errors with actionable solutions and error codes (API 1xxx, Config
 | **Length Control**         | 5 modes with language-specific rules                              |
 | **Context Detection**      | AI-powered categorization (technical, marketing, legal, DeFi, UI) |
 | **Confidence Scoring**     | Multi-factor quality scoring (0-1 scale) with review queue        |
-| **Auto-Fix**               | Corrects common issues automatically                              |
+| **Glossary Management**    | Consistent brand terminology across all translations              |
+
+### Glossary/Terminology Management
+
+Ensure consistent brand terminology and technical terms across all your translations.
+
+#### Key Features
+
+- **Brand Consistency**: Keep product names, features, and brand terms consistent
+- **Technical Terms**: Preserve technical acronyms like API, SDK, OAuth unchanged
+- **Language-Specific**: Define different translations per target language
+- **Case Sensitivity**: Control exact case matching for specific terms
+- **Format Preservation**: Maintain capitalization from source text
+
+#### Configuration
+
+Configure in `localize.config.js`:
+
+```javascript
+glossary: {
+  enabled: true,
+  caseSensitive: false,        // Default case matching
+  preserveFormatting: true,    // Maintain source capitalization
+  glossary: {
+    // Simple: Keep term unchanged in all languages
+    "API": "API",
+    "SDK": "SDK",
+    "OAuth": "OAuth",
+
+    // Case-sensitive matching
+    "DeFi": {
+      translation: "DeFi",
+      caseSensitive: true
+    },
+
+    // Language-specific translations
+    "Dashboard": {
+      "en": "Dashboard",
+      "tr": "Kontrol Paneli",
+      "de": "Dashboard",
+      "es": "Panel de Control",
+      "fr": "Tableau de Bord"
+    }
+  }
+}
+```
+
+#### External Glossary File
+
+Load glossary from a separate JSON file:
+
+```javascript
+import { readFileSync } from "fs";
+
+const glossaryData = JSON.parse(readFileSync("./glossary.json", "utf8"));
+
+export default {
+	glossary: {
+		enabled: true,
+		glossary: glossaryData,
+	},
+};
+```
+
+#### How It Works
+
+1. **Protection Phase**: Terms are replaced with tokens before translation
+2. **Translation**: AI translates text with protected terms as placeholders
+3. **Restoration**: Tokens are replaced with correct translations
+
+#### Example
+
+**Source (en.json)**:
+
+```json
+{
+	"welcome": "Welcome to our API Dashboard",
+	"defi": "DeFi staking available"
+}
+```
+
+**Without Glossary**:
+
+```json
+// tr.json - API and Dashboard might be inconsistently translated
+{
+	"welcome": "API Gösterge Paneline Hoş Geldiniz",
+	"defi": "DeFi stake etme mevcut"
+}
+```
+
+**With Glossary**:
+
+```json
+// tr.json - Consistent terminology guaranteed
+{
+	"welcome": "API Kontrol Paneli'ne Hoş Geldiniz",
+	"defi": "DeFi stake etme mevcut"
+}
+```
+
+#### Best Practices
+
+1. **Brand Terms**: Add all product names, feature names, and brand-specific terms
+2. **Technical Acronyms**: Include API, SDK, JSON, REST, GraphQL, etc.
+3. **Industry Terms**: Add domain-specific terminology (DeFi, NFT, Web3, etc.)
+4. **UI Components**: Define consistent translations for Dashboard, Settings, Profile, etc.
+5. **Start Small**: Begin with 10-20 critical terms, expand as needed
+
+See `glossary.example.json` for a complete example.
+| **Auto-Fix** | Corrects common issues automatically |
 
 ### Confidence Scoring System
 
